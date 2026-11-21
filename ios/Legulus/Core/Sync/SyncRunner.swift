@@ -713,6 +713,7 @@ final class SyncRunner: ObservableObject {
                 return
             }
             let (current, location) = pushed
+            releaseUndeliverableConditions(localID: localId)
             // Chosen from the row the request is built from: an edit
             // during the awaits above must not pair new inputs with the
             // old weather.
@@ -1060,6 +1061,7 @@ final class SyncRunner: ObservableObject {
         // checks the account before it reads this result.
         guard isCurrent(account), let pushed = try await pushLocation(forLocalID: localID) else { return nil }
         let (current, pushedLocation) = pushed
+        releaseUndeliverableConditions(localID: localID)
         // From the row the request is built from (see the create path).
         let conditions = deliverableConditions(of: current)
         var location = pushedLocation
@@ -1361,9 +1363,13 @@ final class SyncRunner: ObservableObject {
                 tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
             }
         }
-        // Whatever Tempus did: own values that no longer fit the sample
-        // must not keep the server's out.
-        resolver.releaseUndeliverable(sampleID: localID)
+    }
+
+    /// Own values that no longer fit the sample must not keep the
+    /// server's out. Called after the last await before a request is
+    /// built: an edit during the placemark resolution counts too.
+    private func releaseUndeliverableConditions(localID: String) {
+        conditionsResolver?()?.releaseUndeliverable(sampleID: localID)
     }
 
     /// The values a push of `row` has to carry: the ones the device

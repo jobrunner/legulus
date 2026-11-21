@@ -107,12 +107,8 @@ final class SampleConditionsResolver {
     /// fetch their features for as long as it cannot reach Tempus
     /// itself. The values stay as they are, they just stop blocking.
     func releaseUndeliverable(sampleID: String) {
-        guard var row = try? samples.fetchById(sampleID), row.conditions?.needsPush == true,
-              validConditions(for: row) == nil
-        else { return }
-        row.conditions?.needsPush = false
         do {
-            try samples.update(row)
+            try samples.releaseConditions(id: sampleID) { validConditions(for: $0) != nil }
         } catch {
             Log.persistence.error("releasing undeliverable tempus values failed: \(error.localizedDescription)")
         }

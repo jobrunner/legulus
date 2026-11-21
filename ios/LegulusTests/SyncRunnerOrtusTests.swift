@@ -1240,7 +1240,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         let sample = try seedResolvedSample()
         let push = MockPush(log: log)
         push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
-                                     placemark: "pmbackend00001")
+                                     placemark: "pmbackend00001", extra: ["conditions_status": "pending"])
         let pm = MockPlacemarks(log: log)
         pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
         pm.duringResolve = { [store] in
@@ -1254,6 +1254,14 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(tempus.queries.map(\.elevationMetres), [250], "asked before the edit")
         XCTAssertEqual(push.lastCreate?.location.elevation, 800)
         XCTAssertNil(push.lastCreate?.conditions, "weather for 250 m must not travel with 800 m")
+        // The values for 250 m are undeliverable now: they must not keep
+        // the server's state out. The edit is in the POST already, so no
+        // later update would clear them.
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertEqual(stored.status, .pending, "the server's state is taken over")
+        XCTAssertFalse(stored.needsPush)
+        // Releasing them is no edit of the sample: nothing more to send.
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).filter { $0.op == .update }.isEmpty)
     }
 
     /// The account is left while Tempus answers: the runner stops

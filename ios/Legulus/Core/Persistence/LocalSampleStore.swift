@@ -422,6 +422,20 @@ final class LocalSampleStore {
         }
     }
 
+    /// Takes the "still to send" mark off the sample's weather values
+    /// when `stillFits` says they no longer fit it. Touches nothing
+    /// else, `updatedAt` included: this is bookkeeping, not an edit,
+    /// and must not look like one to the sync.
+    func releaseConditions(id: String, stillFits: (LocalSample) -> Bool) throws {
+        try database.writer.write { db in
+            guard var row = try LocalSample.fetchOne(db, key: id), row.conditions?.needsPush == true,
+                  !stillFits(row)
+            else { return }
+            row.conditions?.needsPush = false
+            try row.update(db)
+        }
+    }
+
     private static func storedVersion(_ db: GRDB.Database, id: String) throws -> Int? {
         try Int.fetchOne(db, sql: "SELECT version FROM local_samples WHERE id = ?", arguments: [id])
     }
