@@ -146,6 +146,36 @@ final class SampleLocationEditsTests: XCTestCase {
         XCTAssertFalse(payload.pushFeatures, "no local features ⇒ never PUT an empty set over the server's")
     }
 
+    /// Weather features are no Ortus features. A sample that holds only
+    /// those must not PUT an empty Ortus set over the server's (a manual
+    /// place has Ortus features on the server that the device never
+    /// fetched).
+    func testResendFailed_WeatherFeaturesAloneDoNotPushTheOrtusSet() throws {
+        let sample = try seedPushed(status: .manual)
+        let features = LocalSampleFeatureStore(database: database)
+        try features.replace(sampleID: sample.id, scope: .tempus, features: [
+            OrtusFeature(sourceID: "tempus:sun", sourceName: "Tempus", layer: "sun", featureID: "",
+                         propertiesJSON: "{}", licenseJSON: "{\"name\":\"x\"}")
+        ])
+        try store.setSyncState(id: sample.id, status: .failed, error: "Konflikt")
+
+        try store.resendFailed(id: sample.id, mutationsStore: mutations)
+
+        let queued = try mutations.fetch(entityType: .sample)
+        XCTAssertFalse(SampleUpdatePayload.decode(queued.first?.payloadJson ?? Data()).pushFeatures)
+
+        // With Ortus features on the device the set is pushed as before.
+        try mutations.dequeue(XCTUnwrap(queued.first?.id))
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [
+            OrtusFeature(sourceID: "wdpa", sourceName: "WDPA", layer: "areas", featureID: "1",
+                         propertiesJSON: "{}", licenseJSON: nil)
+        ])
+        try store.setSyncState(id: sample.id, status: .failed, error: "Konflikt")
+        try store.resendFailed(id: sample.id, mutationsStore: mutations)
+        let again = try mutations.fetch(entityType: .sample)
+        XCTAssertTrue(SampleUpdatePayload.decode(again.first?.payloadJson ?? Data()).pushFeatures)
+    }
+
     func testResendFailed_RevivesParkedMutationWithItsPayload() throws {
         let sample = try seedPushed(status: .backendService)
         let flags = SampleUpdatePayload(pushFeatures: true, coordinateChanged: true)
