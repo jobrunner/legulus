@@ -285,8 +285,8 @@ struct SampleUpdatePayload: Codable, Equatable {
     /// and after a coordinate moved between the attempts the poll that
     /// follows the create can fetch the features of the old point.
     static func afterReplay(local: LocalSample, server: Sample, hasLocalFeatures: Bool) -> SampleUpdatePayload {
-        // The server model reads a component of 0 as missing, so nil
-        // and 0 are the same place here.
+        /// The server model reads a component of 0 as missing, so nil
+        /// and 0 are the same place here.
         func differs(_ a: Double?, _ b: Double?) -> Bool {
             abs((a ?? 0) - (b ?? 0)) > 1e-7
         }
