@@ -32,9 +32,10 @@ final class ConditionsDetailModelTests: XCTestCase {
     ], "providers": []}
     """
 
-    private func model(zone: String = "Europe/Berlin", change: (inout LocalSample) -> Void = { _ in }) throws
-        -> ConditionsDetailModel
-    {
+    private func model(
+        zone: String = "Europe/Berlin", answer: String? = nil, change: (inout LocalSample) -> Void = { _ in }
+    ) throws -> ConditionsDetailModel {
+        let answer = answer ?? self.answer
         var s = try store.createLocal(lat: 48.13, lon: 11.58, elevation: 520, collectedFrom: begin)
         s.timezone = zone
         let request = try XCTUnwrap(ConditionsRequest(s, night: false))
@@ -44,6 +45,7 @@ final class ConditionsDetailModelTests: XCTestCase {
         )
         var conditions = SampleConditions(result)
         conditions.inputs = request.inputs
+        conditions.featuresFetchedAt = result.fetchedAt
         s.conditions = conditions
         let rows = result.features.map { LocalSampleFeature(sampleID: s.id, feature: $0, fetchedAt: result.fetchedAt) }
         change(&s)
@@ -111,5 +113,53 @@ final class ConditionsDetailModelTests: XCTestCase {
     /// Values that no longer fit the sample have no detail page.
     func testStaleValues_Empty() throws {
         XCTAssertTrue(try model { $0.elevation = 900 }.isEmpty)
+    }
+
+    /// Tempus files several units under a common key (`precipitation`,
+    /// `temperature`, `growingDegreeDays`) instead of the property's
+    /// path. Shapes as in the recorded answer
+    /// `shared/testdata/tempus/query_past_all_ok.json`.
+    func testUnits_FiledUnderCommonKeys() throws {
+        let recorded = """
+        {"features": [
+          {"properties": {"kind": "aggregate",
+             "precipitation": {"last24h": 34, "last72h": 62.5, "last120h": 62.7},
+             "temperatureDay": {"min": 14.2, "max": 18.5, "mean": 17.3},
+             "growingDegreeDays": {"base5": 1024.5, "base10": 532.9, "days": 182, "since": "2026-01-01"},
+             "arrheniusThermalTime": {"value": 100.9, "days": 182},
+             "units": {"arrheniusThermalTime": "d (20 °C-Äquivalent)", "growingDegreeDays": "°C·d",
+                       "precipitation": "mm", "temperature": "°C"}},
+           "license": {"name": "CC-BY 4.0", "attribution": "Quelle B"}},
+          {"properties": {"kind": "bioclim", "bio": {"bio1": 8.9, "bio12": 959, "bio3": 33.2, "bio15": 24.2},
+             "units": {"bio15": "% (Variationskoeffizient)", "bio3": "%", "precipitation": "mm", "temperature": "°C"}},
+           "license": {"name": "CC-BY 4.0", "attribution": "Quelle B"}}
+        ], "providers": []}
+        """
+        let m = try model(answer: recorded)
+        let nb = "\u{00A0}"
+        XCTAssertEqual(row(m, "aggregate", "Niederschlag 24 h"), "34\(nb)mm")
+        XCTAssertEqual(row(m, "aggregate", "Tagesmaximum"), "18,5\(nb)°C")
+        XCTAssertEqual(row(m, "aggregate", "Wärmesumme (Basis 5 °C)"), "1024,5\(nb)°C·d")
+        XCTAssertEqual(row(m, "aggregate", "Thermische Zeit (Arrhenius)"), "100,9\(nb)d (20 °C-Äquivalent)")
+        // A count of days is no temperature sum: no unit inherited
+        // from the parent.
+        XCTAssertEqual(row(m, "aggregate", "growingDegreeDays.days"), "182")
+        XCTAssertEqual(row(m, "climate", "bio.bio1"), "8,9\(nb)°C")
+        XCTAssertEqual(row(m, "climate", "bio.bio12"), "959\(nb)mm")
+        XCTAssertEqual(row(m, "climate", "bio.bio3"), "33,2\(nb)%")
+        XCTAssertEqual(row(m, "climate", "bio.bio15"), "24,2\(nb)% (Variationskoeffizient)")
+    }
+
+    /// VoiceOver reads the units written out, as in the compact area.
+    func testSpoken_WritesUnitsOut() throws {
+        let m = try model()
+        func spoken(_ group: String, _ label: String) -> String? {
+            m.groups.first { $0.id == group }?.rows.first { $0.label == label }?.spoken
+        }
+        XCTAssertEqual(spoken("weather", "Temperatur"), "Temperatur: 16 Grad Celsius")
+        XCTAssertEqual(spoken("weather", "Taupunkt"), "Taupunkt: 13,5 Grad Celsius")
+        XCTAssertEqual(spoken("sun", "Tageslänge"), "Tageslänge: 960,76 Minuten")
+        XCTAssertEqual(spoken("sun", "Sonnenaufgang"), "Sonnenaufgang: 01.07.2026, 05:16 Uhr")
+        XCTAssertEqual(spoken("weather", "Tag"), "Tag: ja")
     }
 }

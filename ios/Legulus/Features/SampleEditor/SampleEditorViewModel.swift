@@ -98,6 +98,10 @@ final class SampleEditorViewModel: ObservableObject {
     private let now: () -> Date
     /// Observation of the saved row (`observeRow()`).
     private var rowObservation: Task<Void, Never>?
+    /// Follows the sample's fieldtrip: its night flag decides which
+    /// instant an all-day sample is asked for, and it can arrive after
+    /// the sample (the two are pulled independently).
+    private var fieldtripObservation: Task<Void, Never>?
     /// Ends the „locating“ state when `PendingFixService` gives up.
     private var fixDeadlineTask: Task<Void, Never>?
 
@@ -167,6 +171,7 @@ final class SampleEditorViewModel: ObservableObject {
 
     deinit {
         rowObservation?.cancel()
+        fieldtripObservation?.cancel()
         fixDeadlineTask?.cancel()
     }
 
@@ -485,6 +490,8 @@ final class SampleEditorViewModel: ObservableObject {
         endPendingFix()
         rowObservation?.cancel()
         rowObservation = nil
+        fieldtripObservation?.cancel()
+        fieldtripObservation = nil
         finished = true
         sync.kick()
         return true
@@ -755,5 +762,22 @@ final class SampleEditorViewModel: ObservableObject {
                 if row != self.savedSample { self.applyBackgroundRow(row) }
             }
         }
+        let fieldtrips = fieldtripStore.observeAll()
+        fieldtripObservation = Task { [weak self] in
+            for await all in fieldtrips {
+                if Task.isCancelled { return }
+                guard let self else { return }
+                self.adoptFieldtrip(from: all)
+            }
+        }
+    }
+
+    /// Takes over the sample's fieldtrip when it arrived or changed.
+    /// Internal for tests.
+    func adoptFieldtrip(from all: [LocalFieldtrip]) {
+        guard let id = savedSample?.fieldtrip, !id.isEmpty,
+              let fresh = all.first(where: { $0.id == id }), fresh != savedFieldtrip
+        else { return }
+        savedFieldtrip = fresh
     }
 }

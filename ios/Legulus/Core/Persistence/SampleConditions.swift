@@ -42,6 +42,14 @@ struct SampleConditions: Codable, Equatable {
     /// another answer.
     var featuresFetchedAt: Date?
 
+    /// The stored weather features are the ones of this answer. False
+    /// between a pull that brought newer values and the fetch of their
+    /// features (which can fail): the rows then describe the previous
+    /// answer and must not be shown next to the new values.
+    var holdsItsFeatures: Bool {
+        ConditionsQuery.sameInstant(featuresFetchedAt, fetchedAt)
+    }
+
     /// Coordinate there, no answer yet.
     static let pending = SampleConditions(status: .pending)
 

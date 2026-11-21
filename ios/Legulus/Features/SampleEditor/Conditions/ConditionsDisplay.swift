@@ -84,6 +84,8 @@ struct ConditionsDisplay: Equatable {
             return
         }
         self.init(state: .values)
+        // Features of another answer say nothing about these values.
+        let features = conditions.holdsItsFeatures ? features : []
         isProvisional = conditions.status == .provisional
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
         var shownKinds: Set = ["sun", "moon", "aggregate", "bioclim"]

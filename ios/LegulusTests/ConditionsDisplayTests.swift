@@ -34,6 +34,7 @@ final class ConditionsDisplayTests: XCTestCase {
         )
         var conditions = SampleConditions(result)
         conditions.inputs = request.inputs
+        conditions.featuresFetchedAt = result.fetchedAt
         s.conditions = conditions
         let rows = result.features.map { LocalSampleFeature(sampleID: s.id, feature: $0, fetchedAt: result.fetchedAt) }
         return (s, rows)
@@ -174,6 +175,29 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.climate?.value, "Dfb · submontan-kollin")
         XCTAssertEqual(d.climate?.spoken, "Köppen-Klima Dfb, Höhenstufe submontan-kollin")
         XCTAssertEqual(d.attribution, "Quelle A · Quelle B", "each source once")
+    }
+
+    /// After a pull the row holds the server's new answer while the
+    /// stored features still belong to the previous one (they are
+    /// fetched afterwards, and that can fail). Their text and sources
+    /// must not appear next to the new values.
+    func testValues_FeaturesOfAnotherAnswerAreNotUsed() throws {
+        let rich = """
+        {"features": [{"properties": {"kind": "weather", "temperature2m": 16, "weatherCode": 61,
+                                      "weatherCodeDescription": {"de": "Leichter Regen"}},
+                       "license": {"name": "CC-BY 4.0", "attribution": "Quelle A"}}], "providers": []}
+        """
+        var (s, rows) = try answered(sample(), json: rich)
+        XCTAssertEqual(ConditionsDisplay(sample: s, night: false, features: rows).weatherTitle, "Leichter Regen")
+
+        // A newer answer arrived; the rows are still the old ones.
+        let newer = s.conditions?.fetchedAt?.addingTimeInterval(86400)
+        s.conditions?.fetchedAt = newer
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.weatherTitle, "Regen", "the text of the code, not the old feature's")
+        XCTAssertNil(d.attribution)
+        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C", "the values themselves are the row's and stay")
+        XCTAssertTrue(ConditionsDetailModel(sample: s, night: false, features: rows).isEmpty)
     }
 
     func testNumber_GermanDecimalsAndNoNegativeZero() {

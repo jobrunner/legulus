@@ -99,7 +99,9 @@ struct ConditionsDetailModel: Equatable {
 
     /// - Parameter night: see `ConditionsDisplay`.
     init(sample: LocalSample, night: Bool, features: [LocalSampleFeature]) {
-        guard let conditions = sample.conditions, conditions.hasAnswer,
+        // The page is the features: without the ones of this answer
+        // (see `holdsItsFeatures`) there is nothing to show.
+        guard let conditions = sample.conditions, conditions.hasAnswer, conditions.holdsItsFeatures,
               let request = ConditionsRequest(sample, night: night), request.fits(conditions)
         else { return }
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
@@ -117,11 +119,15 @@ struct ConditionsDetailModel: Equatable {
                 guard let properties = Self.object(feature.propertiesJSON) else { continue }
                 let units = properties["units"] as? [String: Any] ?? [:]
                 for (path, value) in Self.flatten(properties) {
-                    guard let text = Self.text(value, unit: units[path] as? String, zone: zone) else { continue }
+                    let unit = units[Self.unitKey(for: path)] as? String
+                    guard let text = Self.text(value, unit: unit, zone: zone) else { continue }
                     let label = Self.nameByPath[path] ?? path
                     rows.append((
                         Self.orderByPath[path] ?? Int.max, path,
-                        LabeledValue(id: feature.layer + "." + path, label: label, value: text, spoken: "\(label): \(text)")
+                        LabeledValue(
+                            id: feature.layer + "." + path, label: label, value: text.shown,
+                            spoken: "\(label): \(text.spoken)"
+                        )
                     ))
                 }
             }
@@ -184,22 +190,75 @@ struct ConditionsDetailModel: Equatable {
         return f.string(from: NSNumber(value: value)) ?? String(value)
     }
 
-    private static func text(_ value: Any, unit: String?, zone: TimeZone) -> String? {
+    /// Where Tempus files the unit of a property when it is not under
+    /// the property's own path: several values share one key
+    /// (`precipitation`, `temperature`), and the BIO variables are
+    /// listed by their short name. Explicit on purpose — inheriting
+    /// the parent's unit would label a count such as
+    /// `growingDegreeDays.days` as a temperature sum.
+    private static let unitKeys: [String: String] = {
+        var keys = [
+            "precipitation.last24h": "precipitation",
+            "precipitation.last72h": "precipitation",
+            "precipitation.last120h": "precipitation",
+            "temperatureDay.min": "temperature",
+            "temperatureDay.max": "temperature",
+            "temperatureDay.mean": "temperature",
+            "growingDegreeDays.base5": "growingDegreeDays",
+            "growingDegreeDays.base10": "growingDegreeDays",
+            "arrheniusThermalTime.value": "arrheniusThermalTime"
+        ]
+        // WorldClim: BIO 1, 2, 5–11 are temperatures, 12–14 and 16–19
+        // precipitation sums; 3, 4 and 15 have units of their own.
+        for n in [1, 2, 5, 6, 7, 8, 9, 10, 11] {
+            keys["bio.bio\(n)"] = "temperature"
+        }
+        for n in [12, 13, 14, 16, 17, 18, 19] {
+            keys["bio.bio\(n)"] = "precipitation"
+        }
+        for n in [3, 4, 15] {
+            keys["bio.bio\(n)"] = "bio\(n)"
+        }
+        return keys
+    }()
+
+    private static func unitKey(for path: String) -> String {
+        unitKeys[path] ?? path
+    }
+
+    /// Units VoiceOver reads written out; any other unit is read as it
+    /// is shown.
+    private static let spokenUnits: [String: String] = [
+        "°C": "Grad Celsius", "%": "Prozent", "mm": "Millimeter", "km/h": "Kilometer pro Stunde",
+        "min": "Minuten", "km": "Kilometer", "d": "Tage", "°": "Grad", "°C·d": "Gradtage"
+    ]
+
+    /// A value as shown and as VoiceOver reads it.
+    private typealias Rendered = (shown: String, spoken: String)
+
+    private static func text(_ value: Any, unit: String?, zone: TimeZone) -> Rendered? {
         switch value {
         case is NSNull:
             return nil
         case let number as NSNumber:
             // JSON booleans arrive as NSNumber too.
-            if CFGetTypeID(number) == CFBooleanGetTypeID() { return number.boolValue ? "ja" : "nein" }
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                let text = number.boolValue ? "ja" : "nein"
+                return (text, text)
+            }
             let text = Self.number(number.doubleValue)
-            return unit.map { text + ConditionsDisplay.nbsp + $0 } ?? text
+            guard let unit else { return (text, text) }
+            return (text + ConditionsDisplay.nbsp + unit, text + " " + (spokenUnits[unit] ?? unit))
         case let string as String:
             if string.isEmpty { return nil }
-            if let date = isoDate(string) { return dateTime(date, zone: zone) }
-            return string
+            if let date = isoDate(string) {
+                return (dateTime(date, zone: zone), dateTime(date, zone: zone, spoken: true))
+            }
+            return (string, string)
         case let array as [Any]:
             let parts = array.compactMap { text($0, unit: nil, zone: zone) }
-            return parts.isEmpty ? nil : parts.joined(separator: ", ")
+            guard !parts.isEmpty else { return nil }
+            return (parts.map(\.shown).joined(separator: ", "), parts.map(\.spoken).joined(separator: ", "))
         default:
             return nil
         }
@@ -212,12 +271,12 @@ struct ConditionsDetailModel: Equatable {
         return f.date(from: text)
     }
 
-    /// „01.07.2026 14:00“ in `zone`.
-    static func dateTime(_ date: Date, zone: TimeZone) -> String {
+    /// „01.07.2026 14:00“ in `zone`; spoken „01.07.2026, 14:00 Uhr“.
+    static func dateTime(_ date: Date, zone: TimeZone, spoken: Bool = false) -> String {
         let f = DateFormatter()
         f.locale = ConditionsDisplay.locale
         f.timeZone = zone
-        f.dateFormat = "dd.MM.yyyy HH:mm"
+        f.dateFormat = spoken ? "dd.MM.yyyy, HH:mm 'Uhr'" : "dd.MM.yyyy HH:mm"
         return f.string(from: date)
     }
 }
