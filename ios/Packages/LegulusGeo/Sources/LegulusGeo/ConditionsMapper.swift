@@ -33,6 +33,18 @@ public struct ConditionsResult: Equatable, Sendable {
     /// One row per Tempus feature, `sourceID` "tempus:<kind>".
     public var features: [OrtusFeature]
 
+    public init(
+        status: ConditionsStatus, queriedFor: Date, fetchedAt: Date, retryAt: Date?,
+        values: [String: ConditionsValue], features: [OrtusFeature]
+    ) {
+        self.status = status
+        self.queriedFor = queriedFor
+        self.fetchedAt = fetchedAt
+        self.retryAt = retryAt
+        self.values = values
+        self.features = features
+    }
+
     /// The delivered fields, sorted (`conditions_fields`).
     public var fields: [String] { values.keys.sorted() }
 }
@@ -50,7 +62,8 @@ public enum ConditionsMapper {
     /// instant that still lies in the future.
     static let defaultRetry: TimeInterval = 3600
 
-    private enum ValueType { case number, text, date }
+    /// How a value field is stored.
+    public enum ValueType: Sendable { case number, text, date }
 
     private struct Spec {
         let field: String
@@ -83,6 +96,15 @@ public enum ConditionsMapper {
 
     /// The sample fields that carry Tempus values, in the backend's order.
     public static let valueFields: [String] = specs.map(\.field)
+
+    private static let types: [String: ValueType] = Dictionary(
+        uniqueKeysWithValues: specs.map { ($0.field, $0.type) }
+    )
+
+    /// The type of a value field; nil for a name that is none.
+    public static func fieldType(_ field: String) -> ValueType? {
+        types[field]
+    }
 
     /// The wind is stored only when Tempus reports it in km/h.
     private static let windField = "weather_wind_speed_kmh"

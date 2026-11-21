@@ -69,6 +69,9 @@ struct Sample: Decodable, Identifiable, Equatable {
     /// "" / false for unset columns, which must not be mistaken for
     /// real values (see `SampleGeoValues.init(from:)`).
     let geo: SampleGeoValues?
+    /// Weather, climate and astronomy values (Tempus). nil when the
+    /// sample was never processed (`conditions_status` empty).
+    let conditions: SampleConditions?
     /// Not on the wire: set by `SampleClient` when the server answered
     /// a create with a sample it had stored already (header
     /// `Idempotent-Replayed`). The body of that request was not applied.
@@ -136,6 +139,7 @@ struct Sample: Decodable, Identifiable, Equatable {
         updated = try? c.decode(Date.self, forKey: .updated)
         let geo = try SampleGeoValues(from: decoder)
         self.geo = geo.isEmpty && locationStatus != .backendService ? nil : geo
+        conditions = try SampleConditions.fromServer(decoder)
     }
 }
 
