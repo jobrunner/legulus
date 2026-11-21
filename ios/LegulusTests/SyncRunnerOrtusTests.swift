@@ -1256,6 +1256,73 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertNil(push.lastCreate?.conditions, "weather for 250 m must not travel with 800 m")
     }
 
+    /// The account is left while Tempus answers: the runner stops
+    /// there. No POST without a token, nothing acknowledged.
+    func testCreate_SignedOutDuringTempusSendsNothing() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service")
+        let tempus = StubTempus()
+        var account: String? = "user-a"
+        tempus.duringQuery = { account = nil }
+        let resolver = conditionsResolver(tempus)
+        let runner = SyncRunner(
+            store: store, mutationsStore: mutations, placemarkStore: placemarks, featureStore: features,
+            endpointProvider: { "http://test.invalid" }, retryInterval: .seconds(3600),
+            clientFactory: { _, _ in push },
+            placemarkClientFactory: { [log] _, _ in MockPlacemarks(log: log) },
+            featuresClientFactory: { [log] _, _ in MockFeatures(log: log) },
+            accountProvider: { account },
+            conditionsResolver: { resolver }
+        )
+        await runUntilQuiescent(runner)
+
+        XCTAssertEqual(tempus.queries.count, 1)
+        XCTAssertEqual(push.createCount, 0, "no request after the account was left")
+        XCTAssertNil(try store.fetchById(sample.id)?.conditions, "the answer is not written either")
+        XCTAssertEqual(try mutations.fetch(entityType: .sample).filter { $0.op == .create }.count, 1,
+                       "the create stays queued for the next sign-in")
+    }
+
+    /// The upload of the weather features is recorded in the outbox
+    /// before the request goes out: an app stopped mid-request repeats
+    /// it on the next start. After a successful PUT nothing is left.
+    func testCreate_WeatherFeatureUploadIsQueuedUntilItSucceeded() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        var queuedDuringPut: [SampleUpdatePayload] = []
+        fx.duringReplace = { [mutations] scope in
+            guard scope == .tempus, let rows = try? mutations?.fetch(entityType: .sample) else { return }
+            queuedDuringPut = rows.filter { $0.op == .update }.map { SampleUpdatePayload.decode($0.payloadJson) }
+        }
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        XCTAssertEqual(queuedDuringPut, [SampleUpdatePayload(pushConditionFeatures: true)])
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty, "done: nothing left to repeat")
+    }
+
+    /// A failed PUT leaves that record behind; the next pass repeats it.
+    func testCreate_FailedWeatherFeatureUploadStaysQueued() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        fx.replaceError = SampleClientError.http(status: 500, body: "")
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        let left = try mutations.fetch(entityType: .sample).filter { $0.op == .update }
+        XCTAssertEqual(left.map { SampleUpdatePayload.decode($0.payloadJson) },
+                       [SampleUpdatePayload(pushConditionFeatures: true)])
+    }
+
     /// Without a height (or with Tempus switched off) nothing is asked
     /// and nothing is sent: the backend enriches.
     func testCreate_WithoutHeightSendsNoWeather() async throws {
@@ -1795,6 +1862,8 @@ private final class MockFeatures: SampleFeaturesSyncClient, @unchecked Sendable 
     var fetchResponse: [RemoteSampleFeature] = []
     var replaced: [(sampleBackendID: String, features: [LocalSampleFeature])] = []
     var scopes: [FeatureScope] = []
+    /// Runs while a replace request is "in flight".
+    var duringReplace: (@MainActor (FeatureScope) -> Void)?
     var fetchedIDs: [[String]] = []
 
     init(log: CallLog) {
@@ -1803,6 +1872,7 @@ private final class MockFeatures: SampleFeaturesSyncClient, @unchecked Sendable 
 
     func replaceFeatures(sampleBackendID: String, scope: FeatureScope, features: [LocalSampleFeature]) async throws {
         log.calls.append("features")
+        if let duringReplace { await duringReplace(scope) }
         if let replaceError { throw replaceError }
         scopes.append(scope)
         replaced.append((sampleBackendID, features))

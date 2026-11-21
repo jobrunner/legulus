@@ -698,6 +698,13 @@ final class SyncRunner: ObservableObject {
             //    then travel with this POST.
             let account = accountID()
             await resolveConditions(localID: localId)
+            // The account was left during that request: stop here. A
+            // POST would go out without a token, and its answer would
+            // be taken for a verdict on the sample.
+            guard isCurrent(account) else {
+                releaseAfterLeavingAccount(localId)
+                return
+            }
 
             // 1. Placemarks first (backend ids), then the input is
             //    built from the row as it is *after* those calls.
@@ -803,14 +810,8 @@ final class SyncRunner: ObservableObject {
             }
 
             // 5. The weather features that belong to the delivered values.
-            if !created.isReplay, Self.accepted(conditions, by: created),
-               !(await pushConditionFeatures(localID: localId, backendID: created.id)),
-               isCurrent(account)
-            {
-                _ = try? mutationsStore.enqueue(
-                    entityType: .sample, entityId: localId, op: .update,
-                    payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
-                )
+            if !created.isReplay, Self.accepted(conditions, by: created) {
+                await uploadConditionFeatures(localID: localId, backendID: created.id, account: account)
             }
 
             if location.locationStatus != .backendService {
@@ -921,16 +922,8 @@ final class SyncRunner: ObservableObject {
             // Weather features first: the Ortus PUT below may end this
             // pass early, and the retry of that mutation would not know
             // they are still missing.
-            if outcome.sentConditions || payload.pushConditionFeatures,
-               !(await pushConditionFeatures(localID: localID, backendID: backendID)),
-               isCurrent(account)
-            {
-                // The values are on the server, their features are not:
-                // a follow-up update repeats the PUT.
-                _ = try? mutationsStore.enqueue(
-                    entityType: .sample, entityId: localID, op: .update,
-                    payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
-                )
+            if outcome.sentConditions || payload.pushConditionFeatures {
+                await uploadConditionFeatures(localID: localID, backendID: backendID, account: account)
             }
             // The weather PUT above was one more request: same check as
             // after the PATCH.
@@ -1051,8 +1044,11 @@ final class SyncRunner: ObservableObject {
             snapshot = server
         }
 
+        let account = accountID()
         await resolveConditions(localID: localID)
-        guard let pushed = try await pushLocation(forLocalID: localID) else { return nil }
+        // Left the account during that request: no PATCH. The caller
+        // checks the account before it reads this result.
+        guard isCurrent(account), let pushed = try await pushLocation(forLocalID: localID) else { return nil }
         let (current, pushedLocation) = pushed
         // From the row the request is built from (see the create path).
         let conditions = deliverableConditions(of: current)
@@ -1281,6 +1277,21 @@ final class SyncRunner: ObservableObject {
             Log.sync.warning("features push failed for sample \(backendID, privacy: .public): \(message)")
             return false
         }
+    }
+
+    /// Uploads the weather features that belong to values the server
+    /// just took over. The upload is recorded in the outbox *before*
+    /// the request goes out and removed only after it succeeded: the
+    /// values are acknowledged by then, and nothing else would repeat a
+    /// PUT that an app stop, a failure or a sign-out cut short.
+    private func uploadConditionFeatures(localID: String, backendID: String, account: String?) async {
+        let intent = try? mutationsStore.enqueue(
+            entityType: .sample, entityId: localID, op: .update,
+            payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
+        )
+        let uploaded = await pushConditionFeatures(localID: localID, backendID: backendID)
+        guard uploaded, isCurrent(account), let intent else { return }
+        try? mutationsStore.dequeue(intent.id)
     }
 
     /// PUTs the sample's weather features under their own scope. True
