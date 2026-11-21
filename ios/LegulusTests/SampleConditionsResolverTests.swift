@@ -165,6 +165,34 @@ final class SampleConditionsResolverTests: XCTestCase {
         XCTAssertEqual(tempus.queries.map(\.at), [begin, begin.addingTimeInterval(8 * 3600)])
     }
 
+    /// Values and features are one unit: when the sample no longer is
+    /// what they were fetched for, neither is written.
+    func testWriteConditions_AbortWritesNeitherValuesNorFeatures() throws {
+        let s = try sample()
+        let feature = OrtusFeature(sourceID: "tempus:sun", sourceName: "Tempus", layer: "sun", featureID: "",
+                                   propertiesJSON: "{}", licenseJSON: "{\"name\":\"x\"}")
+        let wrote = try samples.writeConditions(id: s.id, features: [feature]) { row in
+            row.conditions = .pending
+            return false
+        }
+        XCTAssertFalse(wrote)
+        XCTAssertNil(try stored(s.id).conditions)
+        XCTAssertEqual(try features.count(sampleID: s.id, scope: .tempus), 0)
+
+        XCTAssertTrue(try samples.writeConditions(id: s.id, features: [feature]) { row in
+            row.conditions = .pending
+            return true
+        })
+        XCTAssertEqual(try stored(s.id).conditions, .pending)
+        XCTAssertEqual(try features.count(sampleID: s.id, scope: .tempus), 1)
+    }
+
+    func testResolve_RemembersWhichAnswerTheFeaturesBelongTo() async throws {
+        let s = try sample()
+        _ = await resolver().resolve(sampleID: s.id)
+        XCTAssertEqual(try stored(s.id).conditions?.featuresFetchedAt, now)
+    }
+
     /// The Ortus features of the sample are not touched.
     func testResolve_LeavesOrtusFeatures() async throws {
         let s = try sample()

@@ -1189,7 +1189,11 @@ final class SyncRunnerOrtusTests: XCTestCase {
     func testCreate_AsksTempusAndDeliversValuesAndFeatures() async throws {
         let sample = try sampleWithHeight()
         let push = MockPush(log: log)
-        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service")
+        // The backend takes delivered values over and echoes them.
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
         let fx = MockFeatures(log: log)
         let tempus = StubTempus()
         await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: tempus))
@@ -1208,6 +1212,48 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertFalse(stored.needsPush, "delivered")
         XCTAssertEqual(stored.number("weather_temperature_c"), 0)
         XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty)
+    }
+
+    /// The backend does not take the values over (it asks for another
+    /// instant, e.g. 22:00 in a night fieldtrip) and answers with its
+    /// own state. Their features must not be uploaded then, and the
+    /// device follows the server.
+    func testCreate_RejectedValuesUploadNoFeatures() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     extra: ["conditions_status": "pending"])
+        let fx = MockFeatures(log: log)
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        XCTAssertNotNil(push.lastCreate?.conditions, "delivered")
+        XCTAssertTrue(fx.scopes.isEmpty, "no weather PUT for values the server did not take")
+        XCTAssertEqual(try store.fetchById(sample.id)?.conditions?.status, .pending)
+    }
+
+    /// An edit lands while the placemark is resolved, after Tempus was
+    /// asked: the request is built from the row as it is then, and the
+    /// weather of the old height must not go out with the new one.
+    func testCreate_EditBetweenTempusAndPostSendsNoStaleWeather() async throws {
+        // A sample with a local placemark: the push resolves it on the
+        // server first, and the edit lands during that request.
+        let sample = try seedResolvedSample()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     placemark: "pmbackend00001")
+        let pm = MockPlacemarks(log: log)
+        pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
+        pm.duringResolve = { [store] in
+            guard var row = try? store?.fetchById(sample.id) else { return }
+            row.elevation = 800
+            try? store?.update(row)
+        }
+        let tempus = StubTempus()
+        await runUntilQuiescent(makeRunner(push: push, placemarks: pm, tempus: tempus))
+
+        XCTAssertEqual(tempus.queries.map(\.elevationMetres), [250], "asked before the edit")
+        XCTAssertEqual(push.lastCreate?.location.elevation, 800)
+        XCTAssertNil(push.lastCreate?.conditions, "weather for 250 m must not travel with 800 m")
     }
 
     /// Without a height (or with Tempus switched off) nothing is asked
@@ -1255,7 +1301,11 @@ final class SyncRunnerOrtusTests: XCTestCase {
         sample.locationStatus = .backendService
         try store.update(sample)
         let push = MockPush(log: log)
-        push.updateResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service", version: 2)
+        push.updateResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   elevation: 250, elevationSource: "location_service", version: input.version,
+                   extra: input.conditions?.wireBody ?? [:])
+        }
         let fx = MockFeatures(log: log)
         let tempus = StubTempus()
         let runner = makeRunner(push: push, features: fx, tempus: tempus)
@@ -1301,15 +1351,18 @@ final class SyncRunnerOrtusTests: XCTestCase {
         old.numbers["weather_temperature_c"] = 11
         old.queriedFor = date(2026, 5, 19, 14)
         old.fetchedAt = date(2026, 5, 19, 15)
+        // The device holds the features of that answer. They were
+        // written just now — later than the server's refresh below,
+        // which must not hide the newer set.
+        old.featuresFetchedAt = old.fetchedAt
         sample.conditions = old
         try store.update(sample)
         try features.replace(sampleID: sample.id, scope: .tempus, features: [tempusFeature("sun")])
         try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
 
         let list = MockList()
-        // Fetched in the future relative to the local rows: newer.
         list.items = [remote(id: "backend-1", code: sample.sampleID, clientUuid: sample.id, version: 2,
-                             extra: serverConditions(status: "final", temperature: 12.5, fetched: "2099-01-01 00:00:00.000Z"))]
+                             extra: serverConditions(status: "final", temperature: 12.5, fetched: "2026-05-25 12:00:00.000Z"))]
         let fx = MockFeatures(log: log)
         fx.fetchResponse = [
             RemoteSampleFeature(id: "f1", sample: "backend-1", sourceID: "tempus:weather", sourceName: "Tempus",
@@ -1333,6 +1386,13 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(try features.all(sampleID: sample.id, scope: .tempus).map(\.layer), ["weather"])
         XCTAssertEqual(try features.all(sampleID: sample.id, scope: .ortus).map(\.featureID), ["a"],
                        "the Ortus rows of the device stay")
+        XCTAssertEqual(stored.fetchedAt, try XCTUnwrap(store.fetchById(sample.id)?.conditions?.featuresFetchedAt),
+                       "the device now holds the features of the server's answer")
+
+        // The same answer again: nothing to fetch.
+        let fetchesBefore = fx.fetchedIDs.count
+        await hydrator.pull()
+        XCTAssertEqual(fx.fetchedIDs.count, fetchesBefore)
     }
 
     /// Values the device fetched itself and has not delivered yet are
@@ -1654,6 +1714,8 @@ private final class MockPush: SamplePushClient, @unchecked Sendable {
     /// Per-input create response (several samples in one pass); wins
     /// over `createResponse`.
     var createResponder: ((SampleCreateInput) -> Sample?)?
+    /// Per-input update response; wins over `updateResponse`.
+    var updateResponder: ((SampleUpdateInput) -> Sample?)?
     /// Per-id fetch response; wins over `fetchResponse`.
     var fetchResponder: ((String) -> Sample?)?
     var createCount = 0
@@ -1678,8 +1740,10 @@ private final class MockPush: SamplePushClient, @unchecked Sendable {
         updateCount += 1
         if let duringUpdate { await duringUpdate() }
         if let updateError { throw updateError }
-        guard let updateResponse else { throw SampleClientError.http(status: 500, body: "no mock") }
-        return updateResponse
+        guard let response = updateResponder?(input) ?? updateResponse else {
+            throw SampleClientError.http(status: 500, body: "no mock")
+        }
+        return response
     }
 
     func fetchSample(id: String) async throws -> Sample {
@@ -1704,6 +1768,8 @@ private final class MockPlacemarks: PlacemarkSyncClient, @unchecked Sendable {
     var fetchResponse: [Placemark] = []
     var resolved: [(place: Place, source: Placemark.GeocodingSource)] = []
     var fetchedIDs: [[String]] = []
+    /// Runs while the resolve request is "in flight".
+    var duringResolve: (@MainActor () -> Void)?
 
     init(log: CallLog) {
         self.log = log
@@ -1712,6 +1778,7 @@ private final class MockPlacemarks: PlacemarkSyncClient, @unchecked Sendable {
     func resolve(place: Place, source: Placemark.GeocodingSource) async throws -> Placemark {
         log.calls.append("resolve")
         resolved.append((place, source))
+        if let duringResolve { await duringResolve() }
         guard let resolveResponse else { throw SampleClientError.http(status: 500, body: "no mock") }
         return resolveResponse
     }

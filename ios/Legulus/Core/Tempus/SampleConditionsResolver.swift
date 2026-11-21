@@ -119,17 +119,22 @@ final class SampleConditionsResolver {
         let result = ConditionsMapper.map(response, queriedFor: request.instant, fetchedAt: now())
 
         do {
-            // Re-read: the sample may have changed while Tempus answered.
-            guard var fresh = try samples.fetchById(sampleID), self.request(for: fresh) == request else {
-                Log.location.info("sample \(sampleID, privacy: .public) changed during the tempus query, answer dropped")
-                return false
-            }
             var conditions = SampleConditions(result)
             conditions.inputs = request.inputs
             conditions.needsPush = true
-            fresh.conditions = conditions
-            try samples.update(fresh)
-            try features.replace(sampleID: sampleID, scope: .tempus, features: result.features)
+            conditions.featuresFetchedAt = result.fetchedAt
+            // Values and their features in one transaction, on the row
+            // as it is now: the sample may have changed while Tempus
+            // answered.
+            let wrote = try samples.writeConditions(id: sampleID, features: result.features) { row in
+                guard self.request(for: row) == request else { return false }
+                row.conditions = conditions
+                return true
+            }
+            guard wrote else {
+                Log.location.info("sample \(sampleID, privacy: .public) changed during the tempus query, answer dropped")
+                return false
+            }
         } catch {
             Log.persistence.error("storing tempus values failed: \(error.localizedDescription)")
             return false

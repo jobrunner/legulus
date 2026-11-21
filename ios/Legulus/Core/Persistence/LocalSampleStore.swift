@@ -404,6 +404,24 @@ final class LocalSampleStore {
         }
     }
 
+    /// Writes a sample's weather values together with their feature
+    /// set in one transaction, so neither is ever stored without the
+    /// other. `change` gets the row as it is now and returns false to
+    /// abort (the sample no longer is what the values were fetched
+    /// for); nothing is written then. Returns whether it wrote.
+    @discardableResult
+    func writeConditions(
+        id: String, features: [OrtusFeature], change: (inout LocalSample) -> Bool
+    ) throws -> Bool {
+        try database.writer.write { db in
+            guard var row = try LocalSample.fetchOne(db, key: id), change(&row) else { return false }
+            row.updatedAt = Date()
+            try row.update(db)
+            try LocalSampleFeatureStore.replace(db, sampleID: id, scope: .tempus, features: features)
+            return true
+        }
+    }
+
     private static func storedVersion(_ db: GRDB.Database, id: String) throws -> Int? {
         try Int.fetchOne(db, sql: "SELECT version FROM local_samples WHERE id = ?", arguments: [id])
     }

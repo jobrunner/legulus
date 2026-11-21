@@ -36,6 +36,11 @@ struct SampleConditions: Codable, Equatable {
     /// server does not have them yet. The next push of the sample
     /// carries them.
     var needsPush = false
+    /// Local only: the `fetchedAt` of the answer whose features are
+    /// stored on the device (also when that set is empty). The pull
+    /// fetches the weather features again when the server's values are
+    /// another answer.
+    var featuresFetchedAt: Date?
 
     /// Coordinate there, no answer yet.
     static let pending = SampleConditions(status: .pending)
@@ -183,6 +188,7 @@ extension LocalSample {
         }
         if conditions?.needsPush == true { return }
         guard var theirs = remote.conditions else { return }
+        theirs.featuresFetchedAt = conditions?.featuresFetchedAt
         if theirs.hasAnswer,
            let metres = ConditionsQuery.elevationMetres(remote.elevation, hasSource: remote.elevationSource != nil)
         {

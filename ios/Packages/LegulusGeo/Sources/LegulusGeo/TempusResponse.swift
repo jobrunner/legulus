@@ -1,7 +1,8 @@
 import Foundation
 
 /// Subset of Tempus' `GET /api/v1/query` response we consume. Mirrors Go
-/// `services.TempusResponse`; unknown fields are ignored.
+/// `services.TempusResponse`; unknown fields are ignored, wrongly typed
+/// ones make the decoding fail.
 public struct TempusResponse: Decodable, Equatable, Sendable {
     /// One GeoJSON feature (weather, dewpoint, sun, moon, aggregate,
     /// bioclim). Properties and license are kept as delivered.
@@ -18,8 +19,8 @@ public struct TempusResponse: Decodable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            properties = (try? c.decode([String: JSONValue].self, forKey: .properties)) ?? [:]
-            license = try? c.decode(JSONValue.self, forKey: .license)
+            properties = try c.decodeIfPresent([String: JSONValue].self, forKey: .properties) ?? [:]
+            license = try c.decodeIfPresent(JSONValue.self, forKey: .license)
         }
 
         /// `properties.kind`, or "" when it is missing.
@@ -51,10 +52,10 @@ public struct TempusResponse: Decodable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            id = (try? c.decode(String.self, forKey: .id)) ?? ""
-            kind = (try? c.decode(String.self, forKey: .kind)) ?? ""
-            status = (try? c.decode(String.self, forKey: .status)) ?? ""
-            retryAfter = try? c.decode(String.self, forKey: .retryAfter)
+            id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+            kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? ""
+            status = try c.decodeIfPresent(String.self, forKey: .status) ?? ""
+            retryAfter = try c.decodeIfPresent(String.self, forKey: .retryAfter)
         }
 
         /// `retryAfter` in seconds; nil without a usable hint.
@@ -99,7 +100,10 @@ public struct TempusResponse: Decodable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        features = (try? c.decode([Feature].self, forKey: .features)) ?? []
-        providers = (try? c.decode([Provider].self, forKey: .providers)) ?? []
+        // Missing or null members are an empty answer; a member of the
+        // wrong type is a broken answer and must not be mapped — it
+        // could turn into a "final" result without data.
+        features = try c.decodeIfPresent([Feature].self, forKey: .features) ?? []
+        providers = try c.decodeIfPresent([Provider].self, forKey: .providers) ?? []
     }
 }

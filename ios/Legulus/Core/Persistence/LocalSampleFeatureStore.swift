@@ -39,16 +39,24 @@ final class LocalSampleFeatureStore {
     /// the other source stay. An empty list clears the scope. Features
     /// of the other source in the list are not stored.
     func replace(sampleID: String, scope: FeatureScope, features: [OrtusFeature]) throws {
-        let now = Date()
         try database.writer.write { db in
-            _ = try LocalSampleFeature
-                .filter(Column("sample_id") == sampleID)
-                .filter(scope.filter)
-                .deleteAll(db)
-            for feature in features where scope.contains(sourceID: feature.sourceID) {
-                var row = LocalSampleFeature(sampleID: sampleID, feature: feature, fetchedAt: now)
-                try row.insert(db)
-            }
+            try Self.replace(db, sampleID: sampleID, scope: scope, features: features)
+        }
+    }
+
+    /// `replace` inside a transaction the caller already holds, so a
+    /// feature set can be committed together with what it belongs to.
+    static func replace(
+        _ db: GRDB.Database, sampleID: String, scope: FeatureScope, features: [OrtusFeature]
+    ) throws {
+        let now = Date()
+        _ = try LocalSampleFeature
+            .filter(Column("sample_id") == sampleID)
+            .filter(scope.filter)
+            .deleteAll(db)
+        for feature in features where scope.contains(sourceID: feature.sourceID) {
+            var row = LocalSampleFeature(sampleID: sampleID, feature: feature, fetchedAt: now)
+            try row.insert(db)
         }
     }
 
@@ -82,17 +90,6 @@ final class LocalSampleFeatureStore {
                 .filter(Column("sample_id") == sampleID)
                 .filter(scope.filter)
                 .fetchCount(db)
-        }
-    }
-
-    /// When the newest row of one source was stored; nil without rows.
-    func latestFetchedAt(sampleID: String, scope: FeatureScope) throws -> Date? {
-        try database.reader.read { db in
-            try LocalSampleFeature
-                .filter(Column("sample_id") == sampleID)
-                .filter(scope.filter)
-                .select(max(Column("fetched_at")), as: Date.self)
-                .fetchOne(db)
         }
     }
 }

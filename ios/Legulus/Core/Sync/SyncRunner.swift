@@ -1,4 +1,5 @@
 import Foundation
+import LegulusGeo
 
 /// Coordinate, height and place data of a sample as pushed to the
 /// server (Phase O2). Shared by create and update so both send the
@@ -695,7 +696,7 @@ final class SyncRunner: ObservableObject {
 
             // 0. Weather, when the sample can be asked: the values
             //    then travel with this POST.
-            let conditions = await deliverableConditions(localID: localId)
+            await resolveConditions(localID: localId)
 
             // 1. Placemarks first (backend ids), then the input is
             //    built from the row as it is *after* those calls.
@@ -704,6 +705,10 @@ final class SyncRunner: ObservableObject {
                 return
             }
             let (current, location) = pushed
+            // Chosen from the row the request is built from: an edit
+            // during the awaits above must not pair new inputs with the
+            // old weather.
+            let conditions = deliverableConditions(of: current)
             var input = Self.createInput(current, location: location)
             input.conditions = conditions
 
@@ -797,7 +802,7 @@ final class SyncRunner: ObservableObject {
             }
 
             // 5. The weather features that belong to the delivered values.
-            if conditions != nil, !created.isReplay,
+            if !created.isReplay, Self.accepted(conditions, by: created),
                !(await pushConditionFeatures(localID: localId, backendID: created.id))
             {
                 _ = try? mutationsStore.enqueue(
@@ -911,15 +916,9 @@ final class SyncRunner: ObservableObject {
                 return
             }
 
-            if payload.pushFeatures, featureStore != nil,
-               !(await pushFeatures(localID: localID, backendID: backendID))
-            {
-                // Sample is on the server; only the feature set is
-                // missing. Keep the row queued — the retry re-PATCHes
-                // (with the merged version) and re-PUTs.
-                try? mutationsStore.recordFailure(mutation.id, error: "features push failed")
-                return
-            }
+            // Weather features first: the Ortus PUT below may end this
+            // pass early, and the retry of that mutation would not know
+            // they are still missing.
             if outcome.sentConditions || payload.pushConditionFeatures,
                !(await pushConditionFeatures(localID: localID, backendID: backendID))
             {
@@ -929,6 +928,15 @@ final class SyncRunner: ObservableObject {
                     entityType: .sample, entityId: localID, op: .update,
                     payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
                 )
+            }
+            if payload.pushFeatures, featureStore != nil,
+               !(await pushFeatures(localID: localID, backendID: backendID))
+            {
+                // Sample is on the server; only the feature set is
+                // missing. Keep the row queued — the retry re-PATCHes
+                // (with the merged version) and re-PUTs.
+                try? mutationsStore.recordFailure(mutation.id, error: "features push failed")
+                return
             }
             try? mutationsStore.dequeue(mutation.id)
             absorbed.forEach { try? mutationsStore.dequeue($0) }
@@ -1007,7 +1015,8 @@ final class SyncRunner: ObservableObject {
         /// Server row fetched before the PATCH (weak local place data),
         /// used afterwards to hydrate its placemark and features.
         let serverSnapshot: Sample?
-        /// The PATCH carried weather values: their features follow.
+        /// The PATCH carried weather values and the server took them
+        /// over: their features follow.
         var sentConditions = false
     }
 
@@ -1033,9 +1042,11 @@ final class SyncRunner: ObservableObject {
             snapshot = server
         }
 
-        let conditions = await deliverableConditions(localID: localID)
+        await resolveConditions(localID: localID)
         guard let pushed = try await pushLocation(forLocalID: localID) else { return nil }
         let (current, pushedLocation) = pushed
+        // From the row the request is built from (see the create path).
+        let conditions = deliverableConditions(of: current)
         var location = pushedLocation
         location.clearsDerived = payload.coordinateChanged
         location.clearsSuggestion = payload.clearsSuggestion
@@ -1087,7 +1098,9 @@ final class SyncRunner: ObservableObject {
         fresh.syncError = nil
         try store.update(fresh)
         if movedToTrip { onSampleSynced(updated.fieldtrip) }
-        return PatchOutcome(fresh: fresh, serverSnapshot: snapshot, sentConditions: conditions != nil)
+        return PatchOutcome(
+            fresh: fresh, serverSnapshot: snapshot, sentConditions: Self.accepted(conditions, by: updated)
+        )
     }
 
     /// After a 409: take the server's version (and its place data where
@@ -1267,6 +1280,13 @@ final class SyncRunner: ObservableObject {
         guard let featureStore else { return true }
         let endpoint = endpointProvider().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !endpoint.isEmpty else { return false }
+        // Only the set that belongs to the values the row holds now. A
+        // delayed retry after the server refreshed them (the pull took
+        // the new values, their features are not here yet) would put an
+        // outdated set over the server's.
+        guard let conditions = try? store.fetchById(localID)?.conditions, conditions.hasAnswer,
+              ConditionsQuery.sameInstant(conditions.featuresFetchedAt, conditions.fetchedAt)
+        else { return true }
         let client = featuresClientFactory(endpoint, authProvider())
         do {
             let rows = try featureStore.all(sampleID: localID, scope: .tempus)
@@ -1283,25 +1303,39 @@ final class SyncRunner: ObservableObject {
     }
 
     /// Asks Tempus for the sample when it can be asked and holds no
-    /// values that fit, and returns the values this push has to carry:
-    /// the ones the device fetched itself and the server does not have
-    /// yet. Nil when there are none — the backend then enriches.
-    private func deliverableConditions(localID: String) async -> SampleConditions? {
-        guard let resolver = conditionsResolver?() else { return nil }
-        let paused = tempusPausedUntil.map { now() < $0 } ?? false
-        if !paused {
-            let wrote = await resolver.resolve(sampleID: localID)
-            if !wrote, let row = try? store.fetchById(localID),
-               resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
-            {
-                // Asked and got nothing.
-                tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
-            }
+    /// values that fit. Never fails the push.
+    private func resolveConditions(localID: String) async {
+        guard let resolver = conditionsResolver?() else { return }
+        if let until = tempusPausedUntil, now() < until { return }
+        let wrote = await resolver.resolve(sampleID: localID)
+        if !wrote, let row = try? store.fetchById(localID),
+           resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
+        {
+            // Asked and got nothing.
+            tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
         }
-        guard let row = try? store.fetchById(localID),
+    }
+
+    /// The values a push of `row` has to carry: the ones the device
+    /// fetched itself, that fit the row as it is, and that the server
+    /// does not have yet. Nil when there are none — the backend then
+    /// enriches.
+    private func deliverableConditions(of row: LocalSample) -> SampleConditions? {
+        guard let resolver = conditionsResolver?(),
               let conditions = resolver.validConditions(for: row), conditions.needsPush
         else { return nil }
         return conditions
+    }
+
+    /// Whether the server took `delivered` over: its answer then is the
+    /// same one. It does not when the values do not fit the sample as
+    /// the server sees it (e.g. it put an all-day sample into a night
+    /// fieldtrip and asks for 22:00) — their features must not be
+    /// uploaded then.
+    private static func accepted(_ delivered: SampleConditions?, by server: Sample) -> Bool {
+        guard let delivered, let theirs = server.conditions, theirs.hasAnswer else { return false }
+        return ConditionsQuery.sameInstant(theirs.fetchedAt, delivered.fetchedAt)
+            && ConditionsQuery.sameInstant(theirs.queriedFor, delivered.queriedFor)
     }
 
     private func makeLocationHydration() -> SampleLocationHydration? {

@@ -195,6 +195,26 @@ final class ConditionsMapperTests: XCTestCase {
         XCTAssertTrue(r.features.first?.propertiesJSON.contains("\"brandNew\":{\"x\":1}") ?? false)
     }
 
+    /// A member of the wrong type is a broken answer. Read as "no
+    /// features, no providers" it would map to a final result without
+    /// data for an old sample, and nobody would ask again.
+    func testMalformedAnswerDoesNotDecode() {
+        func decode(_ json: String) throws -> TempusResponse {
+            try JSONDecoder().decode(TempusResponse.self, from: Data(json.utf8))
+        }
+        XCTAssertThrowsError(try decode(#"{"features": "nope", "providers": []}"#))
+        XCTAssertThrowsError(try decode(#"{"features": [], "providers": {"id": "sun"}}"#))
+        XCTAssertThrowsError(try decode(#"{"features": [{"properties": 5}], "providers": []}"#))
+        XCTAssertThrowsError(try decode(#"{"features": [], "providers": [{"id": "sun", "status": 1}]}"#))
+        // Missing or null members are an empty answer, not a broken one.
+        XCTAssertEqual(try decode("{}").features.count, 0)
+        XCTAssertEqual(try decode(#"{"features": null, "providers": null}"#).providers.count, 0)
+        XCTAssertEqual(
+            try decode(#"{"features": [{"properties": {"kind": "sun"}, "license": null}]}"#).features.first?.kind,
+            "sun"
+        )
+    }
+
     /// Tempus sends retryAfter as a Go duration.
     func testGoDuration() {
         XCTAssertEqual(TempusResponse.Provider.goDuration("2h0m0s"), 7200)
