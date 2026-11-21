@@ -58,29 +58,51 @@ struct SampleLocationHydration {
         return ok
     }
 
+    /// Fetches the feature sets that are missing or outdated on the
+    /// device, per source:
+    ///
+    /// - Ortus: samples the backend resolved (`backend_service`) that
+    ///   have no Ortus rows locally.
+    /// - Tempus: samples whose server values hold an answer newer than
+    ///   the local weather rows (none yet, or the backend's job
+    ///   replaced provisional values). Values the device fetched itself
+    ///   and has not delivered keep their own rows.
     private func hydrateFeatures(_ remote: [Sample]) async -> Bool {
         var ok = true
-        // backend sample id → local sample id, only for samples whose
-        // features are missing locally.
-        var wanted: [String: String] = [:]
-        for r in remote where r.locationStatus == .backendService {
-            guard let local = try? samples.fetchByBackendID(r.id),
-                  (try? features.count(sampleID: local.id, scope: .ortus)) == 0
-            else { continue }
-            wanted[r.id] = local.id
+        // backend sample id → local sample id, per source.
+        var wanted: [FeatureScope: [String: String]] = [.ortus: [:], .tempus: [:]]
+        for r in remote {
+            guard let local = try? samples.fetchByBackendID(r.id) else { continue }
+            if r.locationStatus == .backendService,
+               (try? features.count(sampleID: local.id, scope: .ortus)) == 0
+            {
+                wanted[.ortus]?[r.id] = local.id
+            }
+            if needsWeatherFeatures(local, remote: r) {
+                wanted[.tempus]?[r.id] = local.id
+            }
         }
-        if wanted.isEmpty { return true }
+        let ids = Set(wanted.values.flatMap(\.keys))
+        if ids.isEmpty { return true }
 
-        for batch in Array(wanted.keys).sorted().chunked(into: Self.featureBatch) {
+        for batch in ids.sorted().chunked(into: Self.featureBatch) {
             do {
                 let fetched = try await featuresClient.fetchFeatures(sampleBackendIDs: batch)
                 let grouped = Dictionary(grouping: fetched, by: \.sample)
-                for (backendID, items) in grouped {
-                    guard let localID = wanted[backendID] else { continue }
-                    // Re-check: the on-device resolver may have stored
-                    // its own set while the request was in flight.
-                    guard (try? features.count(sampleID: localID, scope: .ortus)) == 0 else { continue }
-                    try features.replace(sampleID: localID, scope: .ortus, features: items.map(\.ortusFeature))
+                for backendID in batch {
+                    let items = (grouped[backendID] ?? []).map(\.ortusFeature)
+                    if let localID = wanted[.ortus]?[backendID],
+                       // Re-check: the on-device resolver may have stored
+                       // its own set while the request was in flight.
+                       (try? features.count(sampleID: localID, scope: .ortus)) == 0
+                    {
+                        try features.replace(sampleID: localID, scope: .ortus, features: items)
+                    }
+                    if let localID = wanted[.tempus]?[backendID],
+                       let local = try? samples.fetchById(localID), local.conditions?.needsPush != true
+                    {
+                        try features.replace(sampleID: localID, scope: .tempus, features: items)
+                    }
                 }
                 Log.sync.info("hydrated \(fetched.count, privacy: .public) sample features")
             } catch {
@@ -89,6 +111,14 @@ struct SampleLocationHydration {
             }
         }
         return ok
+    }
+
+    private func needsWeatherFeatures(_ local: LocalSample, remote: Sample) -> Bool {
+        guard let theirs = remote.conditions, theirs.hasAnswer, let fetchedAt = theirs.fetchedAt,
+              local.conditions?.needsPush != true
+        else { return false }
+        guard let newest = try? features.latestFetchedAt(sampleID: local.id, scope: .tempus) else { return true }
+        return newest < fetchedAt
     }
 }
 

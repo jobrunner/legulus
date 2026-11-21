@@ -176,6 +176,9 @@ struct SampleCreateInput: Equatable {
     var isAllDay = false
     /// Entered afterwards; only honoured by the backend on create.
     var isRetrospective = false
+    /// Weather values the device fetched itself and the server does
+    /// not have yet; nil sends none (the backend then enriches).
+    var conditions: SampleConditions?
 }
 
 /// Payload-Bundle für `SamplePushClient.updateSample`: user-editierbare
@@ -204,6 +207,10 @@ struct SampleUpdateInput: Codable, Equatable {
     /// The star; nil is not sent (the UI patches it directly on a
     /// synced sample). Set by the follow-up of a replayed create.
     var marked: Bool?
+    /// Weather values the device fetched itself and the server does
+    /// not have yet; nil sends none, so an ordinary edit never writes
+    /// older values over the server's.
+    var conditions: SampleConditions?
 }
 
 /// Payload of a `.sample/.update` outbox row. Older rows carry an
@@ -232,6 +239,9 @@ struct SampleUpdatePayload: Codable, Equatable {
     /// server's: toggling it on a sample without backend id queued
     /// nothing, so this update carries `marked`.
     var pushesMarked = false
+    /// The PUT of the weather features failed after their values
+    /// reached the server: this update repeats it.
+    var pushConditionFeatures = false
 
     init(
         pushFeatures: Bool = false,
@@ -239,7 +249,8 @@ struct SampleUpdatePayload: Codable, Equatable {
         clearsSuggestion: Bool = false,
         elevationEdited: Bool = false,
         horizontalAccuracyEdited: Bool = false,
-        pushesMarked: Bool = false
+        pushesMarked: Bool = false,
+        pushConditionFeatures: Bool = false
     ) {
         self.pushFeatures = pushFeatures
         self.coordinateChanged = coordinateChanged
@@ -247,6 +258,7 @@ struct SampleUpdatePayload: Codable, Equatable {
         self.elevationEdited = elevationEdited
         self.horizontalAccuracyEdited = horizontalAccuracyEdited
         self.pushesMarked = pushesMarked
+        self.pushConditionFeatures = pushConditionFeatures
     }
 
     init(from decoder: Decoder) throws {
@@ -257,6 +269,7 @@ struct SampleUpdatePayload: Codable, Equatable {
         elevationEdited = (try? c.decode(Bool.self, forKey: .elevationEdited)) ?? false
         horizontalAccuracyEdited = (try? c.decode(Bool.self, forKey: .horizontalAccuracyEdited)) ?? false
         pushesMarked = (try? c.decode(Bool.self, forKey: .pushesMarked)) ?? false
+        pushConditionFeatures = (try? c.decode(Bool.self, forKey: .pushConditionFeatures)) ?? false
     }
 
     /// Union of the flags (a parked mutation's flags ride along with
@@ -268,7 +281,8 @@ struct SampleUpdatePayload: Codable, Equatable {
             clearsSuggestion: clearsSuggestion || other.clearsSuggestion,
             elevationEdited: elevationEdited || other.elevationEdited,
             horizontalAccuracyEdited: horizontalAccuracyEdited || other.horizontalAccuracyEdited,
-            pushesMarked: pushesMarked || other.pushesMarked
+            pushesMarked: pushesMarked || other.pushesMarked,
+            pushConditionFeatures: pushConditionFeatures || other.pushConditionFeatures
         )
     }
 
@@ -437,6 +451,14 @@ final class SyncRunner: ObservableObject {
     /// still be processed and create the record afterwards.
     static let photoTombstoneGrace: TimeInterval = 600
     private let now: () -> Date
+    /// Asks Tempus for a sample before it is pushed (Phase T). Built
+    /// per use, so a changed endpoint setting applies to the next push.
+    private let conditionsResolver: (@MainActor () -> SampleConditionsResolver?)?
+    /// After a failed Tempus query no further sample of the outbox asks
+    /// until then: a slow or unreachable Tempus must not add its
+    /// timeout to every push of a long queue.
+    private var tempusPausedUntil: Date?
+    static let tempusPause: TimeInterval = 60
     /// Photos whose upload failed for good (file too large, rejected):
     /// not retried until the app starts again.
     private var permanentlyFailedPhotos: Set<String> = []
@@ -470,6 +492,7 @@ final class SyncRunner: ObservableObject {
          photoUploadAllowed: @escaping () -> Bool = { true },
          photoWiFiOnly: @escaping () -> Bool = { false },
          accountProvider: (() -> String?)? = nil,
+         conditionsResolver: (@MainActor () -> SampleConditionsResolver?)? = nil,
          now: @escaping () -> Date = Date.init,
          onSampleSynced: @escaping (String) -> Void = { _ in },
          onLocalityChanged: @escaping () -> Void = {})
@@ -494,6 +517,7 @@ final class SyncRunner: ObservableObject {
         self.photoWiFiOnly = photoWiFiOnly
         accountID = accountProvider ?? { authProvider()?.currentToken.flatMap(AccountBoundAuth.userID(ofToken:)) }
         self.now = now
+        self.conditionsResolver = conditionsResolver
         self.onSampleSynced = onSampleSynced
         self.onLocalityChanged = onLocalityChanged
         startRetryLoop()
@@ -669,6 +693,10 @@ final class SyncRunner: ObservableObject {
             inFlight += 1
             defer { inFlight -= 1 }
 
+            // 0. Weather, when the sample can be asked: the values
+            //    then travel with this POST.
+            let conditions = await deliverableConditions(localID: localId)
+
             // 1. Placemarks first (backend ids), then the input is
             //    built from the row as it is *after* those calls.
             guard let pushed = try await pushLocation(forLocalID: localId) else {
@@ -676,7 +704,8 @@ final class SyncRunner: ObservableObject {
                 return
             }
             let (current, location) = pushed
-            let input = Self.createInput(current, location: location)
+            var input = Self.createInput(current, location: location)
+            input.conditions = conditions
 
             // 2. The sample itself.
             let created = try await client.createSample(input)
@@ -700,8 +729,10 @@ final class SyncRunner: ObservableObject {
             // A replay did not apply this request's body: the server
             // holds what the first attempt sent, and whatever changed
             // locally since then has to follow as an update too.
+            var sentWithoutConditions = input
+            sentWithoutConditions.conditions = nil
             let editedDuringPost = created.isReplay
-                || Self.createInput(fresh, location: syncLocation(fresh)) != input
+                || Self.createInput(fresh, location: syncLocation(fresh)) != sentWithoutConditions
             // Place data the user (or the resolver) wrote during the
             // POST wins over the response; the queued update pushes it.
             // A replay answers with the state of the first attempt:
@@ -724,6 +755,8 @@ final class SyncRunner: ObservableObject {
             if !keepLocalPlace {
                 fresh.mergeServerLocation(created, localPlacemarkID: localPlacemarkID)
             }
+            // A replay did not take this request's values either.
+            fresh.mergeServerConditions(created, delivered: created.isReplay ? nil : conditions)
             fresh.syncStatus = .synced
             fresh.syncError = nil
             try store.update(fresh)
@@ -760,6 +793,16 @@ final class SyncRunner: ObservableObject {
                 _ = try? mutationsStore.enqueue(
                     entityType: .sample, entityId: localId, op: .update,
                     payload: SampleUpdatePayload(pushFeatures: true).encoded
+                )
+            }
+
+            // 5. The weather features that belong to the delivered values.
+            if conditions != nil, !created.isReplay,
+               !(await pushConditionFeatures(localID: localId, backendID: created.id))
+            {
+                _ = try? mutationsStore.enqueue(
+                    entityType: .sample, entityId: localId, op: .update,
+                    payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
                 )
             }
 
@@ -877,6 +920,16 @@ final class SyncRunner: ObservableObject {
                 try? mutationsStore.recordFailure(mutation.id, error: "features push failed")
                 return
             }
+            if outcome.sentConditions || payload.pushConditionFeatures,
+               !(await pushConditionFeatures(localID: localID, backendID: backendID))
+            {
+                // The values are on the server, their features are not:
+                // a follow-up update repeats the PUT.
+                _ = try? mutationsStore.enqueue(
+                    entityType: .sample, entityId: localID, op: .update,
+                    payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
+                )
+            }
             try? mutationsStore.dequeue(mutation.id)
             absorbed.forEach { try? mutationsStore.dequeue($0) }
 
@@ -954,6 +1007,8 @@ final class SyncRunner: ObservableObject {
         /// Server row fetched before the PATCH (weak local place data),
         /// used afterwards to hydrate its placemark and features.
         let serverSnapshot: Sample?
+        /// The PATCH carried weather values: their features follow.
+        var sentConditions = false
     }
 
     /// One PATCH of the current row. Nil when the row vanished.
@@ -978,6 +1033,7 @@ final class SyncRunner: ObservableObject {
             snapshot = server
         }
 
+        let conditions = await deliverableConditions(localID: localID)
         guard let pushed = try await pushLocation(forLocalID: localID) else { return nil }
         let (current, pushedLocation) = pushed
         var location = pushedLocation
@@ -999,7 +1055,8 @@ final class SyncRunner: ObservableObject {
             beginDate: current.beginDate,
             endDate: current.endDate,
             isAllDay: current.isAllDay,
-            marked: payload.pushesMarked ? current.marked : nil
+            marked: payload.pushesMarked ? current.marked : nil,
+            conditions: conditions
         )
 
         let updated = try await client.updateSample(id: backendID, input: input)
@@ -1025,11 +1082,12 @@ final class SyncRunner: ObservableObject {
         if !changedMeanwhile {
             fresh.mergeServerLocation(updated, localPlacemarkID: localPlacemarkID)
         }
+        fresh.mergeServerConditions(updated, delivered: conditions)
         fresh.syncStatus = .synced
         fresh.syncError = nil
         try store.update(fresh)
         if movedToTrip { onSampleSynced(updated.fieldtrip) }
-        return PatchOutcome(fresh: fresh, serverSnapshot: snapshot)
+        return PatchOutcome(fresh: fresh, serverSnapshot: snapshot, sentConditions: conditions != nil)
     }
 
     /// After a 409: take the server's version (and its place data where
@@ -1049,6 +1107,7 @@ final class SyncRunner: ObservableObject {
     /// as does a moved coordinate (its push re-triggers enrichment).
     private func adoptServer(_ s: Sample, into fresh: inout LocalSample) {
         fresh.version = max(fresh.version, s.version)
+        fresh.mergeServerConditions(s, delivered: nil)
         // The server's zone (location service / manual) beats a device
         // zone we may still hold from before the enrichment ran.
         fresh.adoptServerZone(s)
@@ -1200,6 +1259,49 @@ final class SyncRunner: ObservableObject {
             Log.sync.warning("features push failed for sample \(backendID, privacy: .public): \(message)")
             return false
         }
+    }
+
+    /// PUTs the sample's weather features under their own scope. True
+    /// also when there is nothing to do (no feature store).
+    private func pushConditionFeatures(localID: String, backendID: String) async -> Bool {
+        guard let featureStore else { return true }
+        let endpoint = endpointProvider().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !endpoint.isEmpty else { return false }
+        let client = featuresClientFactory(endpoint, authProvider())
+        do {
+            let rows = try featureStore.all(sampleID: localID, scope: .tempus)
+            try await client.replaceFeatures(sampleBackendID: backendID, scope: .tempus, features: rows)
+            Log.sync.info(
+                "pushed \(rows.count, privacy: .public) weather features for sample \(backendID, privacy: .public)"
+            )
+            return true
+        } catch {
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            Log.sync.warning("weather features push failed for sample \(backendID, privacy: .public): \(message)")
+            return false
+        }
+    }
+
+    /// Asks Tempus for the sample when it can be asked and holds no
+    /// values that fit, and returns the values this push has to carry:
+    /// the ones the device fetched itself and the server does not have
+    /// yet. Nil when there are none — the backend then enriches.
+    private func deliverableConditions(localID: String) async -> SampleConditions? {
+        guard let resolver = conditionsResolver?() else { return nil }
+        let paused = tempusPausedUntil.map { now() < $0 } ?? false
+        if !paused {
+            let wrote = await resolver.resolve(sampleID: localID)
+            if !wrote, let row = try? store.fetchById(localID),
+               resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
+            {
+                // Asked and got nothing.
+                tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
+            }
+        }
+        guard let row = try? store.fetchById(localID),
+              let conditions = resolver.validConditions(for: row), conditions.needsPush
+        else { return nil }
+        return conditions
     }
 
     private func makeLocationHydration() -> SampleLocationHydration? {

@@ -138,3 +138,37 @@ struct SampleConditions: Codable, Equatable {
         return f.string(from: date)
     }
 }
+
+extension LocalSample {
+    /// Takes the server's weather values after a push or a pull.
+    ///
+    /// - `delivered`: the values this push carried, if any. They count
+    ///   as on the server from now on.
+    /// - Values the device fetched itself and has not delivered yet
+    ///   (`needsPush`) stay: the next push carries them.
+    /// - Otherwise the server's state replaces the local one, also a
+    ///   `pending` after the backend reset values that no longer fit. A
+    ///   server that never processed the sample changes nothing.
+    ///
+    /// Server values get the server sample's place and height as
+    /// `inputs`, so `SampleConditionsResolver.validConditions` can tell
+    /// whether they still fit a sample changed on the device.
+    mutating func mergeServerConditions(_ remote: Sample, delivered: SampleConditions?) {
+        if let delivered, let mine = conditions,
+           ConditionsQuery.sameInstant(mine.fetchedAt, delivered.fetchedAt),
+           ConditionsQuery.sameInstant(mine.queriedFor, delivered.queriedFor)
+        {
+            conditions?.needsPush = false
+        }
+        if conditions?.needsPush == true { return }
+        guard var theirs = remote.conditions else { return }
+        if theirs.hasAnswer,
+           let metres = ConditionsQuery.elevationMetres(remote.elevation, hasSource: remote.elevationSource != nil)
+        {
+            theirs.inputs = SampleConditions.Inputs(
+                latitude: remote.latitude ?? 0, longitude: remote.longitude ?? 0, elevationMetres: metres
+            )
+        }
+        conditions = theirs
+    }
+}

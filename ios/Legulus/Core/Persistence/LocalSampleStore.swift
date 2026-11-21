@@ -884,6 +884,7 @@ final class LocalSampleStore {
                 } else {
                     var local = makeLocal(from: r, dayKey: dayKey, userId: userId)
                     local.mergeServerLocation(r, localPlacemarkID: localPlacemarkID)
+                    local.mergeServerConditions(r, delivered: nil)
                     try local.insert(db)
                 }
             }
@@ -964,6 +965,7 @@ final class LocalSampleStore {
         // Elevation, status, placemark, MTB and geo: never replaced by
         // nil/empty from a server that has not enriched (yet).
         local.mergeServerLocation(r, localPlacemarkID: localPlacemarkID)
+        local.mergeServerConditions(r, delivered: nil)
         local.syncStatus = .synced
         local.syncError = nil
         if let cua = r.clientUpdatedAt { local.updatedAt = cua }

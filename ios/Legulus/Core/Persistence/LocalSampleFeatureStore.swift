@@ -84,4 +84,15 @@ final class LocalSampleFeatureStore {
                 .fetchCount(db)
         }
     }
+
+    /// When the newest row of one source was stored; nil without rows.
+    func latestFetchedAt(sampleID: String, scope: FeatureScope) throws -> Date? {
+        try database.reader.read { db in
+            try LocalSampleFeature
+                .filter(Column("sample_id") == sampleID)
+                .filter(scope.filter)
+                .select(max(Column("fetched_at")), as: Date.self)
+                .fetchOne(db)
+        }
+    }
 }
