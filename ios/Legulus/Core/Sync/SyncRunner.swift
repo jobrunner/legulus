@@ -770,6 +770,11 @@ final class SyncRunner: ObservableObject {
             }
             // A replay did not take this request's values either.
             fresh.mergeServerConditions(created, delivered: created.isReplay ? nil : conditions)
+            // Recorded before the values are acknowledged below: from
+            // then on nothing else would repeat the upload of their
+            // features.
+            let featureUpload = !created.isReplay && Self.accepted(conditions, by: created)
+                ? recordConditionFeatureUpload(localID: localId) : nil
             fresh.syncStatus = .synced
             fresh.syncError = nil
             try store.update(fresh)
@@ -810,8 +815,10 @@ final class SyncRunner: ObservableObject {
             }
 
             // 5. The weather features that belong to the delivered values.
-            if !created.isReplay, Self.accepted(conditions, by: created) {
-                await uploadConditionFeatures(localID: localId, backendID: created.id, account: account)
+            if let featureUpload {
+                await uploadConditionFeatures(
+                    localID: localId, backendID: created.id, account: account, intent: featureUpload
+                )
             }
 
             if location.locationStatus != .backendService {
@@ -922,8 +929,11 @@ final class SyncRunner: ObservableObject {
             // Weather features first: the Ortus PUT below may end this
             // pass early, and the retry of that mutation would not know
             // they are still missing.
-            if outcome.sentConditions || payload.pushConditionFeatures {
-                await uploadConditionFeatures(localID: localID, backendID: backendID, account: account)
+            if outcome.conditionFeatureUpload != nil || payload.pushConditionFeatures {
+                await uploadConditionFeatures(
+                    localID: localID, backendID: backendID, account: account,
+                    intent: outcome.conditionFeatureUpload ?? recordConditionFeatureUpload(localID: localID)
+                )
             }
             // The weather PUT above was one more request: same check as
             // after the PATCH.
@@ -1018,8 +1028,8 @@ final class SyncRunner: ObservableObject {
         /// used afterwards to hydrate its placemark and features.
         let serverSnapshot: Sample?
         /// The PATCH carried weather values and the server took them
-        /// over: their features follow.
-        var sentConditions = false
+        /// over: the outbox record of the upload of their features.
+        var conditionFeatureUpload: String?
     }
 
     /// One PATCH of the current row. Nil when the row vanished.
@@ -1099,13 +1109,14 @@ final class SyncRunner: ObservableObject {
             fresh.mergeServerLocation(updated, localPlacemarkID: localPlacemarkID)
         }
         fresh.mergeServerConditions(updated, delivered: conditions)
+        // Before the acknowledgement, as in the create path.
+        let featureUpload = Self.accepted(conditions, by: updated)
+            ? recordConditionFeatureUpload(localID: localID) : nil
         fresh.syncStatus = .synced
         fresh.syncError = nil
         try store.update(fresh)
         if movedToTrip { onSampleSynced(updated.fieldtrip) }
-        return PatchOutcome(
-            fresh: fresh, serverSnapshot: snapshot, sentConditions: Self.accepted(conditions, by: updated)
-        )
+        return PatchOutcome(fresh: fresh, serverSnapshot: snapshot, conditionFeatureUpload: featureUpload)
     }
 
     /// After a 409: take the server's version (and its place data where
@@ -1279,19 +1290,27 @@ final class SyncRunner: ObservableObject {
         }
     }
 
-    /// Uploads the weather features that belong to values the server
-    /// just took over. The upload is recorded in the outbox *before*
-    /// the request goes out and removed only after it succeeded: the
-    /// values are acknowledged by then, and nothing else would repeat a
-    /// PUT that an app stop, a failure or a sign-out cut short.
-    private func uploadConditionFeatures(localID: String, backendID: String, account: String?) async {
-        let intent = try? mutationsStore.enqueue(
+    /// Records in the outbox that the weather features of a sample
+    /// still have to go to the server; returns the record's id. Written
+    /// *before* the values are acknowledged locally: once they are,
+    /// nothing else would repeat an upload that an app stop, a failure
+    /// or a sign-out cut short.
+    private func recordConditionFeatureUpload(localID: String) -> String? {
+        try? mutationsStore.enqueue(
             entityType: .sample, entityId: localID, op: .update,
             payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
-        )
+        ).id
+    }
+
+    /// Uploads the weather features and removes the outbox record
+    /// `intent` once the PUT succeeded. Otherwise it stays, and the
+    /// next pass repeats the upload.
+    private func uploadConditionFeatures(
+        localID: String, backendID: String, account: String?, intent: String?
+    ) async {
         let uploaded = await pushConditionFeatures(localID: localID, backendID: backendID)
         guard uploaded, isCurrent(account), let intent else { return }
-        try? mutationsStore.dequeue(intent.id)
+        try? mutationsStore.dequeue(intent)
     }
 
     /// PUTs the sample's weather features under their own scope. True

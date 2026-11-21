@@ -1306,6 +1306,32 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty, "done: nothing left to repeat")
     }
 
+    /// The record is written together with the acknowledgement of the
+    /// values, not just before the weather PUT: other requests run in
+    /// between (here the Ortus features), and an app stopped during
+    /// those must not lose the upload either.
+    func testCreate_WeatherFeatureUploadIsQueuedBeforeAnyFurtherRequest() async throws {
+        let sample = try seedResolvedSample()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service", placemark: "pmbackend00001",
+                   elevation: 250, elevationSource: "location_service", extra: input.conditions?.wireBody ?? [:])
+        }
+        let pm = MockPlacemarks(log: log)
+        pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
+        let fx = MockFeatures(log: log)
+        var queuedDuringOrtusPut: [SampleUpdatePayload]?
+        fx.duringReplace = { [mutations] scope in
+            guard scope == .ortus, let rows = try? mutations?.fetch(entityType: .sample) else { return }
+            queuedDuringOrtusPut = rows.filter { $0.op == .update }.map { SampleUpdatePayload.decode($0.payloadJson) }
+        }
+        await runUntilQuiescent(makeRunner(push: push, placemarks: pm, features: fx, tempus: StubTempus()))
+
+        XCTAssertEqual(fx.scopes, [.ortus, .tempus])
+        XCTAssertEqual(queuedDuringOrtusPut, [SampleUpdatePayload(pushConditionFeatures: true)])
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty)
+    }
+
     /// A failed PUT leaves that record behind; the next pass repeats it.
     func testCreate_FailedWeatherFeatureUploadStaysQueued() async throws {
         let sample = try sampleWithHeight()
