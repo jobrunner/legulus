@@ -404,6 +404,24 @@ final class LocalSampleStore {
         }
     }
 
+    /// Writes a sample's weather values together with their feature
+    /// set in one transaction, so neither is ever stored without the
+    /// other. `change` gets the row as it is now and returns false to
+    /// abort (the sample no longer is what the values were fetched
+    /// for); nothing is written then. Returns whether it wrote.
+    @discardableResult
+    func writeConditions(
+        id: String, features: [OrtusFeature], change: (inout LocalSample) -> Bool
+    ) throws -> Bool {
+        try database.writer.write { db in
+            guard var row = try LocalSample.fetchOne(db, key: id), change(&row) else { return false }
+            row.updatedAt = Date()
+            try row.update(db)
+            try LocalSampleFeatureStore.replace(db, sampleID: id, scope: .tempus, features: features)
+            return true
+        }
+    }
+
     private static func storedVersion(_ db: GRDB.Database, id: String) throws -> Int? {
         try Int.fetchOne(db, sql: "SELECT version FROM local_samples WHERE id = ?", arguments: [id])
     }
@@ -479,7 +497,10 @@ final class LocalSampleStore {
             }
             sample.updatedAt = Date()
             try sample.update(db)
-            _ = try LocalSampleFeature.filter(Column("sample_id") == id).deleteAll(db)
+            // The Ortus features belong to the old point. The weather
+            // features stay with the weather values: those say for
+            // themselves whether they still fit the sample.
+            try LocalSampleFeatureStore.replace(db, sampleID: id, scope: .ortus, features: [])
             return sample.backendId
         }
         guard let backendID, !backendID.isEmpty else { return }
@@ -884,6 +905,7 @@ final class LocalSampleStore {
                 } else {
                     var local = makeLocal(from: r, dayKey: dayKey, userId: userId)
                     local.mergeServerLocation(r, localPlacemarkID: localPlacemarkID)
+                    local.mergeServerConditions(r, delivered: nil)
                     try local.insert(db)
                 }
             }
@@ -964,6 +986,7 @@ final class LocalSampleStore {
         // Elevation, status, placemark, MTB and geo: never replaced by
         // nil/empty from a server that has not enriched (yet).
         local.mergeServerLocation(r, localPlacemarkID: localPlacemarkID)
+        local.mergeServerConditions(r, delivered: nil)
         local.syncStatus = .synced
         local.syncError = nil
         if let cua = r.clientUpdatedAt { local.updatedAt = cua }

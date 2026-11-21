@@ -101,6 +101,13 @@ struct LocalSample: Codable, FetchableRecord, MutablePersistableRecord, Identifi
     /// flip on update.
     var isRetrospective: Bool = false
 
+    // MARK: Phase T
+
+    /// Weather, climate and astronomy values (Tempus), stored as JSON.
+    /// nil: never processed (a sample from before Phase T, or one
+    /// without coordinate).
+    var conditions: SampleConditions?
+
     enum CodingKeys: String, CodingKey {
         case id
         case backendId = "backend_id"
@@ -139,6 +146,7 @@ struct LocalSample: Codable, FetchableRecord, MutablePersistableRecord, Identifi
         case bearingCompass = "bearing_compass"
         case bearingInside = "bearing_inside"
         case isRetrospective = "is_retrospective"
+        case conditions
     }
 
     static let databaseTableName = "local_samples"

@@ -32,7 +32,7 @@ final class LocalSampleFeatureStoreTests: XCTestCase {
     }
 
     func testReplace_InsertsAllFeatures() throws {
-        try store.replace(sampleID: "s1", features: [
+        try store.replace(sampleID: "s1", scope: .ortus, features: [
             feature("wdpa", "1", license: #"{"name":"CC-BY"}"#),
             feature("wdpa", "2"),
             feature("natura2000", "3")
@@ -49,30 +49,30 @@ final class LocalSampleFeatureStoreTests: XCTestCase {
     }
 
     func testReplace_ReplacesPreviousSetCompletely() throws {
-        try store.replace(sampleID: "s1", features: [feature("wdpa", "1"), feature("natura2000", "2")])
-        try store.replace(sampleID: "s1", features: [feature("wdpa", "9")])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [feature("wdpa", "1"), feature("natura2000", "2")])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [feature("wdpa", "9")])
 
         XCTAssertEqual(try store.features(sampleID: "s1", sourceID: "wdpa").map(\.featureID), ["9"])
         XCTAssertTrue(try store.features(sampleID: "s1", sourceID: "natura2000").isEmpty)
     }
 
     func testReplace_WithEmptyListClearsSample() throws {
-        try store.replace(sampleID: "s1", features: [feature("wdpa", "1")])
-        try store.replace(sampleID: "s1", features: [])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [feature("wdpa", "1")])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [])
 
         XCTAssertTrue(try store.features(sampleID: "s1", sourceID: "wdpa").isEmpty)
     }
 
     func testReplace_LeavesOtherSamplesUntouched() throws {
-        try store.replace(sampleID: "s1", features: [feature("wdpa", "1")])
-        try store.replace(sampleID: "s2", features: [feature("wdpa", "2")])
-        try store.replace(sampleID: "s1", features: [])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [feature("wdpa", "1")])
+        try store.replace(sampleID: "s2", scope: .ortus, features: [feature("wdpa", "2")])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [])
 
         XCTAssertEqual(try store.features(sampleID: "s2", sourceID: "wdpa").map(\.featureID), ["2"])
     }
 
     func testLocalSampleStoreReset_WipesFeatures() throws {
-        try store.replace(sampleID: "s1", features: [feature("wdpa", "1")])
+        try store.replace(sampleID: "s1", scope: .ortus, features: [feature("wdpa", "1")])
         let sampleStore = LocalSampleStore(database: database)
 
         try sampleStore.reset()

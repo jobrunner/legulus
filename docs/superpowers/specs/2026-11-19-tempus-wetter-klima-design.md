@@ -348,7 +348,8 @@ WETTER UND KLIMA                                  vorläufig
   Wetter-Symbol).
 - Sonnenauf-/-untergang ziehen aus der Zeitzeile in diesen Bereich um und
   werden in der Zeitzone der Probe angezeigt.
-- Zustände: „Wird ermittelt …“ (`pending`), „Ohne Koordinate keine
+- Zustände: „Wird ermittelt …“ (`pending`), „Wartet auf die Höhe des
+  Fundorts“ (`pending` ohne nutzbare Höhe), „Ohne Koordinate keine
   Wetterdaten“, „Noch keine Wetterdaten“ (leerer Status), „Keine Daten für
   diesen Zeitpunkt“ (`final` ohne Wetterwerte), Kennzeichnung „vorläufig“
   (`provisional`). Vorhandene Teilwerte werden immer gezeigt.
@@ -381,9 +382,9 @@ WETTER UND KLIMA                                  vorläufig
   Untergang für den UTC-Kalendertag des Abfragezeitpunkts. Weit entfernt
   von Greenwich kann einer der beiden Zeitpunkte zum benachbarten lokalen
   Tag gehören. Die angezeigte Uhrzeit weicht dann um wenige Minuten ab.
-- Bekannte Einschränkung: Tempus kennt die Höhe des Fundorts nicht.
-  Temperatur und Klima gelten für die Rasterzelle der Wetterquelle. Die
-  Detailseite nennt das in einem Satz.
+- Tempus korrigiert Temperatur und Taupunkt auf die Höhe, mit der gefragt
+  wurde (Nachtrag 2026-11-21). Die Detailseite nennt diese Höhe in einem
+  Satz.
 
 ## Ansätze
 
@@ -413,7 +414,8 @@ dieselbe Ansicht umbaut. PR 10 baut auf PR 8 auf.
 | PR | Branch | Inhalt |
 |---|---|---|
 | 7 | `feat/tempus-backend` | Migration, Wrapper, Abfragezeitpunkt, Anreicherung, Nachzieh-Job, quellenbezogenes Ersetzen der Features |
-| 8 | `feat/tempus-ios` | Client, lokale Felder und Features, Sync, Bereich „Wetter und Klima“, Detailseite, Endpoint in den Einstellungen |
+| 8a | `feat/tempus-ios-data` | Client, Endpoint in den Einstellungen, lokale Felder und Features, Abfrage auf dem Gerät, Sync |
+| 8b | `feat/tempus-ios-view` | Bereich „Wetter und Klima“, Detailseite (auf 8a) |
 | 9 | `feat/tempus-backfill` | Kommando, das bestehende Proben nachfüllt (Batch-Endpunkt, über Tage verteilt wegen des Tagesbudgets, wiederaufsetzbar) |
 | 10 | `feat/astro-aus-tempus` | Ablösung der eigenen Astronomie, ADR |
 

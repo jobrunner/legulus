@@ -85,6 +85,17 @@ final class AccountGraph {
                 PhotoUploadPolicy.mayUpload(wifiOnly: config.photosWiFiOnly, onWiFi: networkStatus.isOnWiFi)
             },
             photoWiFiOnly: { config.photosWiFiOnly },
+            conditionsResolver: {
+                SampleConditionsResolver(
+                    tempus: TempusClient.make(endpoint: config.tempusEndpointURL),
+                    samples: store,
+                    features: sampleFeatures,
+                    isNightFieldtrip: { sample in
+                        guard let id = sample.fieldtrip, !id.isEmpty else { return false }
+                        return (try? fieldtrips.fetchById(id))?.nightFieldtrip ?? false
+                    }
+                )
+            },
             onSampleSynced: { fieldtripID in
                 Task { await hydrator.pullOne(fieldtripID) }
             },

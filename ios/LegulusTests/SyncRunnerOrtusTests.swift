@@ -443,7 +443,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertNil(stored.placemark)
         XCTAssertEqual(stored.locationStatus, .pending)
         XCTAssertEqual(stored.elevation, 250, "GPS height is the device's own, not derived")
-        XCTAssertEqual(try features.count(sampleID: sample.id), 0)
+        XCTAssertEqual(try features.count(sampleID: sample.id, scope: .ortus), 0)
         XCTAssertEqual(try mutations.count(), 0, "unpushed row: the pending create carries it")
     }
 
@@ -488,7 +488,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(sent.location.placemark, "pmbackend00001")
         XCTAssertEqual(sent.version, 4, "server version 3 + 1")
         XCTAssertEqual(sent.notes, "edit")
-        XCTAssertEqual(try features.count(sampleID: sample.id), 1, "features hydrated after enrichment")
+        XCTAssertEqual(try features.count(sampleID: sample.id, scope: .ortus), 1, "features hydrated after enrichment")
         XCTAssertNotNil(try placemarks.fetchById("pmbackend00001"))
     }
 
@@ -596,7 +596,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         sample.placemark = local.id
         sample.locationStatus = .backendService
         try store.update(sample)
-        try features.replace(sampleID: sample.id, features: [feature("a")])
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
         _ = try mutations.enqueue(entityType: .sample, entityId: sample.id, op: .update,
                                   payload: SampleUpdatePayload(pushFeatures: true).encoded)
 
@@ -615,9 +615,64 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(try mutations.count(), 0)
     }
 
+    /// The Ortus push replaces the Ortus rows of the server only: it
+    /// goes out under its scope and without the weather features.
+    func testUpdate_FeaturePushIsScopedToOrtus() async throws {
+        var sample = try seedSyncedSample(status: .backendService)
+        sample.placemark = "pmbackend00001"
+        try store.update(sample)
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
+        try features.replace(sampleID: sample.id, scope: .tempus, features: [tempusFeature("sun")])
+        _ = try mutations.enqueue(entityType: .sample, entityId: sample.id, op: .update,
+                                  payload: SampleUpdatePayload(pushFeatures: true).encoded)
+
+        let push = MockPush(log: log)
+        push.updateResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     placemark: "pmbackend00001", version: 3)
+        let fx = MockFeatures(log: log)
+        await runUntilQuiescent(makeRunner(push: push, features: fx))
+
+        XCTAssertEqual(fx.scopes, [.ortus])
+        XCTAssertEqual(fx.replaced.first?.features.map(\.sourceID), ["wdpa"])
+        XCTAssertEqual(try features.count(sampleID: sample.id, scope: .tempus), 1, "the local weather rows stay")
+    }
+
+    /// Weather features on the device must not make the hydration think
+    /// the Ortus features are there already, and what it stores are the
+    /// Ortus rows only.
+    func testHydration_OrtusFeaturesArriveDespiteLocalWeatherFeatures() async throws {
+        let sample = try seedSyncedSample(status: .pending)
+        try features.replace(sampleID: sample.id, scope: .tempus, features: [tempusFeature("sun")])
+
+        let list = MockList()
+        list.items = [remote(id: "backend-1", code: sample.sampleID, clientUuid: sample.id,
+                             status: "backend_service", placemark: "pmbackend00001", version: 2)]
+        let pm = MockPlacemarks(log: log)
+        pm.fetchResponse = [remotePlacemark(id: "pmbackend00001")]
+        let fx = MockFeatures(log: log)
+        fx.fetchResponse = [
+            RemoteSampleFeature(id: "f1", sample: "backend-1", sourceID: "wdpa", sourceName: "WDPA",
+                                layer: "areas", featureID: "1", propertiesJSON: "{}", licenseJSON: nil),
+            RemoteSampleFeature(id: "f2", sample: "backend-1", sourceID: "tempus:moon", sourceName: "Tempus",
+                                layer: "moon", featureID: "", propertiesJSON: "{}", licenseJSON: "{\"name\":\"x\"}")
+        ]
+        let hydrator = SamplesHydrator(
+            store: store, placemarks: placemarks, features: features,
+            endpointProvider: { "http://test.invalid" },
+            clientFactory: { _, _ in list },
+            placemarkClientFactory: { _, _ in pm },
+            featuresClientFactory: { _, _ in fx }
+        )
+        await hydrator.pull()
+
+        XCTAssertEqual(try features.all(sampleID: sample.id, scope: .ortus).map(\.featureID), ["1"])
+        XCTAssertEqual(try features.all(sampleID: sample.id, scope: .tempus).map(\.layer), ["sun"],
+                       "the Ortus hydration leaves the weather rows alone")
+    }
+
     func testUpdate_PlainEdit_DoesNotPutFeatures() async throws {
         var sample = try seedSyncedSample(status: .backendService)
-        try features.replace(sampleID: sample.id, features: [feature("a")])
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
         sample.notes = "edit"
         try store.saveEdits(sample, mutationsStore: mutations)
 
@@ -913,7 +968,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(stored.version, 2)
         let row = try XCTUnwrap(placemarks.fetchById("pmbackend00001"))
         XCTAssertEqual(row.place, place, "Ortus columns hydrated, not blank")
-        XCTAssertEqual(try features.all(sampleID: sample.id).map(\.featureID), ["1", "2"])
+        XCTAssertEqual(try features.all(sampleID: sample.id, scope: .ortus).map(\.featureID), ["1", "2"])
         XCTAssertEqual(pm.fetchedIDs, [["pmbackend00001"]])
         XCTAssertEqual(fx.fetchedIDs, [["backend-1"]])
     }
@@ -924,7 +979,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         try placemarks.setBackend(localID: local.id, backendID: "pmbackend00001", owner: nil)
         sample.placemark = local.id
         try store.update(sample)
-        try features.replace(sampleID: sample.id, features: [feature("a")])
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
 
         let list = MockList()
         list.items = [remote(id: "backend-1", code: sample.sampleID, clientUuid: sample.id,
@@ -1029,7 +1084,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(stored.locationStatus, .backendService)
         XCTAssertEqual(stored.version, 2)
         XCTAssertNotNil(try placemarks.fetchById("pmbackend00001"))
-        XCTAssertEqual(try features.count(sampleID: sample.id), 1)
+        XCTAssertEqual(try features.count(sampleID: sample.id, scope: .ortus), 1)
     }
 
     // MARK: - batched enrichment poll (I-2)
@@ -1104,8 +1159,8 @@ final class SyncRunnerOrtusTests: XCTestCase {
     // MARK: - wire format
 
     func testFeaturesBody_SendsPropertiesAndLicenseAsJSON() throws {
-        try features.replace(sampleID: "s", features: [feature("a", license: "{\"id\":\"CC-BY\"}")])
-        let body = try SampleFeaturesClient.replaceBody(features.all(sampleID: "s"))
+        try features.replace(sampleID: "s", scope: .ortus, features: [feature("a", license: "{\"id\":\"CC-BY\"}")])
+        let body = try SampleFeaturesClient.replaceBody(features.all(sampleID: "s", scope: .ortus))
         let items = try XCTUnwrap(body["features"] as? [[String: Any]])
         XCTAssertEqual(items.count, 1)
         XCTAssertEqual(items[0]["source_id"] as? String, "wdpa")
@@ -1121,6 +1176,343 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(body["admin_municipality"] as? String, "Ochsenfurt")
         XCTAssertEqual(body["admin_municipality_level"] as? Int, 8)
         XCTAssertEqual(body["admin_county"] as? String, "")
+    }
+
+    // MARK: - weather values (Tempus)
+
+    private func sampleWithHeight() throws -> LocalSample {
+        try store.createLocal(lat: 49.68, lon: 10.04, elevation: 250, collectedFrom: date(2026, 5, 19, 14))
+    }
+
+    /// The sync asks Tempus before it pushes a new sample: the values
+    /// travel with the POST, their features follow under their scope.
+    func testCreate_AsksTempusAndDeliversValuesAndFeatures() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        // The backend takes delivered values over and echoes them.
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        let tempus = StubTempus()
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: tempus))
+
+        XCTAssertEqual(tempus.queries.map(\.elevationMetres), [250])
+        let sent = try XCTUnwrap(push.lastCreate?.conditions)
+        XCTAssertEqual(sent.status, .final)
+        XCTAssertEqual(sent.number("weather_temperature_c"), 0)
+        let body = try SampleClient.createBody(XCTUnwrap(push.lastCreate))
+        XCTAssertEqual(body["conditions_status"] as? String, "final")
+        XCTAssertEqual(body["weather_temperature_c"] as? Double, 0)
+        XCTAssertEqual(fx.scopes, [.tempus])
+        XCTAssertEqual(fx.replaced.first?.features.map(\.sourceID), ["tempus:weather", "tempus:sun", "tempus:moon"])
+
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertFalse(stored.needsPush, "delivered")
+        XCTAssertEqual(stored.number("weather_temperature_c"), 0)
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty)
+    }
+
+    /// The backend does not take the values over (it asks for another
+    /// instant, e.g. 22:00 in a night fieldtrip) and answers with its
+    /// own state. Their features must not be uploaded then, and the
+    /// device follows the server.
+    func testCreate_RejectedValuesUploadNoFeatures() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     extra: ["conditions_status": "pending"])
+        let fx = MockFeatures(log: log)
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        XCTAssertNotNil(push.lastCreate?.conditions, "delivered")
+        XCTAssertTrue(fx.scopes.isEmpty, "no weather PUT for values the server did not take")
+        XCTAssertEqual(try store.fetchById(sample.id)?.conditions?.status, .pending)
+    }
+
+    /// An edit lands while the placemark is resolved, after Tempus was
+    /// asked: the request is built from the row as it is then, and the
+    /// weather of the old height must not go out with the new one.
+    func testCreate_EditBetweenTempusAndPostSendsNoStaleWeather() async throws {
+        // A sample with a local placemark: the push resolves it on the
+        // server first, and the edit lands during that request.
+        let sample = try seedResolvedSample()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     placemark: "pmbackend00001")
+        let pm = MockPlacemarks(log: log)
+        pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
+        pm.duringResolve = { [store] in
+            guard var row = try? store?.fetchById(sample.id) else { return }
+            row.elevation = 800
+            try? store?.update(row)
+        }
+        let tempus = StubTempus()
+        await runUntilQuiescent(makeRunner(push: push, placemarks: pm, tempus: tempus))
+
+        XCTAssertEqual(tempus.queries.map(\.elevationMetres), [250], "asked before the edit")
+        XCTAssertEqual(push.lastCreate?.location.elevation, 800)
+        XCTAssertNil(push.lastCreate?.conditions, "weather for 250 m must not travel with 800 m")
+    }
+
+    /// The account is left while Tempus answers: the runner stops
+    /// there. No POST without a token, nothing acknowledged.
+    func testCreate_SignedOutDuringTempusSendsNothing() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service")
+        let tempus = StubTempus()
+        var account: String? = "user-a"
+        tempus.duringQuery = { account = nil }
+        let resolver = conditionsResolver(tempus)
+        let runner = SyncRunner(
+            store: store, mutationsStore: mutations, placemarkStore: placemarks, featureStore: features,
+            endpointProvider: { "http://test.invalid" }, retryInterval: .seconds(3600),
+            clientFactory: { _, _ in push },
+            placemarkClientFactory: { [log] _, _ in MockPlacemarks(log: log) },
+            featuresClientFactory: { [log] _, _ in MockFeatures(log: log) },
+            accountProvider: { account },
+            conditionsResolver: { resolver }
+        )
+        await runUntilQuiescent(runner)
+
+        XCTAssertEqual(tempus.queries.count, 1)
+        XCTAssertEqual(push.createCount, 0, "no request after the account was left")
+        XCTAssertNil(try store.fetchById(sample.id)?.conditions, "the answer is not written either")
+        XCTAssertEqual(try mutations.fetch(entityType: .sample).filter { $0.op == .create }.count, 1,
+                       "the create stays queued for the next sign-in")
+    }
+
+    /// The upload of the weather features is recorded in the outbox
+    /// before the request goes out: an app stopped mid-request repeats
+    /// it on the next start. After a successful PUT nothing is left.
+    func testCreate_WeatherFeatureUploadIsQueuedUntilItSucceeded() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        var queuedDuringPut: [SampleUpdatePayload] = []
+        fx.duringReplace = { [mutations] scope in
+            guard scope == .tempus, let rows = try? mutations?.fetch(entityType: .sample) else { return }
+            queuedDuringPut = rows.filter { $0.op == .update }.map { SampleUpdatePayload.decode($0.payloadJson) }
+        }
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        XCTAssertEqual(queuedDuringPut, [SampleUpdatePayload(pushConditionFeatures: true)])
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty, "done: nothing left to repeat")
+    }
+
+    /// The record is written together with the acknowledgement of the
+    /// values, not just before the weather PUT: other requests run in
+    /// between (here the Ortus features), and an app stopped during
+    /// those must not lose the upload either.
+    func testCreate_WeatherFeatureUploadIsQueuedBeforeAnyFurtherRequest() async throws {
+        let sample = try seedResolvedSample()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service", placemark: "pmbackend00001",
+                   elevation: 250, elevationSource: "location_service", extra: input.conditions?.wireBody ?? [:])
+        }
+        let pm = MockPlacemarks(log: log)
+        pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
+        let fx = MockFeatures(log: log)
+        var queuedDuringOrtusPut: [SampleUpdatePayload]?
+        fx.duringReplace = { [mutations] scope in
+            guard scope == .ortus, let rows = try? mutations?.fetch(entityType: .sample) else { return }
+            queuedDuringOrtusPut = rows.filter { $0.op == .update }.map { SampleUpdatePayload.decode($0.payloadJson) }
+        }
+        await runUntilQuiescent(makeRunner(push: push, placemarks: pm, features: fx, tempus: StubTempus()))
+
+        XCTAssertEqual(fx.scopes, [.ortus, .tempus])
+        XCTAssertEqual(queuedDuringOrtusPut, [SampleUpdatePayload(pushConditionFeatures: true)])
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).isEmpty)
+    }
+
+    /// A failed PUT leaves that record behind; the next pass repeats it.
+    func testCreate_FailedWeatherFeatureUploadStaysQueued() async throws {
+        let sample = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        fx.replaceError = SampleClientError.http(status: 500, body: "")
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: StubTempus()))
+
+        let left = try mutations.fetch(entityType: .sample).filter { $0.op == .update }
+        XCTAssertEqual(left.map { SampleUpdatePayload.decode($0.payloadJson) },
+                       [SampleUpdatePayload(pushConditionFeatures: true)])
+    }
+
+    /// Without a height (or with Tempus switched off) nothing is asked
+    /// and nothing is sent: the backend enriches.
+    func testCreate_WithoutHeightSendsNoWeather() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service")
+        let fx = MockFeatures(log: log)
+        let tempus = StubTempus()
+        await runUntilQuiescent(makeRunner(push: push, features: fx, tempus: tempus))
+
+        XCTAssertTrue(tempus.queries.isEmpty)
+        XCTAssertNil(push.lastCreate?.conditions)
+        XCTAssertNil(try SampleClient.createBody(XCTUnwrap(push.lastCreate))["conditions_status"])
+        XCTAssertTrue(fx.scopes.isEmpty)
+    }
+
+    /// A Tempus failure never fails the push, and the next samples of
+    /// the queue do not wait for its timeout again.
+    func testCreate_TempusDownPushesWithoutWeatherAndPauses() async throws {
+        let first = try sampleWithHeight()
+        let second = try sampleWithHeight()
+        let push = MockPush(log: log)
+        push.createResponder = { [self] input in
+            remote(id: "backend-" + (input.clientUuid ?? ""), code: input.code ?? "", status: "backend_service")
+        }
+        let tempus = StubTempus(.failure(URLError(.timedOut)))
+        await runUntilQuiescent(makeRunner(push: push, tempus: tempus))
+
+        XCTAssertEqual(push.createCount, 2)
+        XCTAssertEqual(tempus.queries.count, 1, "the second sample does not ask a Tempus that just failed")
+        XCTAssertEqual(try store.fetchById(first.id)?.syncStatus, .synced)
+        XCTAssertEqual(try store.fetchById(second.id)?.syncStatus, .synced)
+    }
+
+    /// The height changed on a synced sample: the update asks again and
+    /// carries the new values. An edit that changes nothing Tempus
+    /// depends on sends no weather at all — it must not write older
+    /// values over the server's.
+    func testUpdate_CarriesWeatherOnlyWhenTheDeviceHasNewValues() async throws {
+        var sample = try sampleWithHeight()
+        sample.backendId = "backend-1"
+        sample.syncStatus = .synced
+        sample.locationStatus = .backendService
+        try store.update(sample)
+        let push = MockPush(log: log)
+        push.updateResponder = { [self] input in
+            remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                   elevation: 250, elevationSource: "location_service", version: input.version,
+                   extra: input.conditions?.wireBody ?? [:])
+        }
+        let fx = MockFeatures(log: log)
+        let tempus = StubTempus()
+        let runner = makeRunner(push: push, features: fx, tempus: tempus)
+
+        _ = try mutations.enqueue(entityType: .sample, entityId: sample.id, op: .update,
+                                  payload: SampleUpdatePayload().encoded)
+        await runUntilQuiescent(runner)
+        XCTAssertEqual(push.lastUpdate?.conditions?.status, .final)
+        XCTAssertEqual(try SampleClient.updateBody(XCTUnwrap(push.lastUpdate))["conditions_status"] as? String, "final")
+        XCTAssertEqual(fx.scopes, [.tempus])
+
+        var edited = try XCTUnwrap(store.fetchById(sample.id))
+        edited.notes = "Eichenstubben"
+        try store.update(edited)
+        _ = try mutations.enqueue(entityType: .sample, entityId: sample.id, op: .update,
+                                  payload: SampleUpdatePayload().encoded)
+        await runUntilQuiescent(runner)
+        XCTAssertNil(push.lastUpdate?.conditions)
+        XCTAssertNil(try SampleClient.updateBody(XCTUnwrap(push.lastUpdate))["conditions_status"])
+        XCTAssertEqual(tempus.queries.count, 1, "values that fit are not asked again")
+        XCTAssertEqual(fx.scopes, [.tempus], "no second weather PUT")
+    }
+
+    private func serverConditions(status: String, temperature: Double, fetched: String) -> [String: Any] {
+        [
+            "conditions_status": status,
+            "conditions_fields": ["weather_temperature_c"],
+            "conditions_queried_for": "2026-05-19 12:00:00.000Z",
+            "conditions_fetched_at": fetched,
+            "weather_temperature_c": temperature,
+            "elevation": 250, "elevation_source": "location_service"
+        ]
+    }
+
+    /// The backend's job replaced provisional values by final ones: the
+    /// pull brings them, and the weather features are fetched again
+    /// although the device already has some.
+    func testPull_ServerValuesReplaceLocalOnesAndRefreshTheFeatures() async throws {
+        var sample = try sampleWithHeight()
+        sample.backendId = "backend-1"
+        sample.syncStatus = .synced
+        var old = SampleConditions(status: .provisional)
+        old.numbers["weather_temperature_c"] = 11
+        old.queriedFor = date(2026, 5, 19, 14)
+        old.fetchedAt = date(2026, 5, 19, 15)
+        // The device holds the features of that answer. They were
+        // written just now — later than the server's refresh below,
+        // which must not hide the newer set.
+        old.featuresFetchedAt = old.fetchedAt
+        sample.conditions = old
+        try store.update(sample)
+        try features.replace(sampleID: sample.id, scope: .tempus, features: [tempusFeature("sun")])
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a")])
+
+        let list = MockList()
+        list.items = [remote(id: "backend-1", code: sample.sampleID, clientUuid: sample.id, version: 2,
+                             extra: serverConditions(status: "final", temperature: 12.5, fetched: "2026-05-25 12:00:00.000Z"))]
+        let fx = MockFeatures(log: log)
+        fx.fetchResponse = [
+            RemoteSampleFeature(id: "f1", sample: "backend-1", sourceID: "tempus:weather", sourceName: "Tempus",
+                                layer: "weather", featureID: "", propertiesJSON: "{}", licenseJSON: "{\"name\":\"x\"}"),
+            RemoteSampleFeature(id: "f2", sample: "backend-1", sourceID: "wdpa", sourceName: "WDPA",
+                                layer: "areas", featureID: "9", propertiesJSON: "{}", licenseJSON: nil)
+        ]
+        let hydrator = SamplesHydrator(
+            store: store, placemarks: placemarks, features: features,
+            endpointProvider: { "http://test.invalid" },
+            clientFactory: { _, _ in list },
+            placemarkClientFactory: { [log] _, _ in MockPlacemarks(log: log) },
+            featuresClientFactory: { _, _ in fx }
+        )
+        await hydrator.pull()
+
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertEqual(stored.status, .final)
+        XCTAssertEqual(stored.number("weather_temperature_c"), 12.5)
+        XCTAssertEqual(stored.inputs?.elevationMetres, 250, "server values carry the server sample's height")
+        XCTAssertEqual(try features.all(sampleID: sample.id, scope: .tempus).map(\.layer), ["weather"])
+        XCTAssertEqual(try features.all(sampleID: sample.id, scope: .ortus).map(\.featureID), ["a"],
+                       "the Ortus rows of the device stay")
+        XCTAssertEqual(stored.fetchedAt, try XCTUnwrap(store.fetchById(sample.id)?.conditions?.featuresFetchedAt),
+                       "the device now holds the features of the server's answer")
+
+        // The same answer again: nothing to fetch.
+        let fetchesBefore = fx.fetchedIDs.count
+        await hydrator.pull()
+        XCTAssertEqual(fx.fetchedIDs.count, fetchesBefore)
+    }
+
+    /// Values the device fetched itself and has not delivered yet are
+    /// not replaced by an older server state.
+    func testMerge_UndeliveredLocalValuesStay() throws {
+        var sample = try sampleWithHeight()
+        var mine = SampleConditions(status: .final)
+        mine.numbers["weather_temperature_c"] = 3
+        mine.queriedFor = date(2026, 5, 19, 14)
+        mine.fetchedAt = date(2026, 6, 30, 12)
+        mine.needsPush = true
+        sample.conditions = mine
+        sample.mergeServerConditions(
+            remote(id: "backend-1", code: sample.sampleID, extra: ["conditions_status": "pending"]), delivered: nil
+        )
+        XCTAssertEqual(sample.conditions, mine)
+
+        // Delivered: the server's state counts from now on.
+        sample.mergeServerConditions(
+            remote(id: "backend-1", code: sample.sampleID, extra: ["conditions_status": "pending"]), delivered: mine
+        )
+        XCTAssertEqual(sample.conditions, .pending, "the backend did not take the values over")
+
+        // A server that never processed the sample changes nothing.
+        sample.conditions = nil
+        sample.mergeServerConditions(remote(id: "backend-1", code: sample.sampleID), delivered: nil)
+        XCTAssertNil(sample.conditions)
     }
 
     // MARK: - helpers
@@ -1140,7 +1532,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         sample.bearingLabel = "Ochsenfurt"
         sample.bearingInside = true
         try store.update(sample)
-        try features.replace(sampleID: sample.id, features: [feature("a"), feature("b")])
+        try features.replace(sampleID: sample.id, scope: .ortus, features: [feature("a"), feature("b")])
         // swiftlint:disable:next force_unwrapping
         return try store.fetchById(sample.id)!
     }
@@ -1169,11 +1561,17 @@ final class SyncRunnerOrtusTests: XCTestCase {
                      propertiesJSON: "{\"name\":\"\(id)\"}", licenseJSON: license)
     }
 
+    private func tempusFeature(_ kind: String) -> OrtusFeature {
+        OrtusFeature(sourceID: "tempus:" + kind, sourceName: "Tempus", layer: kind, featureID: "",
+                     propertiesJSON: "{}", licenseJSON: "{\"name\":\"CC-BY 4.0\"}")
+    }
+
     private func makeRunner(
         push: MockPush,
         placemarks pm: MockPlacemarks? = nil,
         features fx: MockFeatures? = nil,
-        pollBudget: Duration = .seconds(5)
+        pollBudget: Duration = .seconds(5),
+        tempus: StubTempus? = nil
     ) -> SyncRunner {
         let pm = pm ?? MockPlacemarks(log: log)
         let fx = fx ?? MockFeatures(log: log)
@@ -1188,7 +1586,18 @@ final class SyncRunnerOrtusTests: XCTestCase {
             enrichmentPollBudget: pollBudget,
             clientFactory: { _, _ in push },
             placemarkClientFactory: { _, _ in pm },
-            featuresClientFactory: { _, _ in fx }
+            featuresClientFactory: { _, _ in fx },
+            conditionsResolver: tempus.map { stub in { [self] in self.conditionsResolver(stub) } }
+        )
+    }
+
+    /// 2026-06-30 12:00 UTC: six weeks after the samples, answers are final.
+    private let conditionsNow = Date(timeIntervalSince1970: 1_782_820_800)
+
+    private func conditionsResolver(_ stub: TempusQuerying?) -> SampleConditionsResolver {
+        SampleConditionsResolver(
+            tempus: stub, samples: store, features: features,
+            isNightFieldtrip: { _ in false }, now: { [conditionsNow] in conditionsNow }
         )
     }
 
@@ -1295,7 +1704,8 @@ final class SyncRunnerOrtusTests: XCTestCase {
         timezoneSource: String? = nil,
         verticalAccuracy: Double? = nil,
         horizontalAccuracy: Double? = nil,
-        originalCode: String? = nil
+        originalCode: String? = nil,
+        extra: [String: Any] = [:]
     ) -> Sample {
         var dict: [String: Any] = [
             "id": id,
@@ -1330,6 +1740,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         if let verticalAccuracy { dict["vertical_accuracy"] = verticalAccuracy }
         if let horizontalAccuracy { dict["horizontal_accuracy"] = horizontalAccuracy }
         if let originalCode { dict["original_code"] = originalCode }
+        dict.merge(extra) { _, new in new }
         // swiftlint:disable:next force_try
         let data = try! JSONSerialization.data(withJSONObject: dict)
         // swiftlint:disable:next force_try
@@ -1396,6 +1807,8 @@ private final class MockPush: SamplePushClient, @unchecked Sendable {
     /// Per-input create response (several samples in one pass); wins
     /// over `createResponse`.
     var createResponder: ((SampleCreateInput) -> Sample?)?
+    /// Per-input update response; wins over `updateResponse`.
+    var updateResponder: ((SampleUpdateInput) -> Sample?)?
     /// Per-id fetch response; wins over `fetchResponse`.
     var fetchResponder: ((String) -> Sample?)?
     var createCount = 0
@@ -1420,8 +1833,10 @@ private final class MockPush: SamplePushClient, @unchecked Sendable {
         updateCount += 1
         if let duringUpdate { await duringUpdate() }
         if let updateError { throw updateError }
-        guard let updateResponse else { throw SampleClientError.http(status: 500, body: "no mock") }
-        return updateResponse
+        guard let response = updateResponder?(input) ?? updateResponse else {
+            throw SampleClientError.http(status: 500, body: "no mock")
+        }
+        return response
     }
 
     func fetchSample(id: String) async throws -> Sample {
@@ -1446,6 +1861,8 @@ private final class MockPlacemarks: PlacemarkSyncClient, @unchecked Sendable {
     var fetchResponse: [Placemark] = []
     var resolved: [(place: Place, source: Placemark.GeocodingSource)] = []
     var fetchedIDs: [[String]] = []
+    /// Runs while the resolve request is "in flight".
+    var duringResolve: (@MainActor () -> Void)?
 
     init(log: CallLog) {
         self.log = log
@@ -1454,6 +1871,7 @@ private final class MockPlacemarks: PlacemarkSyncClient, @unchecked Sendable {
     func resolve(place: Place, source: Placemark.GeocodingSource) async throws -> Placemark {
         log.calls.append("resolve")
         resolved.append((place, source))
+        if let duringResolve { await duringResolve() }
         guard let resolveResponse else { throw SampleClientError.http(status: 500, body: "no mock") }
         return resolveResponse
     }
@@ -1469,15 +1887,20 @@ private final class MockFeatures: SampleFeaturesSyncClient, @unchecked Sendable 
     var replaceError: Error?
     var fetchResponse: [RemoteSampleFeature] = []
     var replaced: [(sampleBackendID: String, features: [LocalSampleFeature])] = []
+    var scopes: [FeatureScope] = []
+    /// Runs while a replace request is "in flight".
+    var duringReplace: (@MainActor (FeatureScope) -> Void)?
     var fetchedIDs: [[String]] = []
 
     init(log: CallLog) {
         self.log = log
     }
 
-    func replaceFeatures(sampleBackendID: String, features: [LocalSampleFeature]) async throws {
+    func replaceFeatures(sampleBackendID: String, scope: FeatureScope, features: [LocalSampleFeature]) async throws {
         log.calls.append("features")
+        if let duringReplace { await duringReplace(scope) }
         if let replaceError { throw replaceError }
+        scopes.append(scope)
         replaced.append((sampleBackendID, features))
     }
 

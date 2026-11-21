@@ -116,6 +116,7 @@ final class Database {
         migrator.registerMigration("v17_locality_origins", migrate: migrateV17)
         migrator.registerMigration("v18_sample_is_retrospective", migrate: migrateV18)
         migrator.registerMigration("v19_photo_attempts", migrate: migrateV19)
+        migrator.registerMigration("v20_sample_conditions", migrate: migrateV20)
         return migrator
     }
 
@@ -613,5 +614,13 @@ final class Database {
         // picked them up again. Uploads are repeatable, so they just
         // start over.
         try db.execute(sql: "UPDATE local_photos SET sync_status = 'pending' WHERE sync_status = 'syncing'")
+    }
+
+    /// Phase T: weather, climate and astronomy values of a sample (from
+    /// Tempus) as one JSON column. NULL = never processed.
+    private static func migrateV20(_ db: GRDB.Database) throws {
+        try db.alter(table: "local_samples") { t in
+            t.add(column: "conditions", .text)
+        }
     }
 }

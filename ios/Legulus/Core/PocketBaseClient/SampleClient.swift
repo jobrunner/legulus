@@ -144,6 +144,9 @@ struct SampleClient {
         if let clientUpdatedAt = input.clientUpdatedAt {
             body["client_updated_at"] = wireFormatter.string(from: clientUpdatedAt)
         }
+        if let conditions = input.conditions {
+            body.merge(conditions.wireBody) { _, new in new }
+        }
         return body
     }
 
@@ -159,6 +162,9 @@ struct SampleClient {
         if let end = input.endDate { body["end_date"] = wireFormatter.string(from: end) }
         if let allDay = input.isAllDay { body["is_all_day"] = allDay }
         if let marked = input.marked { body["marked"] = marked }
+        if let conditions = input.conditions {
+            body.merge(conditions.wireBody) { _, new in new }
+        }
         body["version"] = input.version
         body["client_uuid"] = input.clientUuid
         body["client_updated_at"] = wireFormatter.string(from: input.clientUpdatedAt)

@@ -60,6 +60,18 @@ final class AppConfig: ObservableObject {
 
     static let defaultOrtusEndpointURL = "https://ortus.legulus.app"
 
+    /// Base URL of the Tempus service (weather, climate, sun and moon),
+    /// queried directly from the device once a sample has coordinate
+    /// and height. An empty value disables the on-device query — the
+    /// backend then fills the values after sync.
+    @Published var tempusEndpointURL: String {
+        didSet {
+            UserDefaults.standard.set(tempusEndpointURL, forKey: Self.Keys.tempusEndpointURL)
+        }
+    }
+
+    static let defaultTempusEndpointURL = "https://tempus.legulus.app"
+
     /// Sample-ID template (Phase Z). Mirrored from the users record
     /// (`sample_id_format`) and cached here so the offline generator
     /// works without a network. Invalid templates (both counters) are
@@ -169,6 +181,8 @@ final class AppConfig: ObservableObject {
         // empty (the user switched the on-device query off).
         ortusEndpointURL = UserDefaults.standard.string(forKey: Self.Keys.ortusEndpointURL)
             ?? Self.defaultOrtusEndpointURL
+        tempusEndpointURL = UserDefaults.standard.string(forKey: Self.Keys.tempusEndpointURL)
+            ?? Self.defaultTempusEndpointURL
 
         let defaults = UserDefaults.standard
         let storedTemplate = defaults.string(forKey: Keys.sampleIDFormat) ?? ""
@@ -184,6 +198,7 @@ final class AppConfig: ObservableObject {
     fileprivate enum Keys {
         static let endpointURL = "AppConfig.endpointURL"
         static let ortusEndpointURL = "ortusEndpointURL"
+        static let tempusEndpointURL = "tempusEndpointURL"
         static let sampleIDFormat = SampleIDSettings.Keys.format
         static let sampleIDPrefix = SampleIDSettings.Keys.prefix
         static let sampleIDOffset = SampleIDSettings.Keys.offset

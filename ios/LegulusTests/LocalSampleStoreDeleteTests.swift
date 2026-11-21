@@ -32,7 +32,7 @@ final class LocalSampleStoreDeleteTests: XCTestCase {
             backendId: nil, syncStatus: .pending, syncError: nil, clientUuid: "photo-1",
             clientUpdatedAt: Date(), createdAt: Date()
         ))
-        try LocalSampleFeatureStore(database: database).replace(sampleID: sample.id, features: [
+        try LocalSampleFeatureStore(database: database).replace(sampleID: sample.id, scope: .ortus, features: [
             OrtusFeature(sourceID: "wdpa", sourceName: "WDPA", layer: "areas", featureID: "1",
                          propertiesJSON: "{}", licenseJSON: nil)
         ])
@@ -47,7 +47,7 @@ final class LocalSampleStoreDeleteTests: XCTestCase {
 
         XCTAssertNil(try store.fetchById(sample.id))
         XCTAssertEqual(try LocalPhotoStore(database: database).fetchBySample(sample.id).count, 0)
-        XCTAssertEqual(try LocalSampleFeatureStore(database: database).count(sampleID: sample.id), 0)
+        XCTAssertEqual(try LocalSampleFeatureStore(database: database).count(sampleID: sample.id, scope: .ortus), 0)
         XCTAssertEqual(try mutations.count(), 0, "no create, no delete for a never-pushed sample")
     }
 
@@ -62,7 +62,7 @@ final class LocalSampleStoreDeleteTests: XCTestCase {
 
         XCTAssertNil(try store.fetchById(sample.id))
         XCTAssertEqual(try LocalPhotoStore(database: database).fetchBySample(sample.id).count, 0)
-        XCTAssertEqual(try LocalSampleFeatureStore(database: database).count(sampleID: sample.id), 0)
+        XCTAssertEqual(try LocalSampleFeatureStore(database: database).count(sampleID: sample.id, scope: .ortus), 0)
         let queued = try mutations.fetch(entityType: .sample)
         XCTAssertEqual(queued.count, 1)
         XCTAssertEqual(queued.first?.op, .delete)

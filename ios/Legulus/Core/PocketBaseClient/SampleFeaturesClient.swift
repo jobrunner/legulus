@@ -61,9 +61,10 @@ struct RemoteSampleFeature: Equatable {
 /// What the sync layer needs from the sample-features API.
 /// `SampleFeaturesClient` conforms; tests inject a mock.
 protocol SampleFeaturesSyncClient {
-    /// `PUT /api/samples/:id/features` — replaces the server's complete
-    /// feature set of the sample (an empty list clears it).
-    func replaceFeatures(sampleBackendID: String, features: [LocalSampleFeature]) async throws
+    /// `PUT /api/samples/:id/features?scope=…` — replaces the server's
+    /// feature set of the sample for one source (an empty list clears
+    /// it); rows of the other source stay.
+    func replaceFeatures(sampleBackendID: String, scope: FeatureScope, features: [LocalSampleFeature]) async throws
     /// Features of the given backend samples, all pages.
     func fetchFeatures(sampleBackendIDs: [String]) async throws -> [RemoteSampleFeature]
 }
@@ -101,13 +102,24 @@ struct SampleFeaturesClient: SampleFeaturesSyncClient {
         return ["features": items]
     }
 
-    func replaceFeatures(sampleBackendID: String, features: [LocalSampleFeature]) async throws {
-        let url = try makeURL(path: "/api/samples/\(sampleBackendID)/features")
+    /// The replace request for one source. The backend rejects a
+    /// feature of the other source under an explicit scope, so only
+    /// rows of `scope` go out.
+    func replaceRequest(
+        sampleBackendID: String, scope: FeatureScope, features: [LocalSampleFeature]
+    ) throws -> URLRequest {
+        let url = try makeURL(path: "/api/samples/\(sampleBackendID)/features?scope=\(scope.rawValue)")
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.timeoutInterval = 10
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: Self.replaceBody(features))
+        let rows = features.filter { scope.contains(sourceID: $0.sourceID) }
+        request.httpBody = try JSONSerialization.data(withJSONObject: Self.replaceBody(rows))
+        return request
+    }
+
+    func replaceFeatures(sampleBackendID: String, scope: FeatureScope, features: [LocalSampleFeature]) async throws {
+        var request = try replaceRequest(sampleBackendID: sampleBackendID, scope: scope, features: features)
         request.authenticate(with: auth)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
