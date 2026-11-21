@@ -22,8 +22,14 @@ final class ConditionsMapperTests: XCTestCase {
         return cal.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi, second: s))!
     }
 
-    private var past: Date { utc(2026, 7, 1, 12) }
-    private var pastFetch: Date { past.addingTimeInterval(30 * 24 * 3600) }
+    private var past: Date {
+        utc(2026, 7, 1, 12)
+    }
+
+    private var pastFetch: Date {
+        past.addingTimeInterval(30 * 24 * 3600)
+    }
+
     private let hour: TimeInterval = 3600
 
     private func weatherOnly(_ props: [String: JSONValue], license: JSONValue? = .object([

@@ -72,7 +72,7 @@ final class SampleConditionsResolverTests: XCTestCase {
             XCTAssertFalse(wrote)
             XCTAssertNil(try stored(id).conditions)
         }
-        let wrote = await resolver(tempus: .some(nil)).resolve(sampleID: try sample().id)
+        let wrote = try await resolver(tempus: .some(nil)).resolve(sampleID: sample().id)
         XCTAssertFalse(wrote, "an empty endpoint switches the query off")
         XCTAssertTrue(tempus.queries.isEmpty)
     }

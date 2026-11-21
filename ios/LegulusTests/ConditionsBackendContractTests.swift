@@ -12,7 +12,9 @@ import XCTest
 final class ConditionsBackendContractTests: XCTestCase {
     private final class Token: AuthTokenSource {
         let currentToken: String?
-        init(_ token: String) { currentToken = token }
+        init(_ token: String) {
+            currentToken = token
+        }
     }
 
     private var endpoint: String {

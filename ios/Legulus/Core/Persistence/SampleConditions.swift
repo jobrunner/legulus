@@ -58,9 +58,17 @@ struct SampleConditions: Codable, Equatable {
         }
     }
 
-    func number(_ field: String) -> Double? { numbers[field] }
-    func text(_ field: String) -> String? { texts[field] }
-    func date(_ field: String) -> Date? { dates[field] }
+    func number(_ field: String) -> Double? {
+        numbers[field]
+    }
+
+    func text(_ field: String) -> String? {
+        texts[field]
+    }
+
+    func date(_ field: String) -> Date? {
+        dates[field]
+    }
 
     /// The delivered fields, sorted (`conditions_fields`).
     var fields: [String] {
@@ -68,16 +76,29 @@ struct SampleConditions: Codable, Equatable {
     }
 
     /// An answer from Tempus is there (possibly a partial one).
-    var hasAnswer: Bool { status == .provisional || status == .final }
+    var hasAnswer: Bool {
+        status == .provisional || status == .final
+    }
 
     // MARK: - server
 
     private struct Key: CodingKey {
         var stringValue: String
-        var intValue: Int? { nil }
-        init(_ name: String) { stringValue = name }
-        init?(stringValue: String) { self.stringValue = stringValue }
-        init?(intValue _: Int) { nil }
+        var intValue: Int? {
+            nil
+        }
+
+        init(_ name: String) {
+            stringValue = name
+        }
+
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        init?(intValue _: Int) {
+            nil
+        }
     }
 
     /// Reads the flat `conditions_*` and value fields of a server

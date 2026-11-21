@@ -46,7 +46,9 @@ public struct ConditionsResult: Equatable, Sendable {
     }
 
     /// The delivered fields, sorted (`conditions_fields`).
-    public var fields: [String] { values.keys.sorted() }
+    public var fields: [String] {
+        values.keys.sorted()
+    }
 }
 
 /// Maps a Tempus answer onto sample fields, status and features. A port
