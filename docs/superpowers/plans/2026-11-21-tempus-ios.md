@@ -354,6 +354,17 @@
 - [ ] **Step 2:** Im Simulator prüfen und im PR-Text vermerken: Bereich bei Standard-Schrift und AX5, VoiceOver-Reihenfolge über den Accessibility Inspector, alle fünf Zustände (über Proben in den passenden Zuständen).
 - [ ] **Step 3:** `PHASES.md`: 8b abhaken nach dem Merge. PR öffnen, Copilot-Review abarbeiten. Gerätetest durch Jo.
 
+## Abweichungen bei der Umsetzung von PR 8a
+
+Die Tasks 1 bis 7 sind umgesetzt, an sechs Stellen anders als oben beschrieben. Maßgeblich ist der Code.
+
+1. `ConditionsQuery.sameInstant` vergleicht auf die Sekunde, nicht auf die Stunde. So macht es das Backend (`conditions.SameInstant`).
+2. Tempus-Features benutzen den vorhandenen Typ `OrtusFeature`; einen eigenen `ConditionsFeature` gibt es nicht. Der Store kennt `replace(sampleID:scope:features:)`.
+3. Lokal liegen die Werte als eine JSON-Spalte `conditions` an `local_samples` (`SampleConditions` mit `numbers`, `texts`, `dates`), nicht als einzelne Spalten. Die App filtert nicht nach Wetter, und „nur gelieferte Werte gelten“ braucht so keine Sonderregel für die 0.
+4. Es gibt kein `resetConditionsIfStale`. Die Werte tragen, womit gefragt wurde (`inputs`, `queriedFor`); `SampleConditionsResolver.validConditions(for:)` leitet daraus ab, ob sie noch passen. Damit kann kein Schreibpfad das Zurücksetzen vergessen.
+5. Der Auslöser sitzt im `SyncRunner` statt an fünf Stellen der Oberfläche: Vor jedem POST und PATCH einer Probe fragt er Tempus, wenn die Probe gefragt werden kann und keine passenden Werte hat. Ein Flag `pushConditions` entfällt; stattdessen merkt sich die Probe `needsPush`, bis die selbst geholten Werte am Server sind. Scheitert der PUT der Wetter-Features, wiederholt ihn ein Folge-Update (`pushConditionFeatures`).
+6. Nach einem gescheiterten Tempus-Abruf fragt der Sync 60 Sekunden lang für keine weitere Probe, damit eine lange Warteschlange nicht für jede Probe auf das Timeout wartet.
+
 ## Nicht Teil dieses Plans
 
 - PR 10 (Ablösung der eigenen Astronomie): `AstroPanel` und `fieldtrips.astro` bleiben bis dahin. In der Sample-Ansicht kommen Sonnenzeiten ab PR 8b aus Tempus; Proben ohne Tempus-Werte zeigen bis zum Backfill keine.
