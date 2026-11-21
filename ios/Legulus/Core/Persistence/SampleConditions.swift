@@ -20,6 +20,23 @@ struct SampleConditions: Codable, Equatable {
     var texts: [String: String] = [:]
     var dates: [String: Date] = [:]
 
+    /// What the values were queried with besides the instant. Local
+    /// only: together with `queriedFor` it tells whether the values
+    /// still fit the sample (see `SampleConditionsResolver`). For
+    /// values from the server it is the server sample's place and
+    /// height.
+    struct Inputs: Codable, Equatable {
+        var latitude: Double
+        var longitude: Double
+        var elevationMetres: Int
+    }
+
+    var inputs: Inputs?
+    /// Local only: the device fetched these values itself and the
+    /// server does not have them yet. The next push of the sample
+    /// carries them.
+    var needsPush = false
+
     /// Coordinate there, no answer yet.
     static let pending = SampleConditions(status: .pending)
 
