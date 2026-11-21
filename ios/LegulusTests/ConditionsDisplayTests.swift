@@ -124,7 +124,7 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertNil(d.weatherSymbol)
         XCTAssertTrue(d.hourly.isEmpty)
         XCTAssertEqual(d.sky.count, 3)
-        XCTAssertNil(d.note)
+        XCTAssertEqual(d.note, "Keine Wetterdaten für diesen Tag", "the answer holds no day values")
         XCTAssertEqual(d.attribution, "NOAA · Meeus", "the weather source is not shown without weather values")
     }
 
@@ -198,6 +198,57 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertNil(d.attribution)
         XCTAssertEqual(d.temperature, "16,0\u{00A0}°C", "the values themselves are the row's and stay")
         XCTAssertTrue(ConditionsDetailModel(sample: s, night: false, features: rows).isEmpty)
+    }
+
+    // MARK: - partial answers
+
+    private func partial(_ features: String, allDay: Bool = false) throws -> ConditionsDisplay {
+        var base = try sample()
+        base.isAllDay = allDay
+        let json = "{\"features\": [\(features)], \"providers\": []}"
+        let (s, rows) = try answered(base, json: json)
+        return ConditionsDisplay(sample: s, night: false, features: rows)
+    }
+
+    private let license = "\"license\": {\"name\": \"CC-BY 4.0\", \"attribution\": \"Quelle\"}"
+
+    /// Only one of the day's extremes delivered: it is still shown.
+    func testPartial_SingleDayExtremeIsShown() throws {
+        let onlyMax = try partial(#"{"properties": {"kind": "aggregate", "temperatureDay": {"max": 18.5}}, \#(license)}"#)
+        XCTAssertEqual(onlyMax.daily.map(\.label), ["Tagesmaximum"])
+        XCTAssertEqual(onlyMax.daily.map(\.value), ["18,5\u{00A0}°C"])
+        XCTAssertEqual(onlyMax.daily.first?.spoken, "Tagesmaximum 18,5 Grad Celsius")
+
+        let onlyMin = try partial(#"{"properties": {"kind": "aggregate", "temperatureDay": {"min": 0}}, \#(license)}"#)
+        XCTAssertEqual(onlyMin.daily.map(\.label), ["Tagesminimum"])
+        XCTAssertEqual(onlyMin.daily.map(\.value), ["0,0\u{00A0}°C"])
+    }
+
+    /// The illuminated part without a phase text is still shown.
+    func testPartial_MoonIlluminationWithoutPhase() throws {
+        let d = try partial(#"{"properties": {"kind": "moon", "illuminationPct": 43.2}, \#(license)}"#)
+        XCTAssertEqual(d.sky.map(\.label), ["Mond"])
+        XCTAssertEqual(d.sky.first?.value, "43\u{00A0}% beleuchtet")
+        XCTAssertEqual(d.sky.first?.spoken, "Mond: 43 Prozent beleuchtet")
+    }
+
+    /// The code alone is weather for this instant: no „Keine Daten“.
+    func testPartial_CodeOnlyIsNoMissingData() throws {
+        let d = try partial(#"{"properties": {"kind": "weather", "weatherCode": 3}, \#(license)}"#)
+        XCTAssertEqual(d.weatherTitle, "Bedeckt")
+        XCTAssertNil(d.note)
+    }
+
+    /// An all-day sample shows day values. A final answer without any
+    /// says so, as a sample with a time of day does for its weather.
+    func testPartial_AllDayWithoutDayValuesSaysSo() throws {
+        let moonOnly = #"{"properties": {"kind": "moon", "phase": {"de": "Neumond"}}, \#(license)}"#
+        XCTAssertEqual(try partial(moonOnly, allDay: true).note, "Keine Wetterdaten für diesen Tag")
+        // Hourly weather alone does not count for a day.
+        let hourlyOnly = #"{"properties": {"kind": "weather", "temperature2m": 16}, \#(license)}"#
+        XCTAssertEqual(try partial(hourlyOnly, allDay: true).note, "Keine Wetterdaten für diesen Tag")
+        let withDay = #"{"properties": {"kind": "aggregate", "precipitation": {"last24h": 0}}, \#(license)}"#
+        XCTAssertNil(try partial(withDay, allDay: true).note)
     }
 
     func testNumber_GermanDecimalsAndNoNegativeZero() {

@@ -47,7 +47,8 @@ struct ConditionsDisplay: Equatable {
     /// Köppen code and altitudinal belt.
     var climate: Pair?
     /// „Keine Daten für diesen Zeitpunkt“ when a final answer of a
-    /// sample with a time of day has no weather.
+    /// sample with a time of day has no weather; „Keine Wetterdaten für
+    /// diesen Tag“ when an all-day sample has no day values.
     var note: String?
     /// The sources of what is shown, without duplicates.
     var attribution: String?
@@ -97,8 +98,15 @@ struct ConditionsDisplay: Equatable {
         fillDaily(conditions)
         fillSky(conditions, zone: zone)
         fillClimate(conditions)
-        if !sample.isAllDay, conditions.status == .final, temperature == nil, hourly.isEmpty {
-            note = "Keine Daten für diesen Zeitpunkt"
+        // A final answer without what this kind of sample shows as
+        // weather: its hourly values (the code's text counts), or the
+        // day values of an all-day sample.
+        if conditions.status == .final {
+            if sample.isAllDay {
+                if daily.isEmpty { note = "Keine Wetterdaten für diesen Tag" }
+            } else if weatherTitle == nil, temperature == nil, hourly.isEmpty {
+                note = "Keine Daten für diesen Zeitpunkt"
+            }
         }
         attribution = Self.attribution(of: features, kinds: shownKinds)
     }
@@ -133,26 +141,39 @@ struct ConditionsDisplay: Equatable {
             add(&daily, "precipitation\(hours)", "Niederschlag \(hours)\(Self.nbsp)h", c.number(field), digits: 1, unit: "mm",
                 spokenUnit: "Millimeter", spokenLabel: "Niederschlag der letzten \(hours) Stunden")
         }
-        if let min = c.number("day_temperature_min_c"), let max = c.number("day_temperature_max_c") {
+        // Both extremes as one range; a single one on its own, so a
+        // partial answer loses nothing.
+        let min = c.number("day_temperature_min_c"), max = c.number("day_temperature_max_c")
+        if let min, let max {
             let range = Self.number(min, digits: 1) + " – " + Self.number(max, digits: 1)
             daily.append(Pair(
                 id: "dayRange", label: "Tag", value: range + Self.nbsp + "°C",
                 spoken: "Tagestemperatur \(Self.number(min, digits: 1)) bis \(Self.number(max, digits: 1)) Grad Celsius"
             ))
+        } else {
+            add(&daily, "dayMin", "Tagesminimum", min, digits: 1, unit: "°C", spokenUnit: "Grad Celsius")
+            add(&daily, "dayMax", "Tagesmaximum", max, digits: 1, unit: "°C", spokenUnit: "Grad Celsius")
         }
         add(&daily, "dayMean", "Tagesmittel", c.number("day_temperature_mean_c"), digits: 1, unit: "°C",
             spokenUnit: "Grad Celsius")
     }
 
     private mutating func fillSky(_ c: SampleConditions, zone: TimeZone) {
+        let illumination = c.number("moon_illumination_pct").map { Self.number($0, digits: 0) }
         if let phase = c.text("moon_phase") {
             var value = phase
             var spoken = "Mond: \(phase)"
-            if let pct = c.number("moon_illumination_pct") {
-                value += ", " + Self.number(pct, digits: 0) + Self.nbsp + "%"
-                spoken += ", \(Self.number(pct, digits: 0)) Prozent beleuchtet"
+            if let illumination {
+                value += ", " + illumination + Self.nbsp + "%"
+                spoken += ", \(illumination) Prozent beleuchtet"
             }
             sky.append(Pair(id: "moon", label: "Mond", value: value, spoken: spoken))
+        } else if let illumination {
+            // The percentage alone, when Tempus sent no phase text.
+            sky.append(Pair(
+                id: "moon", label: "Mond", value: illumination + Self.nbsp + "% beleuchtet",
+                spoken: "Mond: \(illumination) Prozent beleuchtet"
+            ))
         }
         for (id, label, field) in [("sunrise", "Sonnenaufgang", "sunrise"), ("sunset", "Sonnenuntergang", "sunset")] {
             guard let date = c.date(field) else { continue }
