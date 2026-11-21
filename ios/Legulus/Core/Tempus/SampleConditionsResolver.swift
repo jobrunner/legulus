@@ -99,6 +99,25 @@ final class SampleConditionsResolver {
         return conditions
     }
 
+    /// Values the device fetched itself wait for the next push
+    /// (`needsPush`) and meanwhile keep the server's values out
+    /// (`LocalSample.mergeServerConditions`). Once the sample changed so
+    /// that they no longer fit, they can never be delivered: without
+    /// this, the device would neither take the server's values nor
+    /// fetch their features for as long as it cannot reach Tempus
+    /// itself. The values stay as they are, they just stop blocking.
+    func releaseUndeliverable(sampleID: String) {
+        guard var row = try? samples.fetchById(sampleID), row.conditions?.needsPush == true,
+              validConditions(for: row) == nil
+        else { return }
+        row.conditions?.needsPush = false
+        do {
+            try samples.update(row)
+        } catch {
+            Log.persistence.error("releasing undeliverable tempus values failed: \(error.localizedDescription)")
+        }
+    }
+
     /// Asks Tempus when the sample can be asked and holds no values
     /// that fit. Returns true when values were written. Never throws:
     /// a failure leaves the sample as it is and the backend enriches it

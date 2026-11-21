@@ -271,11 +271,17 @@ struct ConditionsDetailModel: Equatable {
         }
     }
 
+    /// An RFC 3339 timestamp: with „Z“ or an offset, with or without
+    /// fractional seconds. A calendar date alone is none (see
+    /// `calendarDate`).
     private static func isoDate(_ text: String) -> Date? {
-        guard text.count >= 20, text.hasSuffix("Z"), text.contains("T") else { return nil }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: text)
+        guard text.count >= 20, text.contains("T") else { return nil }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let date = plain.date(from: text) { return date }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: text)
     }
 
     /// „2026-01-01“ as „01.01.2026“. A calendar date has no time and

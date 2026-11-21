@@ -1349,6 +1349,31 @@ final class SyncRunnerOrtusTests: XCTestCase {
                        [SampleUpdatePayload(pushConditionFeatures: true)])
     }
 
+    /// The device fetched values itself, then the height changed before
+    /// they went out. Those values can never be delivered any more. If
+    /// they kept blocking, the device would never take the server's
+    /// values (nor fetch their features) while it cannot reach Tempus
+    /// itself, and the area would stay at „Wird ermittelt …“.
+    func testCreate_UndeliverableOwnValuesGiveWayToTheServer() async throws {
+        let sample = try sampleWithHeight()
+        let fetched = await conditionsResolver(StubTempus()).resolve(sampleID: sample.id)
+        XCTAssertTrue(fetched)
+        var moved = try XCTUnwrap(store.fetchById(sample.id))
+        moved.elevation = 800
+        try store.update(moved)
+
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     extra: ["conditions_status": "pending"])
+        await runUntilQuiescent(makeRunner(push: push, tempus: StubTempus(.failure(URLError(.timedOut)))))
+
+        XCTAssertNil(push.lastCreate?.conditions, "values for 250 m do not travel with 800 m")
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertEqual(stored.status, .pending, "the server's state is taken over")
+        XCTAssertFalse(stored.needsPush)
+        XCTAssertTrue(stored.fields.isEmpty)
+    }
+
     /// Without a height (or with Tempus switched off) nothing is asked
     /// and nothing is sent: the backend enriches.
     func testCreate_WithoutHeightSendsNoWeather() async throws {

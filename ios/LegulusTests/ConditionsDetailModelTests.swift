@@ -190,4 +190,17 @@ final class ConditionsDetailModelTests: XCTestCase {
             XCTAssertEqual(try row(model(zone: zone, answer: since), "aggregate", "Wärmesumme seit"), "01.01.2026", zone)
         }
     }
+
+    /// Every valid RFC 3339 timestamp reads as a date in the sample's
+    /// zone, also with fractional seconds or an offset.
+    func testTimestamps_FractionalSecondsAndOffsets() throws {
+        let stamps = """
+        {"features": [{"properties": {"kind": "sun", "sunrise": "2026-07-01T03:16:45.500Z",
+                                      "solarNoon": "2026-07-01T13:17:08+02:00"},
+                       "license": {"name": "PD", "attribution": "NOAA"}}], "providers": []}
+        """
+        let m = try model(answer: stamps)
+        XCTAssertEqual(row(m, "sun", "Sonnenaufgang"), "01.07.2026 05:16")
+        XCTAssertEqual(row(m, "sun", "Sonnenhöchststand"), "01.07.2026 13:17")
+    }
 }
