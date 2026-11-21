@@ -497,7 +497,10 @@ final class LocalSampleStore {
             }
             sample.updatedAt = Date()
             try sample.update(db)
-            _ = try LocalSampleFeature.filter(Column("sample_id") == id).deleteAll(db)
+            // The Ortus features belong to the old point. The weather
+            // features stay with the weather values: those say for
+            // themselves whether they still fit the sample.
+            try LocalSampleFeatureStore.replace(db, sampleID: id, scope: .ortus, features: [])
             return sample.backendId
         }
         guard let backendID, !backendID.isEmpty else { return }

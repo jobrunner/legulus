@@ -28,10 +28,17 @@ struct ConditionsRequest: Equatable {
         .init(latitude: latitude, longitude: longitude, elevationMetres: elevationMetres)
     }
 
+    /// The backend's tolerance (`hooks.coordEpsilon`): a larger change
+    /// is a move there and resets the values, so it must be one here
+    /// too — otherwise the push would send no new values for a sample
+    /// the backend is about to clear.
+    static let coordEpsilon = 1e-7
+
     /// Whether `conditions` were queried with this request.
     func fits(_ conditions: SampleConditions) -> Bool {
         guard let inputs = conditions.inputs else { return false }
-        return abs(inputs.latitude - latitude) < 1e-6 && abs(inputs.longitude - longitude) < 1e-6
+        return abs(inputs.latitude - latitude) < Self.coordEpsilon
+            && abs(inputs.longitude - longitude) < Self.coordEpsilon
             && inputs.elevationMetres == elevationMetres
             && ConditionsQuery.sameInstant(conditions.queriedFor, instant)
     }
@@ -96,8 +103,13 @@ final class SampleConditionsResolver {
     /// that fit. Returns true when values were written. Never throws:
     /// a failure leaves the sample as it is and the backend enriches it
     /// after sync.
+    ///
+    /// `isLive` is asked after the network call, before anything is
+    /// written: the sync passes whether it still acts for the account
+    /// it started for. A runner left behind by a sign-out must not
+    /// write over what the next session stored.
     @discardableResult
-    func resolve(sampleID: String) async -> Bool {
+    func resolve(sampleID: String, isLive: @MainActor () -> Bool = { true }) async -> Bool {
         guard let tempus,
               let sample = try? samples.fetchById(sampleID),
               let request = request(for: sample),
@@ -116,6 +128,7 @@ final class SampleConditionsResolver {
             )
             return false
         }
+        guard isLive() else { return false }
         let result = ConditionsMapper.map(response, queriedFor: request.instant, fetchedAt: now())
 
         do {

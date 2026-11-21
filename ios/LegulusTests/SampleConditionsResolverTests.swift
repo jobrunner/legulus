@@ -144,6 +144,55 @@ final class SampleConditionsResolverTests: XCTestCase {
         XCTAssertEqual(try features.count(sampleID: s.id, scope: .tempus), 0)
     }
 
+    /// The sync left the account while Tempus answered: the answer
+    /// is not written (the next session's data must not be touched).
+    func testResolve_NotLiveAnyMoreWritesNothing() async throws {
+        let s = try sample()
+        let wrote = await resolver().resolve(sampleID: s.id) { false }
+        XCTAssertFalse(wrote)
+        XCTAssertEqual(tempus.queries.count, 1)
+        XCTAssertNil(try stored(s.id).conditions)
+        XCTAssertEqual(try features.count(sampleID: s.id, scope: .tempus), 0)
+    }
+
+    /// The backend counts a coordinate change above 1e-7 as a move and
+    /// resets the values; the app must ask again then, or the push
+    /// would carry none.
+    func testValidConditions_UseTheBackendsCoordinateTolerance() async throws {
+        let s = try sample()
+        let r = resolver()
+        _ = await r.resolve(sampleID: s.id)
+        var noise = try stored(s.id)
+        noise.latitude = 49.681616 + 5e-8
+        XCTAssertNotNil(r.validConditions(for: noise))
+        var moved = try stored(s.id)
+        moved.latitude = 49.681616 + 5e-7
+        XCTAssertNil(r.validConditions(for: moved))
+    }
+
+    /// A corrected coordinate removes the Ortus features of the old
+    /// point. The weather features stay with the weather values:
+    /// corrected back before the sync, values and features still fit,
+    /// and nothing would fetch the features again.
+    func testCoordinateCorrection_KeepsWeatherFeaturesWithTheirValues() async throws {
+        let s = try sample()
+        try features.replace(sampleID: s.id, scope: .ortus, features: [
+            OrtusFeature(sourceID: "wdpa", sourceName: "WDPA", layer: "areas", featureID: "1",
+                         propertiesJSON: "{}", licenseJSON: nil)
+        ])
+        let r = resolver()
+        _ = await r.resolve(sampleID: s.id)
+        let mutations = PendingMutationsStore(database: database)
+
+        try samples.updateCoordinate(id: s.id, latitude: 50.0, longitude: 10.0, mutationsStore: mutations)
+        XCTAssertEqual(try features.count(sampleID: s.id, scope: .ortus), 0)
+        XCTAssertNil(try r.validConditions(for: stored(s.id)), "moved: the values no longer count")
+
+        try samples.updateCoordinate(id: s.id, latitude: 49.681616, longitude: 10.039652, mutationsStore: mutations)
+        XCTAssertNotNil(try r.validConditions(for: stored(s.id)), "back at the place they were fetched for")
+        XCTAssertEqual(try features.count(sampleID: s.id, scope: .tempus), 3)
+    }
+
     func testResolve_FailureWritesNothing() async throws {
         let s = try sample()
         tempus.result = .failure(URLError(.timedOut))

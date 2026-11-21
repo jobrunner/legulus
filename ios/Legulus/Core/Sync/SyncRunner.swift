@@ -696,6 +696,7 @@ final class SyncRunner: ObservableObject {
 
             // 0. Weather, when the sample can be asked: the values
             //    then travel with this POST.
+            let account = accountID()
             await resolveConditions(localID: localId)
 
             // 1. Placemarks first (backend ids), then the input is
@@ -803,7 +804,8 @@ final class SyncRunner: ObservableObject {
 
             // 5. The weather features that belong to the delivered values.
             if !created.isReplay, Self.accepted(conditions, by: created),
-               !(await pushConditionFeatures(localID: localId, backendID: created.id))
+               !(await pushConditionFeatures(localID: localId, backendID: created.id)),
+               isCurrent(account)
             {
                 _ = try? mutationsStore.enqueue(
                     entityType: .sample, entityId: localId, op: .update,
@@ -920,7 +922,8 @@ final class SyncRunner: ObservableObject {
             // pass early, and the retry of that mutation would not know
             // they are still missing.
             if outcome.sentConditions || payload.pushConditionFeatures,
-               !(await pushConditionFeatures(localID: localID, backendID: backendID))
+               !(await pushConditionFeatures(localID: localID, backendID: backendID)),
+               isCurrent(account)
             {
                 // The values are on the server, their features are not:
                 // a follow-up update repeats the PUT.
@@ -928,6 +931,12 @@ final class SyncRunner: ObservableObject {
                     entityType: .sample, entityId: localID, op: .update,
                     payload: SampleUpdatePayload(pushConditionFeatures: true).encoded
                 )
+            }
+            // The weather PUT above was one more request: same check as
+            // after the PATCH.
+            guard isCurrent(account) else {
+                releaseAfterLeavingAccount(localID)
+                return
             }
             if payload.pushFeatures, featureStore != nil,
                !(await pushFeatures(localID: localID, backendID: backendID))
@@ -1307,7 +1316,13 @@ final class SyncRunner: ObservableObject {
     private func resolveConditions(localID: String) async {
         guard let resolver = conditionsResolver?() else { return }
         if let until = tempusPausedUntil, now() < until { return }
-        let wrote = await resolver.resolve(sampleID: localID)
+        let account = accountID()
+        let wrote = await resolver.resolve(sampleID: localID) { [weak self] in
+            self?.isCurrent(account) ?? false
+        }
+        // Left the account meanwhile: nothing was written, and the
+        // outcome says nothing about Tempus.
+        guard isCurrent(account) else { return }
         if !wrote, let row = try? store.fetchById(localID),
            resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
         {
