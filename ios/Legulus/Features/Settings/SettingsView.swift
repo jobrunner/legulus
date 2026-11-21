@@ -18,6 +18,8 @@ struct SettingsScreen: View {
     @State private var savedHint: Bool = false
     @State private var ortusDraft: String = ""
     @State private var ortusSavedHint: Bool = false
+    @State private var tempusDraft: String = ""
+    @State private var tempusSavedHint: Bool = false
     @State private var confirmSignOut: Bool = false
     @State private var showDeleteSheet: Bool = false
     @State private var exportState: ExportState = .idle
@@ -40,6 +42,7 @@ struct SettingsScreen: View {
             photoUploadSection
             endpointSection
             ortusEndpointSection
+            tempusEndpointSection
             aboutSection
             #if DEBUG
                 featureFlagsSection
@@ -54,9 +57,11 @@ struct SettingsScreen: View {
         .onAppear {
             draft = config.endpointURL
             ortusDraft = config.ortusEndpointURL
+            tempusDraft = config.tempusEndpointURL
         }
         .onChange(of: draft) { _, _ in savedHint = false }
         .onChange(of: ortusDraft) { _, _ in ortusSavedHint = false }
+        .onChange(of: tempusDraft) { _, _ in tempusSavedHint = false }
         .onChange(of: config.sampleIDFormat) { _, _ in pushUserSettings() }
         .onChange(of: config.sampleIDPrefix) { _, _ in pushUserSettings() }
         .onChange(of: config.sampleIDOffset) { _, _ in pushUserSettings() }
@@ -314,6 +319,35 @@ struct SettingsScreen: View {
             } else {
                 Text(
                     "Geodienst für Ort, Höhe und MTB direkt beim Anlegen einer Probe. Leer lassen, um die Abfrage auf dem Gerät abzuschalten – das Backend ergänzt die Daten dann nach dem Sync."
+                )
+            }
+        }
+    }
+
+    /// Tempus is queried directly from the device once a sample has
+    /// coordinate and height; an empty value switches that off.
+    private var tempusEndpointSection: some View {
+        Section {
+            TextField("Tempus-Endpoint", text: $tempusDraft,
+                      prompt: Text(AppConfig.defaultTempusEndpointURL))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+            Button("Speichern") {
+                let trimmed = tempusDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                config.tempusEndpointURL = trimmed
+                tempusDraft = trimmed
+                tempusSavedHint = true
+            }
+            .disabled(tempusDraft.trimmingCharacters(in: .whitespacesAndNewlines) == config.tempusEndpointURL)
+        } header: {
+            Text("Tempus-Endpoint")
+        } footer: {
+            if tempusSavedHint {
+                Text("Gespeichert.")
+            } else {
+                Text(
+                    "Dienst für Wetter, Klima, Sonne und Mond. Leer lassen, um die Abfrage auf dem Gerät abzuschalten – das Backend reichert dann an."
                 )
             }
         }
