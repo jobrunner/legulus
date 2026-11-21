@@ -162,4 +162,32 @@ final class ConditionsDetailModelTests: XCTestCase {
         XCTAssertEqual(spoken("sun", "Sonnenaufgang"), "Sonnenaufgang: 01.07.2026, 05:16 Uhr")
         XCTAssertEqual(spoken("weather", "Tag"), "Tag: ja")
     }
+
+    /// A list of objects is kept, element by element — nothing Tempus
+    /// sends disappears from the page.
+    func testRows_StructuredArraysAreFlattened() throws {
+        let withArray = """
+        {"features": [{"properties": {"kind": "weather", "temperature2m": 16,
+                                      "brandNew": [{"depth": 3.5, "name": {"de": "oben"}}, {"depth": 7}],
+                                      "plain": [1, 2]},
+                       "license": {"name": "CC-BY 4.0", "attribution": "Quelle A"}}], "providers": []}
+        """
+        let m = try model(answer: withArray)
+        XCTAssertEqual(row(m, "weather", "brandNew.0.depth"), "3,5")
+        XCTAssertEqual(row(m, "weather", "brandNew.0.name"), "oben")
+        XCTAssertEqual(row(m, "weather", "brandNew.1.depth"), "7")
+        XCTAssertEqual(row(m, "weather", "plain"), "1, 2", "a list of plain values stays one row")
+    }
+
+    /// A calendar date reads like every date in the app, without a
+    /// time and without shifting the day through a time zone.
+    func testCalendarDate_IsShownAsDayMonthYear() throws {
+        let since = """
+        {"features": [{"properties": {"kind": "aggregate", "growingDegreeDays": {"since": "2026-01-01"}},
+                       "license": {"name": "CC-BY 4.0", "attribution": "Quelle B"}}], "providers": []}
+        """
+        for zone in ["Europe/Berlin", "Pacific/Auckland", "America/Los_Angeles"] {
+            XCTAssertEqual(try row(model(zone: zone, answer: since), "aggregate", "Wärmesumme seit"), "01.01.2026", zone)
+        }
+    }
 }

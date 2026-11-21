@@ -6,6 +6,10 @@ import SwiftUI
 struct ConditionsDetailView: View {
     let model: ConditionsDetailModel
 
+    /// Apple HIG tap target. The licence link sits in a list footer,
+    /// whose small type alone is lower than that.
+    private let minTapTarget: CGFloat = 44
+
     var body: some View {
         List {
             Section {
@@ -50,7 +54,12 @@ struct ConditionsDetailView: View {
             }
             if let name = group.licenseName {
                 if let url = group.licenseURL {
-                    Link("Lizenz: " + name, destination: url)
+                    Link(destination: url) {
+                        Text("Lizenz: " + name)
+                            .frame(maxWidth: .infinity, minHeight: minTapTarget, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityHint("Öffnet die Lizenz im Browser")
                 } else {
                     Text("Lizenz: " + name)
                 }

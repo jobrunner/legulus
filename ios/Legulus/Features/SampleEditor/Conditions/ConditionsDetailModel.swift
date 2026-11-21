@@ -172,6 +172,12 @@ struct ConditionsDetailModel: Equatable {
                 } else {
                     leaves.append(contentsOf: flatten(nested, prefix: path))
                 }
+            } else if let list = value as? [Any], list.contains(where: { $0 is [String: Any] }) {
+                // A list of objects: one block of rows per element. A
+                // list of plain values stays one row (see `text`).
+                for (index, element) in list.enumerated() {
+                    leaves.append(contentsOf: flatten(["\(index)": element], prefix: path))
+                }
             } else {
                 leaves.append((path, value))
             }
@@ -254,6 +260,7 @@ struct ConditionsDetailModel: Equatable {
             if let date = isoDate(string) {
                 return (dateTime(date, zone: zone), dateTime(date, zone: zone, spoken: true))
             }
+            if let day = calendarDate(string) { return (day, day) }
             return (string, string)
         case let array as [Any]:
             let parts = array.compactMap { text($0, unit: nil, zone: zone) }
@@ -269,6 +276,16 @@ struct ConditionsDetailModel: Equatable {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         return f.date(from: text)
+    }
+
+    /// „2026-01-01“ as „01.01.2026“. A calendar date has no time and
+    /// no zone: the parts are reordered, never converted.
+    private static func calendarDate(_ text: String) -> String? {
+        let parts = text.split(separator: "-", omittingEmptySubsequences: false)
+        guard text.count == 10, parts.count == 3, parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
+              parts.allSatisfy({ $0.allSatisfy(\.isNumber) })
+        else { return nil }
+        return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 
     /// „01.07.2026 14:00“ in `zone`; spoken „01.07.2026, 14:00 Uhr“.
