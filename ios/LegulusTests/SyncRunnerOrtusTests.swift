@@ -217,6 +217,155 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(updates.map(\.entityId), [sample.id], "missed edit goes out as update")
     }
 
+    /// The server answered a repeated create with the sample it stored
+    /// on the first attempt and did not apply this request's body. What
+    /// changed locally between the attempts is not on the server, so
+    /// the row goes out once more as an update.
+    func testCreate_Replay_QueuesUpdateWithTheLocalState() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let push = MockPush(log: log)
+        var replayed = remote(id: "backend-1", code: sample.sampleID)
+        replayed.isReplay = true
+        push.createResponse = replayed
+        await runUntilQuiescent(makeRunner(push: push))
+
+        let stored = try XCTUnwrap(store.fetchById(sample.id))
+        XCTAssertEqual(stored.backendId, "backend-1")
+        let updates = try mutations.fetch(entityType: .sample).filter { $0.op == .update }
+        XCTAssertEqual(updates.map(\.entityId), [sample.id], "the local state goes out as an update")
+    }
+
+    /// The replay carries the state of the first attempt. A code the
+    /// user changed since then is not a reassignment by the server: it
+    /// stays, and the follow-up PATCH sends it.
+    func testCreate_Replay_KeepsCodeEditedBetweenTheAttempts() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let firstCode = sample.sampleID
+        var row = try XCTUnwrap(store.fetchById(sample.id))
+        row.sampleID = "260519/77"
+        try store.update(row)
+        let push = MockPush(log: log)
+        var replayed = remote(id: "backend-1", code: firstCode)
+        replayed.isReplay = true
+        push.createResponse = replayed
+        push.updateResponse = remote(id: "backend-1", code: "260519/77", version: 2)
+        let runner = makeRunner(push: push)
+        await runUntilQuiescent(runner)
+
+        XCTAssertEqual(try store.fetchById(sample.id)?.sampleID, "260519/77")
+        await runUntilQuiescent(runner)
+        XCTAssertEqual(push.lastUpdate?.code, "260519/77")
+    }
+
+    /// The first attempt ran into a code collision and the server
+    /// suffixed the code. The local row still holds what was sent
+    /// then, so the reassignment is taken over as after a normal create.
+    func testCreate_Replay_AdoptsServerReassignmentOfTheFirstAttempt() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let push = MockPush(log: log)
+        var replayed = remote(id: "backend-1", code: sample.sampleID + " (2)", originalCode: sample.sampleID)
+        replayed.isReplay = true
+        push.createResponse = replayed
+        await runUntilQuiescent(makeRunner(push: push))
+
+        let stored = try XCTUnwrap(store.fetchById(sample.id))
+        XCTAssertEqual(stored.sampleID, sample.sampleID + " (2)")
+        XCTAssertEqual(stored.originalCode, sample.sampleID)
+    }
+
+    /// Edits made while the sample had no backend id queued nothing of
+    /// their own. The follow-up PATCH of a replay has to carry them:
+    /// the star, and values the user removed.
+    func testCreate_Replay_FollowUpCarriesStarAndClears() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        var row = try XCTUnwrap(store.fetchById(sample.id))
+        row.marked = true
+        row.horizontalAccuracy = nil
+        try store.update(row)
+        let push = MockPush(log: log)
+        var replayed = remote(id: "backend-1", code: sample.sampleID, horizontalAccuracy: 5)
+        replayed.isReplay = true
+        push.createResponse = replayed
+        push.updateResponse = remote(id: "backend-1", code: sample.sampleID, version: 2)
+        let runner = makeRunner(push: push)
+        await runUntilQuiescent(runner)
+        await runUntilQuiescent(runner)
+
+        let update = try XCTUnwrap(push.lastUpdate)
+        XCTAssertEqual(update.marked, true)
+        XCTAssertTrue(update.location.clearsHorizontalAccuracy)
+    }
+
+    func testAfterReplayPayload_OnlyFlagsWhatDiffers() throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let same = SampleUpdatePayload.afterReplay(
+            local: sample, server: remote(id: "backend-1", code: sample.sampleID), hasLocalFeatures: false
+        )
+        XCTAssertEqual(same, SampleUpdatePayload())
+
+        let moved = SampleUpdatePayload.afterReplay(
+            local: sample, server: remote(id: "backend-1", code: sample.sampleID, lat: 48.0), hasLocalFeatures: false
+        )
+        XCTAssertTrue(moved.coordinateChanged)
+    }
+
+    /// The server model reads a coordinate component of 0 as missing.
+    /// A point on the equator or the prime meridian has not moved for
+    /// that reason.
+    func testAfterReplayPayload_ZeroCoordinateIsNotAMove() throws {
+        let sample = try store.createLocal(lat: 0, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let server = remote(id: "backend-1", code: sample.sampleID, lat: 0)
+        XCTAssertNil(server.latitude, "Vorbedingung: 0 wird als fehlend gelesen")
+        XCTAssertFalse(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).coordinateChanged
+        )
+    }
+
+    /// Without a local feature set the follow-up must not replace the
+    /// server's: that would delete features the backend added after the
+    /// first attempt.
+    func testAfterReplayPayload_PushesFeaturesOnlyWhenTheDeviceHasSome() throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let server = remote(id: "backend-1", code: sample.sampleID)
+        XCTAssertFalse(SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).pushFeatures)
+        XCTAssertTrue(SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: true).pushFeatures)
+    }
+
+    /// The backend wrote a DEM height with its accuracy after the first
+    /// attempt. A height the user entered by hand since then has no
+    /// accuracy: the DEM's must not stay attached to it. While the
+    /// device has no height of its own, the DEM accuracy is not the
+    /// user's to clear.
+    func testAfterReplayPayload_ManualHeightClearsTheDEMAccuracy() throws {
+        var sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        sample.elevation = nil
+        sample.elevationSource = nil
+        sample.verticalAccuracy = nil
+        let server = remote(
+            id: "backend-1", code: sample.sampleID,
+            elevation: 236, elevationSource: "backend_service", verticalAccuracy: 5
+        )
+        XCTAssertFalse(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).elevationEdited
+        )
+
+        sample.elevation = 120
+        sample.elevationSource = .manual
+        XCTAssertTrue(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).elevationEdited
+        )
+    }
+
+    func testCreate_NoReplay_QueuesNoUpdate() async throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID)
+        await runUntilQuiescent(makeRunner(push: push))
+
+        let updates = try mutations.fetch(entityType: .sample).filter { $0.op == .update }
+        XCTAssertTrue(updates.isEmpty)
+    }
+
     func testCreate_RowDeletedDuringPost_QueuesServerDelete() async throws {
         let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
         let push = MockPush(log: log)
@@ -1144,7 +1293,9 @@ final class SyncRunnerOrtusTests: XCTestCase {
         lon: Double = 10.04,
         timezone: String = "Europe/Berlin",
         timezoneSource: String? = nil,
-        verticalAccuracy: Double? = nil
+        verticalAccuracy: Double? = nil,
+        horizontalAccuracy: Double? = nil,
+        originalCode: String? = nil
     ) -> Sample {
         var dict: [String: Any] = [
             "id": id,
@@ -1177,6 +1328,8 @@ final class SyncRunnerOrtusTests: XCTestCase {
         if let clientUuid { dict["client_uuid"] = clientUuid }
         if let timezoneSource { dict["timezone_source"] = timezoneSource }
         if let verticalAccuracy { dict["vertical_accuracy"] = verticalAccuracy }
+        if let horizontalAccuracy { dict["horizontal_accuracy"] = horizontalAccuracy }
+        if let originalCode { dict["original_code"] = originalCode }
         // swiftlint:disable:next force_try
         let data = try! JSONSerialization.data(withJSONObject: dict)
         // swiftlint:disable:next force_try

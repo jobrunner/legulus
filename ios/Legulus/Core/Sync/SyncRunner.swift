@@ -201,6 +201,9 @@ struct SampleUpdateInput: Codable, Equatable {
     var beginDate: Date?
     var endDate: Date?
     var isAllDay: Bool?
+    /// The star; nil is not sent (the UI patches it directly on a
+    /// synced sample). Set by the follow-up of a replayed create.
+    var marked: Bool?
 }
 
 /// Payload of a `.sample/.update` outbox row. Older rows carry an
@@ -225,19 +228,25 @@ struct SampleUpdatePayload: Codable, Equatable {
     /// coordinate move without accuracy: a nil `horizontal_accuracy` is
     /// sent as a clear (see `SampleLocationFields.clearsHorizontalAccuracy`).
     var horizontalAccuracyEdited = false
+    /// Queued after a replayed create when the star differs from the
+    /// server's: toggling it on a sample without backend id queued
+    /// nothing, so this update carries `marked`.
+    var pushesMarked = false
 
     init(
         pushFeatures: Bool = false,
         coordinateChanged: Bool = false,
         clearsSuggestion: Bool = false,
         elevationEdited: Bool = false,
-        horizontalAccuracyEdited: Bool = false
+        horizontalAccuracyEdited: Bool = false,
+        pushesMarked: Bool = false
     ) {
         self.pushFeatures = pushFeatures
         self.coordinateChanged = coordinateChanged
         self.clearsSuggestion = clearsSuggestion
         self.elevationEdited = elevationEdited
         self.horizontalAccuracyEdited = horizontalAccuracyEdited
+        self.pushesMarked = pushesMarked
     }
 
     init(from decoder: Decoder) throws {
@@ -247,6 +256,7 @@ struct SampleUpdatePayload: Codable, Equatable {
         clearsSuggestion = (try? c.decode(Bool.self, forKey: .clearsSuggestion)) ?? false
         elevationEdited = (try? c.decode(Bool.self, forKey: .elevationEdited)) ?? false
         horizontalAccuracyEdited = (try? c.decode(Bool.self, forKey: .horizontalAccuracyEdited)) ?? false
+        pushesMarked = (try? c.decode(Bool.self, forKey: .pushesMarked)) ?? false
     }
 
     /// Union of the flags (a parked mutation's flags ride along with
@@ -257,7 +267,43 @@ struct SampleUpdatePayload: Codable, Equatable {
             coordinateChanged: coordinateChanged || other.coordinateChanged,
             clearsSuggestion: clearsSuggestion || other.clearsSuggestion,
             elevationEdited: elevationEdited || other.elevationEdited,
-            horizontalAccuracyEdited: horizontalAccuracyEdited || other.horizontalAccuracyEdited
+            horizontalAccuracyEdited: horizontalAccuracyEdited || other.horizontalAccuracyEdited,
+            pushesMarked: pushesMarked || other.pushesMarked
+        )
+    }
+
+    /// The update that follows a replayed create. The server holds what
+    /// the first attempt sent (`server`); edits made since then queued
+    /// nothing because the row had no backend id. The flags are derived
+    /// from what differs, so the PATCH carries a moved coordinate, the
+    /// star and values the user removed.
+    ///
+    /// Known gaps: a missing local suggestion counts as dismissed, also
+    /// when the backend created it after the first attempt; and the
+    /// adoption of the server state before the PATCH (pending/inherited
+    /// place) can still win over a height edited between the attempts;
+    /// and after a coordinate moved between the attempts the poll that
+    /// follows the create can fetch the features of the old point.
+    static func afterReplay(local: LocalSample, server: Sample, hasLocalFeatures: Bool) -> SampleUpdatePayload {
+        /// The server model reads a component of 0 as missing, so nil
+        /// and 0 are the same place here.
+        func differs(_ a: Double?, _ b: Double?) -> Bool {
+            abs((a ?? 0) - (b ?? 0)) > 1e-7
+        }
+        // The backend's DEM accuracy belongs to its DEM height. It is
+        // only kept while the device sends no height of its own.
+        let serverHoldsDEM = server.elevationSource == .backendService
+            && (local.elevation == nil || local.elevationSource == .backendService)
+        return SampleUpdatePayload(
+            // Replacing the server's features with an empty local set
+            // would delete what the backend added since the first
+            // attempt.
+            pushFeatures: hasLocalFeatures,
+            coordinateChanged: differs(local.latitude, server.latitude) || differs(local.longitude, server.longitude),
+            clearsSuggestion: local.placemarkSuggestion == nil && !(server.placemarkSuggestion ?? "").isEmpty,
+            elevationEdited: local.verticalAccuracy == nil && server.verticalAccuracy != nil && !serverHoldsDEM,
+            horizontalAccuracyEdited: local.horizontalAccuracy == nil && server.horizontalAccuracy != nil,
+            pushesMarked: local.marked != server.marked
         )
     }
 
@@ -651,17 +697,30 @@ final class SyncRunner: ObservableObject {
             }
             // Compared before merging, so server echo differences don't
             // count as local edits.
-            let editedDuringPost = Self.createInput(fresh, location: syncLocation(fresh)) != input
+            // A replay did not apply this request's body: the server
+            // holds what the first attempt sent, and whatever changed
+            // locally since then has to follow as an update too.
+            let editedDuringPost = created.isReplay
+                || Self.createInput(fresh, location: syncLocation(fresh)) != input
             // Place data the user (or the resolver) wrote during the
             // POST wins over the response; the queued update pushes it.
-            let keepLocalPlace = fresh.updatedAt != current.updatedAt
+            // A replay answers with the state of the first attempt:
+            // it never wins over the row as it is now.
+            let keepLocalPlace = created.isReplay
+                || fresh.updatedAt != current.updatedAt
                 || hasActiveQueuedMutation(localId, excluding: [mutation.id])
             fresh.backendId = created.id
             fresh.fieldtrip = created.fieldtrip
             // An empty server locality must not wipe a local one.
             fresh.locality = created.locality ?? fresh.locality
             fresh.version = created.version
-            Self.applyCodes(created, sentCode: input.code ?? fresh.sampleID, to: &fresh)
+            // On a replay the code to compare with is the one the first
+            // attempt sent (the server keeps it as original_code when it
+            // had to reassign): a code edited since then stays.
+            let sentCode = created.isReplay
+                ? created.originalCode ?? created.sampleID
+                : input.code ?? fresh.sampleID
+            Self.applyCodes(created, sentCode: sentCode, to: &fresh)
             if !keepLocalPlace {
                 fresh.mergeServerLocation(created, localPlacemarkID: localPlacemarkID)
             }
@@ -677,9 +736,15 @@ final class SyncRunner: ObservableObject {
             // because the row had no backend id) are not on the
             // server: push them as an update.
             if editedDuringPost {
+                let payload = created.isReplay
+                    ? SampleUpdatePayload.afterReplay(
+                        local: fresh, server: created,
+                        hasLocalFeatures: ((try? featureStore?.count(sampleID: localId)) ?? 0) > 0
+                    )
+                    : SampleUpdatePayload(pushFeatures: true)
                 _ = try? mutationsStore.enqueue(
                     entityType: .sample, entityId: localId, op: .update,
-                    payload: SampleUpdatePayload(pushFeatures: true).encoded
+                    payload: payload.encoded
                 )
             }
 
@@ -933,7 +998,8 @@ final class SyncRunner: ObservableObject {
             collectingDay: current.collectingDay,
             beginDate: current.beginDate,
             endDate: current.endDate,
-            isAllDay: current.isAllDay
+            isAllDay: current.isAllDay,
+            marked: payload.pushesMarked ? current.marked : nil
         )
 
         let updated = try await client.updateSample(id: backendID, input: input)
