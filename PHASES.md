@@ -1253,7 +1253,10 @@ Aus dem Gerätetest von PR 4 entstanden (nicht Teil der sechs PRs):
 Jede Probe mit Koordinate bekommt Wetter, Klima, Sonne und Mond zu ihrem Zeitpunkt vom Dienst Tempus. Die App holt die Daten, wenn sie online ist, sonst reichert das Backend an. Die eigene Astronomie-Berechnung entfällt am Ende.
 
 - [x] PR 7 – Backend: Felder am Sample, Tempus-Wrapper, Anreicherung, stündliches Nachziehen, Features quellenbezogen ersetzen (`feat/tempus-backend`)
-- [ ] PR 8 – App: Abfrage, lokale Speicherung, Sync, Bereich „Wetter und Klima“ mit Detailseite (`feat/tempus-ios`, nach Phase S)
+- [x] Tempus verlangt die Höhe: Backend fragt mit der Höhe der Probe und erst, wenn eine da ist (`fix/tempus-elevation`)
+- [ ] PR 8a – App: Abfrage auf dem Gerät, lokale Speicherung, Sync, Endpoint in den Einstellungen (`feat/tempus-ios-data`); Plan `docs/superpowers/plans/2026-11-21-tempus-ios.md`
+- [ ] PR 8b – App: Bereich „Wetter und Klima“ mit Detailseite (`feat/tempus-ios-view`, auf 8a)
+- [ ] Backfill-Schritt für Altproben ohne Höhe mit Ortsstatus `manual` oder `backend_service` (sie bekommen über `ortus-backfill` keine Höhe und damit kein Wetter)
 - [x] PR 9 – Backfill bestehender Proben (`feat/tempus-backfill`, auf PR 7): Kommando `tempus-backfill`, Plan `docs/superpowers/plans/2026-11-19-tempus-backfill.md`
 - [ ] PR 10 – Ablösung der eigenen Astronomie (`feat/astro-aus-tempus`, erst nach gelaufenem Backfill mergen)
 
