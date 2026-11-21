@@ -167,7 +167,7 @@ final class SampleLocationResolver {
             samples.refreshRetrospectiveCollectingDay(&sample)
         }
         try samples.update(sample)
-        try features.replace(sampleID: sampleID, features: result.features)
+        try features.replace(sampleID: sampleID, scope: .ortus, features: result.features)
         // A manual sample whose stale suggestion was dropped must clear
         // it on the server too (nil is never sent on its own).
         let clearsSuggestion = hadSuggestion && sample.placemarkSuggestion == nil

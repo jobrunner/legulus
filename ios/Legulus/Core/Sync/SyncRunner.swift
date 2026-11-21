@@ -739,7 +739,7 @@ final class SyncRunner: ObservableObject {
                 let payload = created.isReplay
                     ? SampleUpdatePayload.afterReplay(
                         local: fresh, server: created,
-                        hasLocalFeatures: ((try? featureStore?.count(sampleID: localId)) ?? 0) > 0
+                        hasLocalFeatures: ((try? featureStore?.count(sampleID: localId, scope: .ortus)) ?? 0) > 0
                     )
                     : SampleUpdatePayload(pushFeatures: true)
                 _ = try? mutationsStore.enqueue(
@@ -753,7 +753,7 @@ final class SyncRunner: ObservableObject {
             onSampleSynced(created.fieldtrip)
 
             // 4. Features (only when the device has some).
-            if let featureStore, ((try? featureStore.count(sampleID: localId)) ?? 0) > 0, !(await pushFeatures(
+            if let featureStore, ((try? featureStore.count(sampleID: localId, scope: .ortus)) ?? 0) > 0, !(await pushFeatures(
                 localID: localId,
                 backendID: created.id
             )) {
@@ -1191,8 +1191,8 @@ final class SyncRunner: ObservableObject {
         guard !endpoint.isEmpty else { return false }
         let client = featuresClientFactory(endpoint, authProvider())
         do {
-            let rows = try featureStore.all(sampleID: localID)
-            try await client.replaceFeatures(sampleBackendID: backendID, features: rows)
+            let rows = try featureStore.all(sampleID: localID, scope: .ortus)
+            try await client.replaceFeatures(sampleBackendID: backendID, scope: .ortus, features: rows)
             Log.sync.info("pushed \(rows.count, privacy: .public) features for sample \(backendID, privacy: .public)")
             return true
         } catch {

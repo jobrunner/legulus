@@ -65,7 +65,7 @@ struct SampleLocationHydration {
         var wanted: [String: String] = [:]
         for r in remote where r.locationStatus == .backendService {
             guard let local = try? samples.fetchByBackendID(r.id),
-                  (try? features.count(sampleID: local.id)) == 0
+                  (try? features.count(sampleID: local.id, scope: .ortus)) == 0
             else { continue }
             wanted[r.id] = local.id
         }
@@ -79,8 +79,8 @@ struct SampleLocationHydration {
                     guard let localID = wanted[backendID] else { continue }
                     // Re-check: the on-device resolver may have stored
                     // its own set while the request was in flight.
-                    guard (try? features.count(sampleID: localID)) == 0 else { continue }
-                    try features.replace(sampleID: localID, features: items.map(\.ortusFeature))
+                    guard (try? features.count(sampleID: localID, scope: .ortus)) == 0 else { continue }
+                    try features.replace(sampleID: localID, scope: .ortus, features: items.map(\.ortusFeature))
                 }
                 Log.sync.info("hydrated \(fetched.count, privacy: .public) sample features")
             } catch {
