@@ -776,10 +776,10 @@ final class LocalSampleStore {
         }
         guard queued.isEmpty else { return }
         if let backendID = sample.backendId, !backendID.isEmpty {
-            let featureCount = try database.reader.read { db in
-                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM local_sample_features WHERE sample_id = ?",
-                                 arguments: [id]) ?? 0
-            }
+            // Ortus rows only: `pushFeatures` replaces the server's
+            // Ortus set, and weather rows alone must not make that an
+            // empty one.
+            let featureCount = try LocalSampleFeatureStore(database: database).count(sampleID: id, scope: .ortus)
             let payload = SampleUpdatePayload(
                 pushFeatures: featureCount > 0,
                 clearsSuggestion: sample.placemarkSuggestion == nil
