@@ -277,7 +277,12 @@ struct SampleUpdatePayload: Codable, Equatable {
     /// nothing because the row had no backend id. The flags are derived
     /// from what differs, so the PATCH carries a moved coordinate, the
     /// star and values the user removed.
-    static func afterReplay(local: LocalSample, server: Sample) -> SampleUpdatePayload {
+    ///
+    /// Known gaps: a missing local suggestion counts as dismissed, also
+    /// when the backend created it after the first attempt; and the
+    /// adoption of the server state before the PATCH (pending/inherited
+    /// place) can still win over a height edited between the attempts.
+    static func afterReplay(local: LocalSample, server: Sample, hasLocalFeatures: Bool) -> SampleUpdatePayload {
         func differs(_ a: Double?, _ b: Double?) -> Bool {
             switch (a, b) {
             case (nil, nil): false
@@ -285,14 +290,18 @@ struct SampleUpdatePayload: Codable, Equatable {
             default: true
             }
         }
+        // The backend's DEM accuracy belongs to its DEM height. It is
+        // only kept while the device sends no height of its own.
+        let serverHoldsDEM = server.elevationSource == .backendService
+            && (local.elevation == nil || local.elevationSource == .backendService)
         return SampleUpdatePayload(
-            pushFeatures: true,
+            // Replacing the server's features with an empty local set
+            // would delete what the backend added since the first
+            // attempt.
+            pushFeatures: hasLocalFeatures,
             coordinateChanged: differs(local.latitude, server.latitude) || differs(local.longitude, server.longitude),
             clearsSuggestion: local.placemarkSuggestion == nil && !(server.placemarkSuggestion ?? "").isEmpty,
-            // A DEM accuracy the backend wrote meanwhile is not the
-            // user's to clear.
-            elevationEdited: local.verticalAccuracy == nil && server.verticalAccuracy != nil
-                && server.elevationSource != .backendService,
+            elevationEdited: local.verticalAccuracy == nil && server.verticalAccuracy != nil && !serverHoldsDEM,
             horizontalAccuracyEdited: local.horizontalAccuracy == nil && server.horizontalAccuracy != nil,
             pushesMarked: local.marked != server.marked
         )
@@ -728,7 +737,10 @@ final class SyncRunner: ObservableObject {
             // server: push them as an update.
             if editedDuringPost {
                 let payload = created.isReplay
-                    ? SampleUpdatePayload.afterReplay(local: fresh, server: created)
+                    ? SampleUpdatePayload.afterReplay(
+                        local: fresh, server: created,
+                        hasLocalFeatures: ((try? featureStore?.count(sampleID: localId)) ?? 0) > 0
+                    )
                     : SampleUpdatePayload(pushFeatures: true)
                 _ = try? mutationsStore.enqueue(
                     entityType: .sample, entityId: localId, op: .update,

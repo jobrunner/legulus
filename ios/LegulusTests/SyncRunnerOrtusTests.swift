@@ -299,14 +299,49 @@ final class SyncRunnerOrtusTests: XCTestCase {
     func testAfterReplayPayload_OnlyFlagsWhatDiffers() throws {
         let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
         let same = SampleUpdatePayload.afterReplay(
-            local: sample, server: remote(id: "backend-1", code: sample.sampleID)
+            local: sample, server: remote(id: "backend-1", code: sample.sampleID), hasLocalFeatures: false
         )
-        XCTAssertEqual(same, SampleUpdatePayload(pushFeatures: true))
+        XCTAssertEqual(same, SampleUpdatePayload())
 
         let moved = SampleUpdatePayload.afterReplay(
-            local: sample, server: remote(id: "backend-1", code: sample.sampleID, lat: 48.0)
+            local: sample, server: remote(id: "backend-1", code: sample.sampleID, lat: 48.0), hasLocalFeatures: false
         )
         XCTAssertTrue(moved.coordinateChanged)
+    }
+
+    /// Without a local feature set the follow-up must not replace the
+    /// server's: that would delete features the backend added after the
+    /// first attempt.
+    func testAfterReplayPayload_PushesFeaturesOnlyWhenTheDeviceHasSome() throws {
+        let sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let server = remote(id: "backend-1", code: sample.sampleID)
+        XCTAssertFalse(SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).pushFeatures)
+        XCTAssertTrue(SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: true).pushFeatures)
+    }
+
+    /// The backend wrote a DEM height with its accuracy after the first
+    /// attempt. A height the user entered by hand since then has no
+    /// accuracy: the DEM's must not stay attached to it. While the
+    /// device has no height of its own, the DEM accuracy is not the
+    /// user's to clear.
+    func testAfterReplayPayload_ManualHeightClearsTheDEMAccuracy() throws {
+        var sample = try store.createLocal(lat: 49.68, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        sample.elevation = nil
+        sample.elevationSource = nil
+        sample.verticalAccuracy = nil
+        let server = remote(
+            id: "backend-1", code: sample.sampleID,
+            elevation: 236, elevationSource: "backend_service", verticalAccuracy: 5
+        )
+        XCTAssertFalse(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).elevationEdited
+        )
+
+        sample.elevation = 120
+        sample.elevationSource = .manual
+        XCTAssertTrue(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).elevationEdited
+        )
     }
 
     func testCreate_NoReplay_QueuesNoUpdate() async throws {
