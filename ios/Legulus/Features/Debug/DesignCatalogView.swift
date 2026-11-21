@@ -66,6 +66,20 @@
                             }
                         }
                     }
+                    NavigationLink("ValuePairGrid") {
+                        CatalogPage {
+                            ValuePairGrid([
+                                LabeledValue(id: "h", label: "Luftfeuchte", value: "62 %",
+                                             spoken: "Luftfeuchte 62 Prozent"),
+                                LabeledValue(id: "d", label: "Taupunkt", value: "11,0 °C",
+                                             spoken: "Taupunkt 11,0 Grad Celsius"),
+                                LabeledValue(id: "w", label: "Wind", value: "9 km/h",
+                                             spoken: "Wind 9 Kilometer pro Stunde"),
+                                LabeledValue(id: "p", label: "Niederschlag", value: "0,0 mm",
+                                             spoken: "Niederschlag 0,0 Millimeter")
+                            ])
+                        }
+                    }
                     NavigationLink("SampleListRow") {
                         CatalogPage {
                             VStack(alignment: .leading, spacing: AppSpacing.md) {

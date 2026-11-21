@@ -351,7 +351,8 @@ WETTER UND KLIMA                                  vorläufig
 - Zustände: „Wird ermittelt …“ (`pending`), „Wartet auf die Höhe des
   Fundorts“ (`pending` ohne nutzbare Höhe), „Ohne Koordinate keine
   Wetterdaten“, „Noch keine Wetterdaten“ (leerer Status), „Keine Daten für
-  diesen Zeitpunkt“ (`final` ohne Wetterwerte), Kennzeichnung „vorläufig“
+  diesen Zeitpunkt“ (`final` ohne Wetterwerte), „Keine Wetterdaten für
+  diesen Tag“ (ganztägige Probe, `final` ohne Tageswerte), Kennzeichnung „vorläufig“
   (`provisional`). Vorhandene Teilwerte werden immer gezeigt.
 - Quellenangabe: die `attribution`-Texte der angezeigten Features, ohne
   Dopplungen, immer sichtbar, wenn Werte sichtbar sind.

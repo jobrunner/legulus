@@ -55,6 +55,11 @@ final class SampleFlowTests: XCTestCase {
 
         allowLocationIfAsked(timeout: 3)
 
+        // Der Bereich „Wetter und Klima“ steht in der Sample-Ansicht,
+        // hier im Wartezustand (die UI-Tests fragen Tempus nicht).
+        let weather = app.staticTexts.matching(NSPredicate(format: "label ==[c] 'Wetter und Klima'")).firstMatch
+        XCTAssertTrue(weather.waitForExistence(timeout: 5), "Bereich „Wetter und Klima“ fehlt")
+
         // Abräumen: eine neue Probe mit leerer ID lässt sich beim
         // Zurückgehen löschen. Steht schon ein Code im Feld, wird er
         // vorher geleert.

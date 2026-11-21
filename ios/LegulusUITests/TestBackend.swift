@@ -29,6 +29,9 @@ enum TestBackend {
             app.launchArguments += ["-UITestsSignInEmail", email, "-UITestsSignInPassword", password]
         }
         app.launchArguments += ["-AppConfig.endpointURL", endpoint]
+        // UI tests never ask the weather service: the sample view then
+        // shows its waiting state, and no test depends on the network.
+        app.launchArguments += ["-tempusEndpointURL", ""]
         app.launch()
         return app
     }

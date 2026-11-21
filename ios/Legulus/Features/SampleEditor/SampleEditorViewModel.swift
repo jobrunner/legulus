@@ -86,6 +86,7 @@ final class SampleEditorViewModel: ObservableObject {
     private let store: LocalSampleStore
     private let photoStore: LocalPhotoStore
     private let fieldtripStore: LocalFieldtripStore
+    private let featureStore: LocalSampleFeatureStore?
     private let mutationsStore: PendingMutationsStore
     private let sync: SyncRunner
     /// Local placemark cache for the place section. nil hides it.
@@ -97,11 +98,40 @@ final class SampleEditorViewModel: ObservableObject {
     private let now: () -> Date
     /// Observation of the saved row (`observeRow()`).
     private var rowObservation: Task<Void, Never>?
+    /// Follows the sample's fieldtrip: its night flag decides which
+    /// instant an all-day sample is asked for, and it can arrive after
+    /// the sample (the two are pulled independently).
+    private var fieldtripObservation: Task<Void, Never>?
     /// Ends the „locating“ state when `PendingFixService` gives up.
     private var fixDeadlineTask: Task<Void, Never>?
 
     /// Local id of the sample this editor works on.
     let sampleID: String
+
+    /// The stored weather features of the sample (Tempus), reloaded
+    /// with the row: values and features are written together.
+    @Published private(set) var conditionFeatures: [LocalSampleFeature] = []
+
+    private var isNightFieldtrip: Bool {
+        savedFieldtrip?.nightFieldtrip ?? false
+    }
+
+    /// What the area „Wetter und Klima“ shows; nil before the sample is
+    /// loaded.
+    var conditionsDisplay: ConditionsDisplay? {
+        savedSample.map { ConditionsDisplay(sample: $0, night: isNightFieldtrip, features: conditionFeatures) }
+    }
+
+    /// The detail page; nil when there is nothing to show on it.
+    var conditionsDetail: ConditionsDetailModel? {
+        guard let sample = savedSample else { return nil }
+        let model = ConditionsDetailModel(sample: sample, night: isNightFieldtrip, features: conditionFeatures)
+        return model.isEmpty ? nil : model
+    }
+
+    private func reloadConditionFeatures(for sample: LocalSample) {
+        conditionFeatures = (try? featureStore?.all(sampleID: sample.id, scope: .tempus)) ?? []
+    }
 
     init(
         sampleID: String,
@@ -113,6 +143,7 @@ final class SampleEditorViewModel: ObservableObject {
         mutationsStore: PendingMutationsStore,
         sync: SyncRunner,
         placemarkStore: LocalPlacemarkStore? = nil,
+        featureStore: LocalSampleFeatureStore? = nil,
         pendingFixes: PendingFixService? = nil,
         now: @escaping () -> Date = Date.init
     ) {
@@ -123,6 +154,7 @@ final class SampleEditorViewModel: ObservableObject {
         self.mutationsStore = mutationsStore
         self.sync = sync
         self.placemarkStore = placemarkStore
+        self.featureStore = featureStore
         self.pendingFixes = pendingFixes
         self.now = now
         self.isNew = isNew
@@ -139,6 +171,7 @@ final class SampleEditorViewModel: ObservableObject {
 
     deinit {
         rowObservation?.cancel()
+        fieldtripObservation?.cancel()
         fixDeadlineTask?.cancel()
     }
 
@@ -457,6 +490,8 @@ final class SampleEditorViewModel: ObservableObject {
         endPendingFix()
         rowObservation?.cancel()
         rowObservation = nil
+        fieldtripObservation?.cancel()
+        fieldtripObservation = nil
         finished = true
         sync.kick()
         return true
@@ -682,6 +717,7 @@ final class SampleEditorViewModel: ObservableObject {
         accuracyM = fresh.horizontalAccuracy
         altitudeM = fresh.elevation
         loadPlacemarks(for: fresh)
+        reloadConditionFeatures(for: fresh)
     }
 
     private func adoptExisting(_ sample: LocalSample) {
@@ -709,6 +745,7 @@ final class SampleEditorViewModel: ObservableObject {
         }
         codeValidationError = nil
         loadPlacemarks(for: sample)
+        reloadConditionFeatures(for: sample)
     }
 
     /// Observes the saved row so the bottom section follows the sync
@@ -725,5 +762,22 @@ final class SampleEditorViewModel: ObservableObject {
                 if row != self.savedSample { self.applyBackgroundRow(row) }
             }
         }
+        let fieldtrips = fieldtripStore.observeAll()
+        fieldtripObservation = Task { [weak self] in
+            for await all in fieldtrips {
+                if Task.isCancelled { return }
+                guard let self else { return }
+                self.adoptFieldtrip(from: all)
+            }
+        }
+    }
+
+    /// Takes over the sample's fieldtrip when it arrived or changed.
+    /// Internal for tests.
+    func adoptFieldtrip(from all: [LocalFieldtrip]) {
+        guard let id = savedSample?.fieldtrip, !id.isEmpty,
+              let fresh = all.first(where: { $0.id == id }), fresh != savedFieldtrip
+        else { return }
+        savedFieldtrip = fresh
     }
 }

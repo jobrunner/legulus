@@ -1,4 +1,5 @@
 @testable import Legulus
+import LegulusGeo
 import XCTest
 
 /// Edit-Verhalten des `SampleEditorViewModel`: Dirty-Tracking,
@@ -354,6 +355,46 @@ final class SampleEditorEditTests: XCTestCase {
         XCTAssertEqual(TimeZoneCatalog.regions(ids), ["America", "Atlantic", "Europe", "Sonstige"])
         XCTAssertEqual(TimeZoneCatalog.zones(in: "Europe", ids), ["Europe/Athens", "Europe/Berlin"])
         XCTAssertEqual(TimeZoneCatalog.displayName("America/Argentina/Buenos_Aires"), "Argentina/Buenos Aires")
+    }
+
+    // MARK: - weather area
+
+    /// An all-day sample of a night fieldtrip is asked for 22:00. When
+    /// the fieldtrip arrives after the sample (they are pulled
+    /// independently), the editor must take its night flag over —
+    /// otherwise values queried for 22:00 look as if they did not fit,
+    /// and the area stays at „Wird ermittelt …“.
+    func testConditions_FollowTheFieldtripsNightFlagWhenItArrivesLater() throws {
+        var sample = try samples.createLocal(
+            lat: 49.68,
+            lon: 10.04,
+            elevation: 250,
+            collectedFrom: Date(timeIntervalSince1970: 1_779_192_000)
+        )
+        sample.isAllDay = true
+        sample.timezone = "Europe/Berlin"
+        sample.fieldtrip = "ft-night"
+        let request = try XCTUnwrap(ConditionsRequest(sample, night: true))
+        var conditions = SampleConditions(status: .final)
+        conditions.queriedFor = request.instant
+        conditions.fetchedAt = request.instant.addingTimeInterval(40 * 86400)
+        conditions.featuresFetchedAt = conditions.fetchedAt
+        conditions.inputs = request.inputs
+        conditions.texts["moon_phase"] = "Neumond"
+        sample.conditions = conditions
+        try samples.update(sample)
+
+        let vm = makeVM(sampleID: sample.id)
+        XCTAssertEqual(vm.conditionsDisplay?.state, .pending, "the fieldtrip is not here yet: 14:00 is assumed")
+
+        vm.adoptFieldtrip(from: [LocalFieldtrip(
+            id: "ft-night", title: "Nacht", collectingDay: "2026-05-19", nightFieldtrip: true,
+            beginDate: nil, endDate: nil, centroidLat: nil, centroidLon: nil, astroJson: nil, locality: nil,
+            suggestedLocality: nil, dayOfYear: nil, permitNumber: nil, permitPDFFile: nil, notes: "",
+            version: 1, backendUpdatedAt: Date()
+        )])
+        XCTAssertEqual(vm.conditionsDisplay?.state, .values)
+        XCTAssertEqual(vm.conditionsDisplay?.sky.first?.value, "Neumond")
     }
 
     private func makeVM(sampleID: String) -> SampleEditorViewModel {

@@ -52,6 +52,7 @@ struct SampleEditorView: View {
             mutationsStore: container.mutations,
             sync: container.sync,
             placemarkStore: container.placemarksStore,
+            featureStore: container.sampleFeatures,
             pendingFixes: container.pendingFixes
         )
     }
@@ -92,6 +93,7 @@ private struct SampleEditorContent: View {
         mutationsStore: PendingMutationsStore,
         sync: SyncRunner,
         placemarkStore: LocalPlacemarkStore,
+        featureStore: LocalSampleFeatureStore,
         pendingFixes: PendingFixService
     ) {
         _viewModel = StateObject(wrappedValue: SampleEditorViewModel(
@@ -104,6 +106,7 @@ private struct SampleEditorContent: View {
             mutationsStore: mutationsStore,
             sync: sync,
             placemarkStore: placemarkStore,
+            featureStore: featureStore,
             pendingFixes: pendingFixes
         ))
     }
@@ -139,6 +142,9 @@ private struct SampleEditorContent: View {
                 editableSection
                 Divider()
                 locationTimeSection
+                if let conditions = viewModel.conditionsDisplay {
+                    ConditionsSection(display: conditions, detail: viewModel.conditionsDetail)
+                }
                 // Karte bewusst edge-to-edge — negiert die
                 // contentMargins via gleichgroße negative padding.
                 MapSnippetView(coordinate: viewModel.coordinate)
@@ -774,23 +780,6 @@ private struct SampleEditorContent: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                if let sunrise = sunriseText, let sunset = sunsetText {
-                    // Wrap sunrise/sunset into a second row when the
-                    // first one wouldn't fit horizontally (AX5 +
-                    // narrow device).
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: AppSpacing.lg) {
-                            Label(sunrise, systemImage: "sunrise.fill")
-                            Label(sunset, systemImage: "sunset.fill")
-                        }
-                        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                            Label(sunrise, systemImage: "sunrise.fill")
-                            Label(sunset, systemImage: "sunset.fill")
-                        }
-                    }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
             }
             Spacer(minLength: AppSpacing.sm)
         }
@@ -853,14 +842,6 @@ private struct SampleEditorContent: View {
         return "—"
     }
 
-    private var timeFormatter: DateFormatter {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.timeZone = viewModel.isExistingSample ? viewModel.timeZone : .current
-        f.dateFormat = "HH:mm"
-        return f
-    }
-
     private var longDateParts: (weekday: String, date: String) {
         // Existing sample: the sample's zone; a new one reads the
         // device zone (that is the zone it will be created in).
@@ -889,16 +870,6 @@ private struct SampleEditorContent: View {
         return SampleTime.timezoneLabel(viewModel.timeZone, at: viewModel.beginDate)
     }
 
-    private var sunriseText: String? {
-        guard let t = viewModel.savedFieldtrip?.astro?.sunrise else { return nil }
-        return timeFormatter.string(from: t)
-    }
-
-    private var sunsetText: String? {
-        guard let t = viewModel.savedFieldtrip?.astro?.sunset else { return nil }
-        return timeFormatter.string(from: t)
-    }
-
     // MARK: - A11y labels
 
     private func coordinateA11yLabel(_ display: (text: String, caption: String)) -> String {
@@ -921,8 +892,6 @@ private struct SampleEditorContent: View {
         var parts = [longDateText]
         if let window = timeWindowText { parts.append(window) }
         if let zone = timezoneLabelText { parts.append(zone) }
-        if let sunrise = sunriseText { parts.append("Sonnenaufgang " + sunrise) }
-        if let sunset = sunsetText { parts.append("Sonnenuntergang " + sunset) }
         return parts.joined(separator: ", ")
     }
 }
