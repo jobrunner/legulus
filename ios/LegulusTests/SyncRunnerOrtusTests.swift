@@ -1240,7 +1240,7 @@ final class SyncRunnerOrtusTests: XCTestCase {
         let sample = try seedResolvedSample()
         let push = MockPush(log: log)
         push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
-                                     placemark: "pmbackend00001")
+                                     placemark: "pmbackend00001", extra: ["conditions_status": "pending"])
         let pm = MockPlacemarks(log: log)
         pm.resolveResponse = remotePlacemark(id: "pmbackend00001")
         pm.duringResolve = { [store] in
@@ -1254,6 +1254,14 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertEqual(tempus.queries.map(\.elevationMetres), [250], "asked before the edit")
         XCTAssertEqual(push.lastCreate?.location.elevation, 800)
         XCTAssertNil(push.lastCreate?.conditions, "weather for 250 m must not travel with 800 m")
+        // The values for 250 m are undeliverable now: they must not keep
+        // the server's state out. The edit is in the POST already, so no
+        // later update would clear them.
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertEqual(stored.status, .pending, "the server's state is taken over")
+        XCTAssertFalse(stored.needsPush)
+        // Releasing them is no edit of the sample: nothing more to send.
+        XCTAssertTrue(try mutations.fetch(entityType: .sample).filter { $0.op == .update }.isEmpty)
     }
 
     /// The account is left while Tempus answers: the runner stops
@@ -1347,6 +1355,31 @@ final class SyncRunnerOrtusTests: XCTestCase {
         let left = try mutations.fetch(entityType: .sample).filter { $0.op == .update }
         XCTAssertEqual(left.map { SampleUpdatePayload.decode($0.payloadJson) },
                        [SampleUpdatePayload(pushConditionFeatures: true)])
+    }
+
+    /// The device fetched values itself, then the height changed before
+    /// they went out. Those values can never be delivered any more. If
+    /// they kept blocking, the device would never take the server's
+    /// values (nor fetch their features) while it cannot reach Tempus
+    /// itself, and the area would stay at „Wird ermittelt …“.
+    func testCreate_UndeliverableOwnValuesGiveWayToTheServer() async throws {
+        let sample = try sampleWithHeight()
+        let fetched = await conditionsResolver(StubTempus()).resolve(sampleID: sample.id)
+        XCTAssertTrue(fetched)
+        var moved = try XCTUnwrap(store.fetchById(sample.id))
+        moved.elevation = 800
+        try store.update(moved)
+
+        let push = MockPush(log: log)
+        push.createResponse = remote(id: "backend-1", code: sample.sampleID, status: "backend_service",
+                                     extra: ["conditions_status": "pending"])
+        await runUntilQuiescent(makeRunner(push: push, tempus: StubTempus(.failure(URLError(.timedOut)))))
+
+        XCTAssertNil(push.lastCreate?.conditions, "values for 250 m do not travel with 800 m")
+        let stored = try XCTUnwrap(store.fetchById(sample.id)?.conditions)
+        XCTAssertEqual(stored.status, .pending, "the server's state is taken over")
+        XCTAssertFalse(stored.needsPush)
+        XCTAssertTrue(stored.fields.isEmpty)
     }
 
     /// Without a height (or with Tempus switched off) nothing is asked

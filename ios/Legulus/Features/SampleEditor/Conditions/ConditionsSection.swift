@@ -9,6 +9,10 @@ struct ConditionsSection: View {
     /// nil hides the link (nothing to show there).
     let detail: ConditionsDetailModel?
 
+    /// Apple HIG tap target. Padding alone falls short of it at the
+    /// small text sizes.
+    private let minTapTarget: CGFloat = 44
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             header
@@ -87,7 +91,7 @@ struct ConditionsSection: View {
             NavigationLink {
                 ConditionsDetailView(model: detail)
             } label: {
-                // The padding makes the row a full tap target.
+                // Full width and at least 44 pt high at every text size.
                 HStack {
                     Text("Details")
                     Spacer(minLength: AppSpacing.sm)
@@ -96,6 +100,7 @@ struct ConditionsSection: View {
                 }
                 .font(AppFont.body)
                 .padding(.vertical, AppSpacing.md)
+                .frame(minHeight: minTapTarget)
                 .contentShape(Rectangle())
             }
             .accessibilityHint("Zeigt alle Wetter-, Klima- und Astronomiewerte")

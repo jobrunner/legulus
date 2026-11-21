@@ -713,6 +713,7 @@ final class SyncRunner: ObservableObject {
                 return
             }
             let (current, location) = pushed
+            releaseUndeliverableConditions(localID: localId)
             // Chosen from the row the request is built from: an edit
             // during the awaits above must not pair new inputs with the
             // old weather.
@@ -1060,6 +1061,7 @@ final class SyncRunner: ObservableObject {
         // checks the account before it reads this result.
         guard isCurrent(account), let pushed = try await pushLocation(forLocalID: localID) else { return nil }
         let (current, pushedLocation) = pushed
+        releaseUndeliverableConditions(localID: localID)
         // From the row the request is built from (see the create path).
         let conditions = deliverableConditions(of: current)
         var location = pushedLocation
@@ -1345,20 +1347,29 @@ final class SyncRunner: ObservableObject {
     /// values that fit. Never fails the push.
     private func resolveConditions(localID: String) async {
         guard let resolver = conditionsResolver?() else { return }
-        if let until = tempusPausedUntil, now() < until { return }
-        let account = accountID()
-        let wrote = await resolver.resolve(sampleID: localID) { [weak self] in
-            self?.isCurrent(account) ?? false
+        let paused = tempusPausedUntil.map { now() < $0 } ?? false
+        if !paused {
+            let account = accountID()
+            let wrote = await resolver.resolve(sampleID: localID) { [weak self] in
+                self?.isCurrent(account) ?? false
+            }
+            // Left the account meanwhile: nothing was written, and the
+            // outcome says nothing about Tempus.
+            guard isCurrent(account) else { return }
+            if !wrote, let row = try? store.fetchById(localID),
+               resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
+            {
+                // Asked and got nothing.
+                tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
+            }
         }
-        // Left the account meanwhile: nothing was written, and the
-        // outcome says nothing about Tempus.
-        guard isCurrent(account) else { return }
-        if !wrote, let row = try? store.fetchById(localID),
-           resolver.request(for: row) != nil, resolver.validConditions(for: row) == nil
-        {
-            // Asked and got nothing.
-            tempusPausedUntil = now().addingTimeInterval(Self.tempusPause)
-        }
+    }
+
+    /// Own values that no longer fit the sample must not keep the
+    /// server's out. Called after the last await before a request is
+    /// built: an edit during the placemark resolution counts too.
+    private func releaseUndeliverableConditions(localID: String) {
+        conditionsResolver?()?.releaseUndeliverable(sampleID: localID)
     }
 
     /// The values a push of `row` has to carry: the ones the device
