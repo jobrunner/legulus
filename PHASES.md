@@ -1243,7 +1243,7 @@ Aus dem Gerätetest von PR 4 entstanden (nicht Teil der sechs PRs):
 - [x] Lokale Daten pro Konto statt einer Datenbank für alle (`fix/local-data-per-account`); Design `docs/superpowers/specs/2026-11-20-lokale-daten-pro-konto-design.md`
 - [x] Idempotente Proben-Anlage im Backend: gleiche `client_uuid` antwortet mit der vorhandenen Probe, eindeutiger Index auf Besitzer und `client_uuid` (`fix/sample-create-idempotent`)
 - [x] App wertet den Antwort-Header `Idempotent-Replayed` aus und schickt zwischenzeitliche Änderungen als Update nach
-  - Bekannte Lücken (alle nur bei Änderung zwischen Timeout und Wiederholung und gleichzeitiger Anreicherung durch das Backend): Ein lokal fehlender Ortsvorschlag gilt als verworfen und löscht einen inzwischen vom Backend erzeugten; der Abgleich vor dem PATCH kann eine von Hand geänderte Höhe mit dem Stand des ersten Versuchs überschreiben.
+  - Bekannte Lücken (alle nur bei Änderung zwischen Timeout und Wiederholung und gleichzeitiger Anreicherung durch das Backend): Ein lokal fehlender Ortsvorschlag gilt als verworfen und löscht einen inzwischen vom Backend erzeugten; der Abgleich vor dem PATCH kann eine von Hand geänderte Höhe mit dem Stand des ersten Versuchs überschreiben. Wurde die Koordinate zwischen den Versuchen verschoben, kann der Abruf nach der Anlage die Features des alten Punkts holen.
 - [ ] Lokaler Export und Import der Gerätedaten, auch abgemeldet (eigenes Design)
 
 ## Phase T – Wetter, Klima und Astronomie über Tempus

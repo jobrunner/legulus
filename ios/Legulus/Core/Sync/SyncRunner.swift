@@ -281,14 +281,14 @@ struct SampleUpdatePayload: Codable, Equatable {
     /// Known gaps: a missing local suggestion counts as dismissed, also
     /// when the backend created it after the first attempt; and the
     /// adoption of the server state before the PATCH (pending/inherited
-    /// place) can still win over a height edited between the attempts.
+    /// place) can still win over a height edited between the attempts;
+    /// and after a coordinate moved between the attempts the poll that
+    /// follows the create can fetch the features of the old point.
     static func afterReplay(local: LocalSample, server: Sample, hasLocalFeatures: Bool) -> SampleUpdatePayload {
+        // The server model reads a component of 0 as missing, so nil
+        // and 0 are the same place here.
         func differs(_ a: Double?, _ b: Double?) -> Bool {
-            switch (a, b) {
-            case (nil, nil): false
-            case let (a?, b?): abs(a - b) > 1e-7
-            default: true
-            }
+            abs((a ?? 0) - (b ?? 0)) > 1e-7
         }
         // The backend's DEM accuracy belongs to its DEM height. It is
         // only kept while the device sends no height of its own.

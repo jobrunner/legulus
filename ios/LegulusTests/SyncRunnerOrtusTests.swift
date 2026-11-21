@@ -309,6 +309,18 @@ final class SyncRunnerOrtusTests: XCTestCase {
         XCTAssertTrue(moved.coordinateChanged)
     }
 
+    /// The server model reads a coordinate component of 0 as missing.
+    /// A point on the equator or the prime meridian has not moved for
+    /// that reason.
+    func testAfterReplayPayload_ZeroCoordinateIsNotAMove() throws {
+        let sample = try store.createLocal(lat: 0, lon: 10.04, collectedFrom: date(2026, 5, 19, 14))
+        let server = remote(id: "backend-1", code: sample.sampleID, lat: 0)
+        XCTAssertNil(server.latitude, "Vorbedingung: 0 wird als fehlend gelesen")
+        XCTAssertFalse(
+            SampleUpdatePayload.afterReplay(local: sample, server: server, hasLocalFeatures: false).coordinateChanged
+        )
+    }
+
     /// Without a local feature set the follow-up must not replace the
     /// server's: that would delete features the backend added after the
     /// first attempt.
