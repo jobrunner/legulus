@@ -87,12 +87,12 @@ final class ConditionsDisplayTests: XCTestCase {
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.state, .values)
         XCTAssertFalse(d.isProvisional)
-        XCTAssertEqual(d.temperature, "0,0 °C", "0 °C is a value and is shown")
+        XCTAssertEqual(d.temperature, "0,0\u{00A0}°C", "0 °C is a value and is shown")
         XCTAssertEqual(d.temperatureSpoken, "0,0 Grad Celsius")
         XCTAssertEqual(d.weatherSymbol, "cloud.rain")
         XCTAssertEqual(d.weatherTitle, "Regen", "fallback text: the trimmed fixture has no description")
         XCTAssertEqual(d.hourly.map(\.label), ["Luftfeuchte", "Wind"], "what Tempus did not deliver is not listed")
-        XCTAssertEqual(d.hourly.map(\.value), ["85 %", "7 km/h"])
+        XCTAssertEqual(d.hourly.map(\.value), ["85\u{00A0}%", "7\u{00A0}km/h"])
         XCTAssertEqual(d.hourly.first?.spoken, "Luftfeuchte 85 Prozent")
         XCTAssertNil(d.note)
     }
@@ -103,7 +103,7 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(base)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         // 03:27Z and 19:02Z; the Canaries are at UTC+1 in May.
-        XCTAssertEqual(d.sky.map(\.value), ["Neumond, 5 %", "04:27", "20:02"])
+        XCTAssertEqual(d.sky.map(\.value), ["Neumond, 5\u{00A0}%", "04:27", "20:02"])
         XCTAssertEqual(d.sky.last?.spoken, "Sonnenuntergang 20:02 Uhr")
     }
 
@@ -160,10 +160,16 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(sample(), json: rich)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Leichter Regen", "the text comes from the feature")
-        XCTAssertEqual(d.temperature, "16,0 °C")
-        XCTAssertEqual(d.hourly.map(\.value), ["13,5 °C"])
-        XCTAssertEqual(d.daily.map(\.label), ["Niederschlag 24 h", "Niederschlag 72 h", "Niederschlag 120 h", "Tag", "Tagesmittel"])
-        XCTAssertEqual(d.daily.map(\.value), ["34,0 mm", "62,5 mm", "62,7 mm", "14,2 – 18,5 °C", "17,3 °C"])
+        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C")
+        XCTAssertEqual(d.hourly.map(\.value), ["13,5\u{00A0}°C"])
+        XCTAssertEqual(
+            d.daily.map(\.label),
+            ["Niederschlag 24\u{00A0}h", "Niederschlag 72\u{00A0}h", "Niederschlag 120\u{00A0}h", "Tag", "Tagesmittel"]
+        )
+        XCTAssertEqual(
+            d.daily.map(\.value),
+            ["34,0\u{00A0}mm", "62,5\u{00A0}mm", "62,7\u{00A0}mm", "14,2 – 18,5\u{00A0}°C", "17,3\u{00A0}°C"]
+        )
         XCTAssertEqual(d.daily[3].spoken, "Tagestemperatur 14,2 bis 18,5 Grad Celsius")
         XCTAssertEqual(d.climate?.value, "Dfb · submontan-kollin")
         XCTAssertEqual(d.climate?.spoken, "Köppen-Klima Dfb, Höhenstufe submontan-kollin")

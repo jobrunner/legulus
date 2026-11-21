@@ -22,14 +22,9 @@ struct ConditionsDisplay: Equatable {
         case values
     }
 
-    /// One labelled value. `spoken` is the VoiceOver text with the unit
+    /// One labelled value; `spoken` is the VoiceOver text with the unit
     /// written out.
-    struct Pair: Equatable, Identifiable {
-        let id: String
-        let label: String
-        let value: String
-        let spoken: String
-    }
+    typealias Pair = LabeledValue
 
     var state: State
     /// The answer will be replaced (forecast data, or a provider was
@@ -59,6 +54,10 @@ struct ConditionsDisplay: Equatable {
 
     static let locale = Locale(identifier: "de_DE")
 
+    /// No-break space between a number and its unit, so a value never
+    /// wraps between the two („34,0 mm“).
+    static let nbsp = "\u{00A0}"
+
     init(state: State) {
         self.state = state
     }
@@ -87,7 +86,7 @@ struct ConditionsDisplay: Equatable {
         self.init(state: .values)
         isProvisional = conditions.status == .provisional
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
-        var shownKinds: Set<String> = ["sun", "moon", "aggregate", "bioclim"]
+        var shownKinds: Set = ["sun", "moon", "aggregate", "bioclim"]
 
         if !sample.isAllDay {
             shownKinds.formUnion(["weather", "dewpoint"])
@@ -115,7 +114,7 @@ struct ConditionsDisplay: Equatable {
             weatherTitle = Self.weatherDescription(in: features) ?? Self.title(wmoCode: Int(code))
         }
         if let t = c.number("weather_temperature_c") {
-            temperature = Self.number(t, digits: 1) + " °C"
+            temperature = Self.number(t, digits: 1) + Self.nbsp + "°C"
             temperatureSpoken = Self.number(t, digits: 1) + " Grad Celsius"
         }
         add(&hourly, "humidity", "Luftfeuchte", c.number("weather_humidity_pct"), digits: 0, unit: "%", spokenUnit: "Prozent")
@@ -129,13 +128,13 @@ struct ConditionsDisplay: Equatable {
 
     private mutating func fillDaily(_ c: SampleConditions) {
         for (hours, field) in [(24, "precipitation_24h_mm"), (72, "precipitation_72h_mm"), (120, "precipitation_120h_mm")] {
-            add(&daily, "precipitation\(hours)", "Niederschlag \(hours) h", c.number(field), digits: 1, unit: "mm",
+            add(&daily, "precipitation\(hours)", "Niederschlag \(hours)\(Self.nbsp)h", c.number(field), digits: 1, unit: "mm",
                 spokenUnit: "Millimeter", spokenLabel: "Niederschlag der letzten \(hours) Stunden")
         }
         if let min = c.number("day_temperature_min_c"), let max = c.number("day_temperature_max_c") {
             let range = Self.number(min, digits: 1) + " – " + Self.number(max, digits: 1)
             daily.append(Pair(
-                id: "dayRange", label: "Tag", value: range + " °C",
+                id: "dayRange", label: "Tag", value: range + Self.nbsp + "°C",
                 spoken: "Tagestemperatur \(Self.number(min, digits: 1)) bis \(Self.number(max, digits: 1)) Grad Celsius"
             ))
         }
@@ -148,7 +147,7 @@ struct ConditionsDisplay: Equatable {
             var value = phase
             var spoken = "Mond: \(phase)"
             if let pct = c.number("moon_illumination_pct") {
-                value += ", " + Self.number(pct, digits: 0) + " %"
+                value += ", " + Self.number(pct, digits: 0) + Self.nbsp + "%"
                 spoken += ", \(Self.number(pct, digits: 0)) Prozent beleuchtet"
             }
             sky.append(Pair(id: "moon", label: "Mond", value: value, spoken: spoken))
@@ -179,7 +178,7 @@ struct ConditionsDisplay: Equatable {
         guard let value else { return }
         let text = Self.number(value, digits: digits)
         pairs.append(Pair(
-            id: id, label: label, value: text + " " + unit,
+            id: id, label: label, value: text + Self.nbsp + unit,
             spoken: "\(spokenLabel ?? label) \(text) \(spokenUnit)"
         ))
     }
