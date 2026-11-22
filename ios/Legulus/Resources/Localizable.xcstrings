@@ -2,16 +2,48 @@
   "sourceLanguage" : "de",
   "strings" : {
     "angenehm" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "angenehm"
+          }
+        }
+      }
     },
     "drückend" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "drückend"
+          }
+        }
+      }
     },
     "feucht" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "feucht"
+          }
+        }
+      }
     },
     "frische Brise" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "frische Brise"
+          }
+        }
+      }
     },
     "– (leer lassen)" : {
       "extractionState" : "manual",
@@ -58,52 +90,172 @@
       }
     },
     "leicht feucht" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leicht feucht"
+          }
+        }
+      }
     },
     "leichte Brise" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leichte Brise"
+          }
+        }
+      }
     },
     "leiser Zug" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leiser Zug"
+          }
+        }
+      }
     },
     "%@ m" : {
 
     },
     "mäßige Brise" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mäßige Brise"
+          }
+        }
+      }
     },
     "Orkan" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orkan"
+          }
+        }
+      }
     },
     "orkanartiger Sturm" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "orkanartiger Sturm"
+          }
+        }
+      }
     },
     "schwache Brise" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwache Brise"
+          }
+        }
+      }
     },
     "schwerer Sturm" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwerer Sturm"
+          }
+        }
+      }
     },
     "schwül" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwül"
+          }
+        }
+      }
     },
     "sehr schwül" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sehr schwül"
+          }
+        }
+      }
     },
     "starker Wind" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "starker Wind"
+          }
+        }
+      }
     },
     "steifer Wind" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "steifer Wind"
+          }
+        }
+      }
     },
     "Sturm" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sturm"
+          }
+        }
+      }
     },
     "stürmischer Wind" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "stürmischer Wind"
+          }
+        }
+      }
     },
     "trocken" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "trocken"
+          }
+        }
+      }
     },
     "%@ von %@ gefiltert" : {
       "localizations" : {
@@ -1024,7 +1176,15 @@
 
     },
     "Windstille" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Windstille"
+          }
+        }
+      }
     },
     "Wird auf Locality-Etiketten ausgegeben, wenn gesetzt." : {
 
