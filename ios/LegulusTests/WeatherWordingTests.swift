@@ -16,6 +16,11 @@ final class WeatherWordingTests: XCTestCase {
         XCTAssertEqual(WeatherWording.beaufort(kmh: 19.7), "schwache Brise")
     }
 
+    /// 28,5 m/s = 102,6 km/h; 102.6 / 3.6 is 28.4999… in floating point.
+    func testBeaufort_BoundSurvivesFloatingPoint() {
+        XCTAssertEqual(WeatherWording.beaufort(kmh: 102.6), "orkanartiger Sturm")
+    }
+
     func testBeaufort_Hurricane() {
         XCTAssertEqual(WeatherWording.beaufort(kmh: 130), "Orkan")
     }

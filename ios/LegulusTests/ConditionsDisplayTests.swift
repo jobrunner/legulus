@@ -279,6 +279,13 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.summary.first?.spoken, "Luftfeuchte schwül, 85 Prozent")
     }
 
+    /// The force fits the km/h shown: 19,6 km/h reads as 20 km/h, and
+    /// 20 km/h is force 4.
+    func testPartial_WindForceFromShownSpeed() throws {
+        let d = try partial(#"{"properties": {"kind": "weather", "windSpeed10m": 19.6}, \#(license)}"#)
+        XCTAssertEqual(d.summary.first?.value, "mäßige Brise (20\u{00A0}km/h)")
+    }
+
     func testPartial_FullMoonSymbol() throws {
         let d = try partial(#"{"properties": {"kind": "moon", "phase": {"de": "Vollmond"}, "illuminationPct": 99.6}, \#(license)}"#)
         XCTAssertEqual(d.moonSymbol, "moonphase.full.moon")

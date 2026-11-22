@@ -186,7 +186,8 @@ struct ConditionsDisplay: Equatable {
         }
         let before = summary.count
         if let wind = c.number("weather_wind_speed_kmh") {
-            let force = WeatherWording.beaufort(kmh: wind)
+            // The force of the speed as shown, so word and number agree.
+            let force = WeatherWording.beaufort(kmh: wind.rounded())
             let speed = Self.number(wind, digits: 0)
             summary.append(Pair(
                 id: "wind", label: "Wind", value: "\(force) (\(speed)\(Self.nbsp)km/h)",

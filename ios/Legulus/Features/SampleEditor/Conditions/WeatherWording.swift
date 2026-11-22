@@ -27,7 +27,9 @@ enum WeatherWording {
     /// „leichte Brise“ for 8 km/h.
     static func beaufort(kmh: Double) -> String {
         let ms = kmh / 3.6
-        let force = beaufortBoundsMS.count(where: { ms >= $0 })
+        // 102.6 / 3.6 comes out a hair below 28.5: a value on a bound
+        // must not slip a force down through floating point.
+        let force = beaufortBoundsMS.count(where: { ms >= $0 - 1e-9 })
         return beaufortNames[force]
     }
 
