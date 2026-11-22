@@ -122,12 +122,10 @@ private struct SampleEditorContent: View {
         AppSpacing.lg
     }
 
-    /// `TextEditor` bringt einen eigenen ~5pt Text-Container-Inset mit,
-    /// den `TextField` nicht hat — ohne Korrektur steht der Notizen-Text
-    /// sichtbar weiter rechts als alle anderen Felder in der Section.
-    /// Kein AppSpacing-Wert (System-Quirk, keine Rhythmus-Entscheidung),
-    /// deshalb hier als benannte Konstante statt Magic-Number inline.
-    private let notesTextContainerCorrection: CGFloat = -5
+    /// Lines the notes field shows while empty; it grows from there
+    /// without an upper bound. Counted in lines, so it scales with
+    /// Dynamic Type.
+    private let notesMinLines = 4
 
     /// Mindestgröße eines Tap-Targets (Apple HIG).
     private let minTapTarget: CGFloat = 44
@@ -164,6 +162,10 @@ private struct SampleEditorContent: View {
         // unsere einzige Stellschraube auf der ScrollView-Ebene.
         .contentMargins(.leading, leadingMargin, for: .scrollContent)
         .contentMargins(.trailing, trailingMargin, for: .scrollContent)
+        // Dragging the content down past the keyboard closes it: the
+        // iPhone keyboard has no dismiss key and Return adds a line in
+        // the notes.
+        .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemBackground))
         .navigationTitle(viewModel.isExistingSample && !viewModel.isNew ? "Probe" : "Neue Probe")
         .navigationBarTitleDisplayMode(.inline)
@@ -345,9 +347,12 @@ private struct SampleEditorContent: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .accessibilityAddTraits(.isHeader)
-                TextEditor(text: $viewModel.notes)
-                    .padding(.leading, notesTextContainerCorrection)
-                    .frame(minHeight: 100, maxHeight: 220)
+                // Vertical TextField without an upper line limit: grows
+                // with the text and never scrolls itself, so the outer
+                // ScrollView stays the only scroll area (a TextEditor
+                // with maxHeight nested a second scroll view in it).
+                TextField("optional", text: $viewModel.notes, axis: .vertical)
+                    .lineLimit(notesMinLines...)
                     .focused($notesFocused)
                     .accessibilityLabel("Notizen zur Probe")
             }
