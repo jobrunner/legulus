@@ -137,6 +137,27 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertTrue(d.showsMoon)
     }
 
+    /// The sun's elevation at the instant decides, whatever day the
+    /// event times belong to (Tempus computes those for the UTC day).
+    func testValues_ElevationDecidesOverEventTimes() throws {
+        func display(elevation: Double) throws -> ConditionsDisplay {
+            // Event times of another day: by them 12:00 UTC would be day.
+            let json = """
+            {"features": [{"properties": {"kind": "sun", "elevationDeg": \(elevation),
+                            "sunrise": "2026-05-19T03:27:00Z", "sunset": "2026-05-19T19:02:00Z",
+                            "twilight": {"civil": {"dawn": "2026-05-19T02:50:00Z", "dusk": "2026-05-19T19:40:00Z"},
+                                         "nautical": {"dawn": "2026-05-19T02:00:00Z", "dusk": "2026-05-19T20:30:00Z"}}},
+                           "license": {"name": "PD", "attribution": "NOAA"}}], "providers": []}
+            """
+            let (s, rows) = try answered(sample(), json: json)
+            return ConditionsDisplay(sample: s, night: false, features: rows)
+        }
+        XCTAssertEqual(try display(elevation: -5.9).lightPhase, .day, "above -6°")
+        XCTAssertEqual(try display(elevation: -6).lightPhase, .twilight)
+        XCTAssertEqual(try display(elevation: -11.9).lightPhase, .twilight)
+        XCTAssertEqual(try display(elevation: -12).lightPhase, .night)
+    }
+
     /// An all-day sample has no instant of its own: night for a night
     /// fieldtrip, day otherwise.
     func testValues_AllDayLightPhaseFollowsFieldtrip() throws {
@@ -359,6 +380,25 @@ final class ConditionsDisplayTests: XCTestCase {
     func testLightPhase_WithoutTwilightTimesSunriseAndSunsetDecide() {
         XCTAssertEqual(phase(at: "12:00", twilight: false), .day)
         XCTAssertEqual(phase(at: "20:30", twilight: false), .night)
+    }
+
+    /// Thailand, 06:30 local = 23:30 UTC: the times are those of the
+    /// UTC day before (civil dawn 23:00 UTC of that day lies a day back).
+    func testLightPhase_TimesOfTheNeighbouringUTCDay() {
+        func t(_ v: String) -> Date {
+            // swiftlint:disable:next force_unwrapping
+            ISO8601DateFormatter().date(from: v)!
+        }
+        let phase = ConditionsDisplay.lightPhase(
+            at: t("2026-05-19T23:30:00Z"), sunrise: t("2026-05-18T23:20:00Z"), sunset: t("2026-05-19T11:40:00Z"),
+            civilDawn: t("2026-05-18T22:55:00Z"), civilDusk: t("2026-05-19T12:05:00Z"),
+            nauticalDawn: t("2026-05-18T22:25:00Z"), nauticalDusk: t("2026-05-19T12:35:00Z")
+        )
+        XCTAssertEqual(phase, .day)
+        XCTAssertEqual(ConditionsDisplay.lightPhase(
+            at: t("2026-05-19T23:30:00Z"), sunrise: t("2026-05-18T23:20:00Z"), sunset: t("2026-05-19T11:40:00Z"),
+            civilDawn: nil, civilDusk: nil, nauticalDawn: nil, nauticalDusk: nil
+        ), .day, "the sunrise/sunset fallback too")
     }
 
     func testLightPhase_NothingKnownIsNil() {

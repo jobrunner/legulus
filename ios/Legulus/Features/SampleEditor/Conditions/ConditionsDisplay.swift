@@ -255,12 +255,17 @@ struct ConditionsDisplay: Equatable {
 
     // MARK: - light phase
 
-    /// The light phase at `instant`, with the twilight times of the
-    /// stored sun feature.
+    /// The light phase at `instant`. The sun's elevation of the stored
+    /// sun feature is computed for exactly that instant and decides;
+    /// without it the event times do.
     private static func lightPhase(
         at instant: Date, conditions c: SampleConditions, features: [LocalSampleFeature]
     ) -> LightPhase? {
-        let twilight = twilightTimes(in: features)
+        let sun = sunProperties(in: features)
+        if let elevation = (sun?["elevationDeg"] as? NSNumber)?.doubleValue {
+            return lightPhase(elevationDeg: elevation)
+        }
+        let twilight = twilightTimes(in: sun)
         return lightPhase(
             at: instant, sunrise: c.date("sunrise"), sunset: c.date("sunset"),
             civilDawn: twilight["civil.dawn"], civilDusk: twilight["civil.dusk"],
@@ -268,34 +273,52 @@ struct ConditionsDisplay: Equatable {
         )
     }
 
+    /// Day above -6°, twilight down to -12°, night below.
+    static func lightPhase(elevationDeg: Double) -> LightPhase {
+        if elevationDeg > -6 { return .day }
+        return elevationDeg > -12 ? .twilight : .night
+    }
+
     /// Day between civil dawn and dusk, twilight between nautical and
     /// civil, night outside. A day without nautical times keeps the sun
     /// above -12° (summer far north): twilight, never night. Without
     /// twilight times, sunrise and sunset decide; without those, nil.
+    ///
+    /// Tempus computes the times for the UTC day of the instant, which
+    /// far from Greenwich is not the local day: the intervals are also
+    /// tried a day earlier and later.
     static func lightPhase(
         at t: Date, sunrise: Date?, sunset: Date?,
         civilDawn: Date?, civilDusk: Date?, nauticalDawn: Date?, nauticalDusk: Date?
     ) -> LightPhase? {
         if let civilDawn, let civilDusk {
-            if t >= civilDawn, t <= civilDusk { return .day }
+            if t.isWithin(civilDawn, civilDusk) { return .day }
             guard let nauticalDawn, let nauticalDusk else { return .twilight }
-            return t >= nauticalDawn && t <= nauticalDusk ? .twilight : .night
+            return t.isWithin(nauticalDawn, nauticalDusk) ? .twilight : .night
         }
         if let sunrise, let sunset {
-            return t >= sunrise && t <= sunset ? .day : .night
+            return t.isWithin(sunrise, sunset) ? .day : .night
         }
         return nil
     }
 
-    /// „civil.dawn“ … „nautical.dusk“ of the `tempus:sun` feature.
-    private static func twilightTimes(in features: [LocalSampleFeature]) -> [String: Date] {
-        guard let feature = features.first(where: { $0.sourceID == FeatureScope.tempusPrefix + "sun" }),
-              let json = try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any],
-              let twilight = json["twilight"] as? [String: Any]
-        else { return [:] }
-        let iso = ISO8601DateFormatter()
-        let isoFractional = ISO8601DateFormatter()
-        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    private static let isoDate = ISO8601DateFormatter()
+    private static let isoDateFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    /// The properties of the stored `tempus:sun` feature.
+    private static func sunProperties(in features: [LocalSampleFeature]) -> [String: Any]? {
+        guard let feature = features.first(where: { $0.sourceID == FeatureScope.tempusPrefix + "sun" }) else { return nil }
+        return try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any]
+    }
+
+    /// „civil.dawn“ … „nautical.dusk“ of the sun feature's properties.
+    private static func twilightTimes(in sun: [String: Any]?) -> [String: Date] {
+        guard let twilight = sun?["twilight"] as? [String: Any] else { return [:] }
+        let iso = isoDate, isoFractional = isoDateFractional
         var times: [String: Date] = [:]
         for kind in ["civil", "nautical"] {
             guard let pair = twilight[kind] as? [String: Any] else { continue }
@@ -402,5 +425,13 @@ struct ConditionsDisplay: Equatable {
         case 95 ... 99: "Gewitter"
         default: "Wettercode \(code)"
         }
+    }
+}
+
+private extension Date {
+    /// Within `start ... end`, or that interval a day earlier or later.
+    func isWithin(_ start: Date, _ end: Date) -> Bool {
+        let day: TimeInterval = 86400
+        return [-day, 0, day].contains { self >= start + $0 && self <= end + $0 }
     }
 }
