@@ -727,10 +727,9 @@ private struct SampleEditorContent: View {
             Text(bearing)
                 .font(.footnote)
         }
-        if let mtb = viewModel.mtbText {
-            Text(mtb)
+        if let mtb = viewModel.mtbValue {
+            terrainText(PlaceDisplay.DetailLine(label: "MTB", value: mtb))
                 .font(.footnote)
-                .foregroundStyle(.secondary)
         }
         let terrain = viewModel.placeTerrainItems
         if !terrain.isEmpty {
@@ -826,12 +825,12 @@ private struct SampleEditorContent: View {
                     Text(window)
                         .font(.body.monospacedDigit())
                 }
+                skyLine
                 if let zoneLabel = timezoneLabelText {
                     Text(zoneLabel)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                skyLine
             }
             Spacer(minLength: AppSpacing.sm)
         }
@@ -943,8 +942,8 @@ private struct SampleEditorContent: View {
     private var timeA11yLabel: String {
         var parts = [longDateText]
         if let window = timeWindowText { parts.append(window) }
-        if let zone = timezoneLabelText { parts.append(zone) }
         parts += skyItems.map(\.spoken)
+        if let zone = timezoneLabelText { parts.append(zone) }
         return parts.joined(separator: ", ")
     }
 }

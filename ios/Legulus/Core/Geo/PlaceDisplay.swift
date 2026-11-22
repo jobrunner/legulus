@@ -174,9 +174,15 @@ enum PlaceDisplay {
     /// "MTB 6326/1 Ochsenfurt". Only for German samples (the backend
     /// fills MTB only in DE); nil without a sheet number.
     static func mtbText(number: String?, name: String?, quadrant: Int?, countryISO: String?) -> String? {
+        mtbValue(number: number, name: name, quadrant: quadrant, countryISO: countryISO).map { "MTB \($0)" }
+    }
+
+    /// "6326/1 Ochsenfurt": `mtbText` without the label, for a view
+    /// that styles the label on its own.
+    static func mtbValue(number: String?, name: String?, quadrant: Int?, countryISO: String?) -> String? {
         guard let number, !number.isEmpty else { return nil }
         if let countryISO, !countryISO.isEmpty, countryISO != "DE" { return nil }
-        var text = "MTB \(number)"
+        var text = number
         if let quadrant, quadrant > 0 { text += "/\(quadrant)" }
         if let name, !name.isEmpty { text += " \(name)" }
         return text
