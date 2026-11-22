@@ -290,6 +290,34 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertNil(try partial(withDay, allDay: true).note)
     }
 
+    // MARK: - sun and moon by the date
+
+    private func skyDisplay(_ phase: ConditionsDisplay.LightPhase?) -> ConditionsDisplay {
+        var d = ConditionsDisplay(state: .values)
+        d.sunrise = "07:31"
+        d.sunset = "16:42"
+        d.moon = LabeledValue(id: "moon", label: "Mond", value: "Vollmond, 98\u{00A0}%", spoken: "Mond: Vollmond, 98 Prozent beleuchtet")
+        d.moonSymbol = "moonphase.full.moon"
+        d.lightPhase = phase
+        return d
+    }
+
+    func testSkyItems_ByLightPhase() {
+        XCTAssertEqual(skyDisplay(.day).skyItems.map(\.id), ["sunrise", "sunset"])
+        XCTAssertEqual(skyDisplay(.twilight).skyItems.map(\.id), ["sunrise", "sunset", "moon"])
+        XCTAssertEqual(skyDisplay(.night).skyItems.map(\.id), ["moon"])
+        XCTAssertEqual(skyDisplay(nil).skyItems.map(\.id), ["sunrise", "sunset", "moon"], "unknown phase: all there is")
+    }
+
+    func testSkyItems_SymbolsAndSpeech() {
+        let items = skyDisplay(.twilight).skyItems
+        XCTAssertEqual(items.map(\.symbol), ["sunrise", "sunset", "moonphase.full.moon"])
+        XCTAssertEqual(items.map(\.value), ["07:31", "16:42", "Vollmond, 98\u{00A0}%"])
+        XCTAssertEqual(items.map(\.spoken), [
+            "Sonnenaufgang 07:31 Uhr", "Sonnenuntergang 16:42 Uhr", "Mond: Vollmond, 98 Prozent beleuchtet"
+        ])
+    }
+
     // MARK: - light phase
 
     /// One day in UTC: nautical dawn 03:00, civil dawn 03:40, sunrise

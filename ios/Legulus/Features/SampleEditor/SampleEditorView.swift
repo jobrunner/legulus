@@ -715,7 +715,8 @@ private struct SampleEditorContent: View {
         .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppRadius.md))
     }
 
-    /// Gazetteer line, bearing, MTB, then aspect and slope on one line.
+    /// Gazetteer line, bearing, MTB, then aspect and slope on one line,
+    /// then the altitudinal belt.
     @ViewBuilder
     private var placeSummary: some View {
         if let line = viewModel.gazetteerLine {
@@ -745,6 +746,51 @@ private struct SampleEditorContent: View {
             }
             .font(.footnote)
             .accessibilityElement(children: .combine)
+        }
+        if let belt = altitudinalBelt {
+            terrainText(PlaceDisplay.DetailLine(label: "Höhenstufe", value: belt))
+                .font(.footnote)
+        }
+    }
+
+    /// From the conditions; only while they fit the sample.
+    private var altitudinalBelt: String? {
+        guard let display = viewModel.conditionsDisplay, display.state == .values else { return nil }
+        return display.altitudinalBelt
+    }
+
+    /// Sun and moon of the sample's instant, by light phase (see
+    /// `ConditionsDisplay.skyItems`); empty without weather values.
+    private var skyItems: [ConditionsDisplay.SkyItem] {
+        guard let display = viewModel.conditionsDisplay, display.state == .values else { return [] }
+        return display.skyItems
+    }
+
+    /// „🌅 07:31  🌇 16:42  🌕 Vollmond, 98 %“ side by side; one per line
+    /// when that doesn't fit (AX sizes). Read with the date row.
+    @ViewBuilder
+    private var skyLine: some View {
+        let items = skyItems
+        if !items.isEmpty {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.lg) {
+                    ForEach(items) { skyLabel($0) }
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                    ForEach(items) { skyLabel($0) }
+                }
+            }
+            .font(AppFont.subhead)
+        }
+    }
+
+    private func skyLabel(_ item: ConditionsDisplay.SkyItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+            Image(systemName: item.symbol)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(item.value)
+                .monospacedDigit()
         }
     }
 
@@ -785,6 +831,7 @@ private struct SampleEditorContent: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                skyLine
             }
             Spacer(minLength: AppSpacing.sm)
         }
@@ -897,6 +944,7 @@ private struct SampleEditorContent: View {
         var parts = [longDateText]
         if let window = timeWindowText { parts.append(window) }
         if let zone = timezoneLabelText { parts.append(zone) }
+        parts += skyItems.map(\.spoken)
         return parts.joined(separator: ", ")
     }
 }

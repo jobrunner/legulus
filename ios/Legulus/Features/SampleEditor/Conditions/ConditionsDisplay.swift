@@ -145,6 +145,32 @@ struct ConditionsDisplay: Equatable {
         lightPhase != .day
     }
 
+    /// One entry next to the date: an SF Symbol and its value.
+    struct SkyItem: Equatable, Identifiable {
+        let id: String
+        let symbol: String
+        let value: String
+        let spoken: String
+    }
+
+    /// Sunrise and sunset by day, the moon by night, all of it in
+    /// twilight.
+    var skyItems: [SkyItem] {
+        var items: [SkyItem] = []
+        if showsSun {
+            if let sunrise {
+                items.append(SkyItem(id: "sunrise", symbol: "sunrise", value: sunrise, spoken: "Sonnenaufgang \(sunrise) Uhr"))
+            }
+            if let sunset {
+                items.append(SkyItem(id: "sunset", symbol: "sunset", value: sunset, spoken: "Sonnenuntergang \(sunset) Uhr"))
+            }
+        }
+        if showsMoon, let moon {
+            items.append(SkyItem(id: "moon", symbol: moonSymbol ?? "moon", value: moon.value, spoken: moon.spoken))
+        }
+        return items
+    }
+
     // MARK: - sections
 
     /// Weather line, wind, cloud cover, humidity. Returns whether any
