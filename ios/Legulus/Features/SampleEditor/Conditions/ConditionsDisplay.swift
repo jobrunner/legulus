@@ -45,10 +45,12 @@ struct ConditionsDisplay: Equatable {
     /// „18,4 °C“
     var temperature: String?
     var temperatureSpoken: String?
-    /// The compact values of the section, in this order: wind, cloud
-    /// cover, humidity (the hourly ones, not for an all-day sample),
-    /// precipitation of the last 72 h, Köppen code.
-    var summary: [Pair] = []
+    /// The tiles of the section, in this order: wind, cloud cover,
+    /// humidity (the hourly ones, not for an all-day sample),
+    /// precipitation of the last 72 h.
+    var tiles: [WeatherTile] = []
+    /// Köppen-Geiger climate code, e.g. „Cfb“.
+    var koppen: String?
     /// „07:31“ in the sample's zone.
     var sunrise: String?
     var sunset: String?
@@ -106,11 +108,14 @@ struct ConditionsDisplay: Equatable {
         if !sample.isAllDay {
             hasHourly = fillHourly(conditions, features: features)
         }
-        add(&summary, "precipitation72", "Niederschlag 72\(Self.nbsp)h", conditions.number("precipitation_72h_mm"),
-            digits: 1, unit: "mm", spokenUnit: "Millimeter", spokenLabel: "Niederschlag der letzten 72 Stunden")
-        if let koppen = conditions.text("climate_koppen_code") {
-            summary.append(Pair(id: "koppen", label: "Köppen", value: koppen, spoken: "Köppen-Klima \(koppen)"))
+        if let rain = conditions.number("precipitation_72h_mm") {
+            let value = Self.number(rain, digits: 1)
+            tiles.append(WeatherTile(
+                id: "precipitation72", value: value, unit: "mm", caption: "72\(Self.nbsp)h", word: nil,
+                spoken: "Niederschlag der letzten 72 Stunden \(value) Millimeter"
+            ))
         }
+        koppen = conditions.text("climate_koppen_code")
         altitudinalBelt = conditions.text("climate_altitudinal_belt")
         fillSky(conditions, zone: zone)
         lightPhase = sample.isAllDay
@@ -130,7 +135,7 @@ struct ConditionsDisplay: Equatable {
 
     /// Nothing at all to show besides the state.
     var isEmpty: Bool {
-        temperature == nil && weatherTitle == nil && summary.isEmpty && sunrise == nil && sunset == nil
+        temperature == nil && weatherTitle == nil && tiles.isEmpty && koppen == nil && sunrise == nil && sunset == nil
             && moon == nil && altitudinalBelt == nil
     }
 
@@ -184,31 +189,34 @@ struct ConditionsDisplay: Equatable {
             temperature = Self.number(t, digits: 1) + Self.nbsp + "°C"
             temperatureSpoken = Self.number(t, digits: 1) + " Grad Celsius"
         }
-        let before = summary.count
+        let before = tiles.count
         if let wind = c.number("weather_wind_speed_kmh") {
             // The force of the speed as shown, so word and number agree.
             let force = WeatherWording.beaufort(kmh: wind.rounded())
             let speed = Self.number(wind, digits: 0)
-            summary.append(Pair(
-                id: "wind", label: "Wind", value: "\(force) (\(speed)\(Self.nbsp)km/h)",
+            tiles.append(WeatherTile(
+                id: "wind", value: speed, unit: "km/h", caption: "Wind", word: force,
                 spoken: "Wind \(force), \(speed) Kilometer pro Stunde"
             ))
         }
-        add(&summary, "clouds", "Bewölkung", c.number("weather_cloud_cover_pct"), digits: 0, unit: "%",
-            spokenUnit: "Prozent")
-        let feeling = c.number("weather_dew_point_c").map { WeatherWording.humidityFeeling(dewPointC: $0) }
-        let percent = c.number("weather_humidity_pct").map { Self.number($0, digits: 0) }
-        if feeling != nil || percent != nil {
-            let value = [feeling, percent.map { "(\($0)\(Self.nbsp)%)" }].compactMap { $0 }.joined(separator: " ")
-            let spoken = [feeling, percent.map { "\($0) Prozent" }].compactMap { $0 }.joined(separator: ", ")
-            // Without a feeling the bare percentage needs no brackets.
-            summary.append(Pair(
-                id: "humidity", label: "Luftfeuchte",
-                value: feeling == nil ? (percent ?? "") + Self.nbsp + "%" : value,
-                spoken: "Luftfeuchte \(spoken)"
+        if let clouds = c.number("weather_cloud_cover_pct") {
+            let value = Self.number(clouds, digits: 0)
+            tiles.append(WeatherTile(
+                id: "clouds", value: value, unit: "%", caption: "Wolken", word: nil,
+                spoken: "Bewölkung \(value) Prozent"
             ))
         }
-        return summary.count > before || c.number("weather_precipitation_mm") != nil
+        let feeling = c.number("weather_dew_point_c").map { WeatherWording.humidityFeeling(dewPointC: $0) }
+        let percent = c.number("weather_humidity_pct").map { Self.number($0, digits: 0) }
+        if let value = percent ?? feeling {
+            let spoken = [feeling, percent.map { "\($0) Prozent" }].compactMap { $0 }.joined(separator: ", ")
+            // Without a percentage the feeling itself is the value.
+            tiles.append(WeatherTile(
+                id: "humidity", value: value, unit: percent == nil ? nil : "%", caption: "Feuchte",
+                word: percent == nil ? nil : feeling, spoken: "Luftfeuchte \(spoken)"
+            ))
+        }
+        return tiles.count > before || c.number("weather_precipitation_mm") != nil
     }
 
     /// Whether the answer holds any value of the day (precipitation of
@@ -240,18 +248,6 @@ struct ConditionsDisplay: Equatable {
         if moon != nil { moonSymbol = Self.moonSymbol(phase: phase) }
         sunrise = c.date("sunrise").map { Self.time($0, zone: zone) }
         sunset = c.date("sunset").map { Self.time($0, zone: zone) }
-    }
-
-    private func add(
-        _ pairs: inout [Pair], _ id: String, _ label: String, _ value: Double?,
-        digits: Int, unit: String, spokenUnit: String, spokenLabel: String? = nil
-    ) {
-        guard let value else { return }
-        let text = Self.number(value, digits: digits)
-        pairs.append(Pair(
-            id: id, label: label, value: text + Self.nbsp + unit,
-            spoken: "\(spokenLabel ?? label) \(text) \(spokenUnit)"
-        ))
     }
 
     // MARK: - light phase
@@ -435,4 +431,16 @@ private extension Date {
         let day: TimeInterval = 86400
         return [-day, 0, day].contains { self >= start + $0 && self <= end + $0 }
     }
+}
+
+/// One tile of „Wetter und Klima“: a value large, its unit, a caption
+/// and, where there is one, a word („leichte Brise“, „schwül“).
+/// `spoken` is the VoiceOver text with the unit written out.
+struct WeatherTile: Equatable, Identifiable {
+    let id: String
+    let value: String
+    let unit: String?
+    let caption: String
+    let word: String?
+    let spoken: String
 }

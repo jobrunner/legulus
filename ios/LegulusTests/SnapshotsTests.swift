@@ -77,13 +77,13 @@ final class SnapshotsTests: XCTestCase {
         display.weatherSymbol = "cloud.rain"
         display.temperature = "16,0\u{00A0}°C"
         display.temperatureSpoken = "16,0 Grad Celsius"
-        display.summary = [
-            LabeledValue(id: "wind", label: "Wind", value: "leichte Brise (7\u{00A0}km/h)", spoken: ""),
-            LabeledValue(id: "clouds", label: "Bewölkung", value: "100\u{00A0}%", spoken: ""),
-            LabeledValue(id: "humidity", label: "Luftfeuchte", value: "leicht feucht (85\u{00A0}%)", spoken: ""),
-            LabeledValue(id: "precipitation72", label: "Niederschlag 72\u{00A0}h", value: "62,5\u{00A0}mm", spoken: ""),
-            LabeledValue(id: "koppen", label: "Köppen", value: "Dfb", spoken: "")
+        display.tiles = [
+            WeatherTile(id: "wind", value: "7", unit: "km/h", caption: "Wind", word: "leichte Brise", spoken: ""),
+            WeatherTile(id: "clouds", value: "100", unit: "%", caption: "Wolken", word: nil, spoken: ""),
+            WeatherTile(id: "humidity", value: "85", unit: "%", caption: "Feuchte", word: "leicht feucht", spoken: ""),
+            WeatherTile(id: "precipitation72", value: "62,5", unit: "mm", caption: "72\u{00A0}h", word: nil, spoken: "")
         ]
+        display.koppen = "Dfb"
 
         let os = "iOS\(ProcessInfo.processInfo.operatingSystemVersion.majorVersion)"
         for (name, typeSize) in [("default", DynamicTypeSize.large), ("ax5", .accessibility5)] {

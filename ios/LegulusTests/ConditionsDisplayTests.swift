@@ -93,9 +93,12 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.temperatureSpoken, "0,0 Grad Celsius")
         XCTAssertEqual(d.weatherSymbol, "cloud.rain")
         XCTAssertEqual(d.weatherTitle, "Regen", "fallback text: the trimmed fixture has no description")
-        XCTAssertEqual(d.summary.map(\.label), ["Wind", "Luftfeuchte"], "what Tempus did not deliver is not listed")
-        XCTAssertEqual(d.summary.map(\.value), ["leichte Brise (7\u{00A0}km/h)", "85\u{00A0}%"])
-        XCTAssertEqual(d.summary.map(\.spoken), ["Wind leichte Brise, 7 Kilometer pro Stunde", "Luftfeuchte 85 Prozent"])
+        XCTAssertEqual(d.tiles.map(\.id), ["wind", "humidity"], "what Tempus did not deliver is not listed")
+        XCTAssertEqual(d.tiles.map(\.value), ["7", "85"])
+        XCTAssertEqual(d.tiles.map(\.unit), ["km/h", "%"])
+        XCTAssertEqual(d.tiles.map(\.caption), ["Wind", "Feuchte"])
+        XCTAssertEqual(d.tiles.map(\.word), ["leichte Brise", nil], "no dew point, no feeling")
+        XCTAssertEqual(d.tiles.map(\.spoken), ["Wind leichte Brise, 7 Kilometer pro Stunde", "Luftfeuchte 85 Prozent"])
         XCTAssertNil(d.note)
     }
 
@@ -184,7 +187,7 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.state, .values)
         XCTAssertNil(d.temperature)
         XCTAssertNil(d.weatherSymbol)
-        XCTAssertTrue(d.summary.isEmpty, "no hourly values, no day values in the fixture")
+        XCTAssertTrue(d.tiles.isEmpty, "no hourly values, no day values in the fixture")
         XCTAssertNotNil(d.moon)
         XCTAssertNotNil(d.sunrise)
         XCTAssertEqual(d.note, "Keine Wetterdaten für diesen Tag", "the answer holds no day values")
@@ -204,7 +207,7 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.moon?.value, "Neumond, 5\u{00A0}%", "what is there is still shown")
     }
 
-    func testValues_SummaryAndClimate() throws {
+    func testValues_TilesAndClimate() throws {
         let rich = """
         {"features": [
           {"properties": {"kind": "weather", "temperature2m": 16, "weatherCode": 61,
@@ -227,11 +230,14 @@ final class ConditionsDisplayTests: XCTestCase {
         // Dew point without a percentage: the feeling alone. Only the
         // 72 h precipitation, no day temperatures; the belt moves to
         // the place.
-        XCTAssertEqual(d.summary.map(\.label), ["Luftfeuchte", "Niederschlag 72\u{00A0}h", "Köppen"])
-        XCTAssertEqual(d.summary.map(\.value), ["leicht feucht", "62,5\u{00A0}mm", "Dfb"])
-        XCTAssertEqual(d.summary.map(\.spoken), [
-            "Luftfeuchte leicht feucht", "Niederschlag der letzten 72 Stunden 62,5 Millimeter", "Köppen-Klima Dfb"
+        XCTAssertEqual(d.tiles.map(\.id), ["humidity", "precipitation72"])
+        XCTAssertEqual(d.tiles.map(\.value), ["leicht feucht", "62,5"], "without a percentage the feeling is the value")
+        XCTAssertEqual(d.tiles.map(\.unit), [nil, "mm"])
+        XCTAssertEqual(d.tiles.map(\.caption), ["Feuchte", "72\u{00A0}h"])
+        XCTAssertEqual(d.tiles.map(\.spoken), [
+            "Luftfeuchte leicht feucht", "Niederschlag der letzten 72 Stunden 62,5 Millimeter"
         ])
+        XCTAssertEqual(d.koppen, "Dfb")
         XCTAssertEqual(d.altitudinalBelt, "submontan-kollin")
     }
 
@@ -275,15 +281,17 @@ final class ConditionsDisplayTests: XCTestCase {
         {"properties": {"kind": "weather", "relativeHumidity2m": 85}, \#(license)},
         {"properties": {"kind": "dewpoint", "dewPoint2m": 19}, \#(license)}
         """#)
-        XCTAssertEqual(d.summary.map(\.value), ["schwül (85\u{00A0}%)"])
-        XCTAssertEqual(d.summary.first?.spoken, "Luftfeuchte schwül, 85 Prozent")
+        XCTAssertEqual(d.tiles.first?.value, "85")
+        XCTAssertEqual(d.tiles.first?.word, "schwül")
+        XCTAssertEqual(d.tiles.first?.spoken, "Luftfeuchte schwül, 85 Prozent")
     }
 
     /// The force fits the km/h shown: 19,6 km/h reads as 20 km/h, and
     /// 20 km/h is force 4.
     func testPartial_WindForceFromShownSpeed() throws {
         let d = try partial(#"{"properties": {"kind": "weather", "windSpeed10m": 19.6}, \#(license)}"#)
-        XCTAssertEqual(d.summary.first?.value, "mäßige Brise (20\u{00A0}km/h)")
+        XCTAssertEqual(d.tiles.first?.value, "20")
+        XCTAssertEqual(d.tiles.first?.word, "mäßige Brise")
     }
 
     func testPartial_FullMoonSymbol() throws {

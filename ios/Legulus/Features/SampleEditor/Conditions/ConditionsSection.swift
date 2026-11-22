@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The area „Wetter und Klima“ of the sample view: the weather at the
-/// sample's instant, prominent, and a compact summary (wind, clouds,
-/// humidity, rain of the last days, Köppen climate). Sun and moon stand
+/// sample's instant, prominent, tiles for wind, clouds, humidity and
+/// the rain of the last days, and the Köppen climate. Sun and moon stand
 /// with the date, the altitudinal belt with the place. `detail` opens
 /// the page with everything Tempus delivered and the sources.
 struct ConditionsSection: View {
@@ -74,9 +74,27 @@ struct ConditionsSection: View {
         if let note = display.note {
             message(note)
         }
-        if !display.summary.isEmpty {
-            ValuePairGrid(display.summary)
+        if !display.tiles.isEmpty {
+            WeatherTileGrid(tiles: display.tiles)
         }
+        HStack(spacing: AppSpacing.sm) {
+            if let koppen = display.koppen {
+                Text("Köppen \(koppen)")
+                    .font(AppFont.footnote.weight(.medium))
+                    .padding(.horizontal, AppSpacing.sm)
+                    .padding(.vertical, AppSpacing.xs)
+                    .background(AppColor.surfaceGrouped, in: Capsule())
+                    .accessibilityLabel("Köppen-Klima \(koppen)")
+            }
+            if detail != nil {
+                Spacer(minLength: AppSpacing.sm)
+            }
+            detailLink
+        }
+    }
+
+    @ViewBuilder
+    private var detailLink: some View {
         if let detail {
             NavigationLink {
                 ConditionsDetailView(model: detail)
@@ -147,10 +165,13 @@ struct ConditionsSection: View {
     display.weatherSymbol = "cloud.rain"
     display.temperature = "16,0 °C"
     display.temperatureSpoken = "16,0 Grad Celsius"
-    display.summary = [
-        LabeledValue(id: "wind", label: "Wind", value: "leichte Brise (7 km/h)", spoken: "Wind leichte Brise, 7 Kilometer pro Stunde"),
-        LabeledValue(id: "humidity", label: "Luftfeuchte", value: "schwül (85 %)", spoken: "Luftfeuchte schwül, 85 Prozent")
+    display.tiles = [
+        WeatherTile(id: "wind", value: "7", unit: "km/h", caption: "Wind", word: "leichte Brise",
+                    spoken: "Wind leichte Brise, 7 Kilometer pro Stunde"),
+        WeatherTile(id: "humidity", value: "85", unit: "%", caption: "Feuchte", word: "schwül",
+                    spoken: "Luftfeuchte schwül, 85 Prozent")
     ]
+    display.koppen = "Cfb"
     return NavigationStack {
         ScrollView { ConditionsSection(display: display, detail: nil).padding(.horizontal) }
     }
@@ -160,4 +181,71 @@ struct ConditionsSection: View {
     ConditionsSection(display: ConditionsDisplay(state: .waitingForElevation), detail: nil)
         .padding(.horizontal)
         .dynamicTypeSize(.accessibility5)
+}
+
+/// The weather tiles: four in a row, two at accessibility sizes. Not a
+/// lazy grid: inside the sample's ScrollView a lazy one estimates rows
+/// out of sight and makes the view jitter (see `ValuePairGrid`).
+private struct WeatherTileGrid: View {
+    let tiles: [WeatherTile]
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var columnCount: Int {
+        dynamicTypeSize.isAccessibilitySize ? 2 : 4
+    }
+
+    private var rows: [[WeatherTile]] {
+        stride(from: 0, to: tiles.count, by: columnCount).map {
+            Array(tiles[$0 ..< min($0 + columnCount, tiles.count)])
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: AppSpacing.sm) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: AppSpacing.sm) {
+                    ForEach(row) { WeatherTileView(tile: $0) }
+                    ForEach(row.count ..< columnCount, id: \.self) { _ in
+                        Color.clear
+                            .frame(maxWidth: .infinity, maxHeight: 0)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct WeatherTileView: View {
+    let tile: WeatherTile
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xxs) {
+                Text(tile.value)
+                    .font(AppFont.headline)
+                    .monospacedDigit()
+                if let unit = tile.unit {
+                    Text(unit)
+                        .font(AppFont.caption)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+            }
+            Text(tile.caption)
+                .font(AppFont.caption)
+                .foregroundStyle(AppColor.textSecondary)
+            if let word = tile.word {
+                Text(word)
+                    .font(AppFont.caption)
+                    .foregroundStyle(AppColor.textPrimary)
+            }
+        }
+        .padding(AppSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(AppColor.surfaceGrouped, in: RoundedRectangle(cornerRadius: AppRadius.lg))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(tile.spoken)
+    }
 }
