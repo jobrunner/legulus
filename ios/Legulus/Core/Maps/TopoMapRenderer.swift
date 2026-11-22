@@ -49,12 +49,12 @@ enum TopoMapRenderer {
         let key = cacheKey(coord: coord, size: size)
         if let cached = memoryCache.object(forKey: key as NSString) {
             Log.network.debug("topo header: cache hit (memory)")
+            touch(key)
             return (cached, true)
         }
         if let url = diskURL(for: key), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
             Log.network.debug("topo header: cache hit (disk)")
-            // Marks the file as used for the pruning.
-            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+            touch(key)
             memoryCache.setObject(image, forKey: key as NSString)
             return (image, true)
         }
@@ -85,6 +85,14 @@ enum TopoMapRenderer {
     }
 
     // MARK: - private
+
+    /// Marks the header's file as used, so the pruning keeps headers in
+    /// use; memory hits count too, or a header shown every day would go
+    /// first and be missing after an offline restart.
+    private static func touch(_ key: String) {
+        guard let url = diskURL(for: key) else { return }
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+    }
 
     private static func gateAllows() -> Bool {
         gateLock.lock()
