@@ -145,7 +145,7 @@ private struct SampleEditorContent: View {
                 }
                 // Karte bewusst edge-to-edge — negiert die
                 // contentMargins via gleichgroße negative padding.
-                MapSnippetView(coordinate: viewModel.coordinate)
+                SampleMapHeader(coordinate: viewModel.coordinate)
                     .padding(.leading, -leadingMargin)
                     .padding(.trailing, -trailingMargin)
                 if viewModel.isExistingSample {
