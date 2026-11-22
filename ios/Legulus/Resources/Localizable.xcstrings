@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "de",
   "strings" : {
+    "angenehm" : {
+
+    },
+    "drückend" : {
+
+    },
+    "feucht" : {
+
+    },
+    "frische Brise" : {
+
+    },
     "– (leer lassen)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -45,7 +57,52 @@
         }
       }
     },
+    "leicht feucht" : {
+
+    },
+    "leichte Brise" : {
+
+    },
+    "leiser Zug" : {
+
+    },
     "%@ m" : {
+
+    },
+    "mäßige Brise" : {
+
+    },
+    "Orkan" : {
+
+    },
+    "orkanartiger Sturm" : {
+
+    },
+    "schwache Brise" : {
+
+    },
+    "schwerer Sturm" : {
+
+    },
+    "schwül" : {
+
+    },
+    "sehr schwül" : {
+
+    },
+    "starker Wind" : {
+
+    },
+    "steifer Wind" : {
+
+    },
+    "Sturm" : {
+
+    },
+    "stürmischer Wind" : {
+
+    },
+    "trocken" : {
 
     },
     "%@ von %@ gefiltert" : {
@@ -290,16 +347,28 @@
     "Das Backend schickt einen Link an deine E-Mail. SMTP muss auf der Docker-Maschine eingerichtet sein, sonst kommt nichts an." : {
 
     },
+    "Das Foto wird vom Gerät und, falls schon hochgeladen, vom Server entfernt." : {
+
+    },
     "Daten" : {
 
     },
     "Der aktive Filter passt auf keine Exkursion." : {
 
     },
+    "Details" : {
+
+    },
     "Die eingegebene Koordinate wurde nicht übernommen. Übernehmen kannst du sie mit „Ortsdaten neu abfragen“ oder über die Karte. Zeit und Ortsdaten sind gespeichert." : {
 
     },
     "Die Ortsangaben dieser Probe hast du von Hand gesetzt. Sollen für die neue Koordinate die ermittelten Ortsangaben übernommen werden?" : {
+
+    },
+    "Die Werte sind vorläufig und werden später durch endgültige ersetzt." : {
+
+    },
+    "Dienst für Wetter, Klima, Sonne und Mond. Leer lassen, um die Abfrage auf dem Gerät abzuschalten – das Backend reichert dann an." : {
 
     },
     "Diese Aktion löscht deinen Account und alle damit verknüpften Daten unwiderruflich:" : {
@@ -374,6 +443,12 @@
       }
     },
     "Foto wird gelesen …" : {
+
+    },
+    "Fotos" : {
+
+    },
+    "Fotos werden in voller Auflösung hochgeladen. Proben werden weiter über jede Verbindung synchronisiert." : {
 
     },
     "Fotos zu Proben tauchen automatisch hier auf, sobald du beim Anlegen einer Probe ein Bild aufnimmst." : {
@@ -865,6 +940,9 @@
         }
       }
     },
+    "Tempus-Endpoint" : {
+
+    },
     "Tippe auf das Plus auf dem Dashboard, um deine erste Probe anzulegen." : {
 
     },
@@ -930,6 +1008,9 @@
     "Vor dem Löschen" : {
 
     },
+    "vorläufig" : {
+
+    },
     "Vorschlag: %@" : {
 
     },
@@ -940,6 +1021,9 @@
 
     },
     "Was gelöscht wird" : {
+
+    },
+    "Windstille" : {
 
     },
     "Wird auf Locality-Etiketten ausgegeben, wenn gesetzt." : {

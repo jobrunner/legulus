@@ -103,7 +103,7 @@ private struct CopyableValueButtonPreview: View {
                 accessibilityLabel: "Koordinate 32U NA 69380 14686, MGRS",
                 announcement: "Koordinate kopiert"
             ) {
-                Text("32U NA 69380 14686")
+                Text(verbatim: "32U NA 69380 14686")
                     .font(AppFont.body.monospacedDigit())
             }
             CopyableValueButton(
@@ -112,7 +112,7 @@ private struct CopyableValueButtonPreview: View {
                 accessibilityLabel: "Höhe 276 Meter",
                 announcement: "Höhe kopiert"
             ) {
-                Text("276 m")
+                Text(verbatim: "276 m")
                     .font(AppFont.body.monospacedDigit())
             }
         }
