@@ -92,7 +92,13 @@ enum MapSnapshotter {
         options.mapType = .standard
 
         let snapshotter = MKMapSnapshotter(options: options)
-        return try await snapshotter.start()
+        // `start()` ignores task cancellation; the deadline in
+        // `TopoMapRenderer` cancels, and only `cancel()` stops the render.
+        return try await withTaskCancellationHandler {
+            try await snapshotter.start()
+        } onCancel: {
+            snapshotter.cancel()
+        }
     }
 
     private static func drawPin(on snapshot: MKMapSnapshotter.Snapshot, coord: CLLocationCoordinate2D) -> UIImage {

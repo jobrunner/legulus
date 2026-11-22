@@ -133,7 +133,12 @@ enum TopoMapRenderer {
         } catch {
             let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
             if !cancelled {
-                Log.network.warning("topo tile failed, Apple map stands in: \(String(describing: error), privacy: .public)")
+                // Only domain and code: a URLError's description carries the
+                // tile URL, whose z/x/y locate the sample to about a km.
+                let nsError = error as NSError
+                Log.network.warning(
+                    "topo tile failed, Apple map stands in: \(nsError.domain, privacy: .public) \(nsError.code, privacy: .public)"
+                )
             }
             return nil
         }
