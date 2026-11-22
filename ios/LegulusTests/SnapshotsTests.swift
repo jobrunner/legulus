@@ -96,7 +96,6 @@ final class SnapshotsTests: XCTestCase {
             LabeledValue(id: "set", label: "Sonnenuntergang", value: "21:17", spoken: "")
         ]
         display.climate = LabeledValue(id: "climate", label: "Klima", value: "Dfb · submontan-kollin", spoken: "")
-        display.attribution = "Weather data by Open-Meteo.com; ERA5 (Copernicus Climate Change Service / ECMWF)"
 
         let os = "iOS\(ProcessInfo.processInfo.operatingSystemVersion.majorVersion)"
         for (name, typeSize) in [("default", DynamicTypeSize.large), ("ax5", .accessibility5)] {

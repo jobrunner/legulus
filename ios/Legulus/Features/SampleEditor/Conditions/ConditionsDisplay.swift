@@ -50,8 +50,6 @@ struct ConditionsDisplay: Equatable {
     /// sample with a time of day has no weather; „Keine Wetterdaten für
     /// diesen Tag“ when an all-day sample has no day values.
     var note: String?
-    /// The sources of what is shown, without duplicates.
-    var attribution: String?
 
     static let locale = Locale(identifier: "de_DE")
 
@@ -89,10 +87,8 @@ struct ConditionsDisplay: Equatable {
         let features = conditions.holdsItsFeatures ? features : []
         isProvisional = conditions.status == .provisional
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
-        var shownKinds: Set = ["sun", "moon", "aggregate", "bioclim"]
 
         if !sample.isAllDay {
-            shownKinds.formUnion(["weather", "dewpoint"])
             fillHourly(conditions, features: features)
         }
         fillDaily(conditions)
@@ -108,7 +104,6 @@ struct ConditionsDisplay: Equatable {
                 note = "Keine Daten für diesen Zeitpunkt"
             }
         }
-        attribution = Self.attribution(of: features, kinds: shownKinds)
     }
 
     /// Nothing at all to show besides the state.

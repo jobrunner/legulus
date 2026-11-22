@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The area „Wetter und Klima“ of the sample view: the weather at the
 /// sample's instant, the days before, sun and moon, the climate of the
-/// place, and where the values come from. `detail` opens the page with
-/// everything Tempus delivered.
+/// place. `detail` opens the page with everything Tempus delivered and
+/// the sources.
 struct ConditionsSection: View {
     let display: ConditionsDisplay
     /// nil hides the link (nothing to show there).
@@ -82,11 +82,6 @@ struct ConditionsSection: View {
         if !display.sky.isEmpty || display.climate != nil {
             ValuePairGrid(display.sky + [display.climate].compactMap { $0 })
         }
-        if let attribution = display.attribution {
-            Text("Quellen: " + attribution)
-                .font(AppFont.caption)
-                .foregroundStyle(AppColor.textSecondary)
-        }
         if let detail {
             NavigationLink {
                 ConditionsDetailView(model: detail)
@@ -162,7 +157,6 @@ struct ConditionsSection: View {
         LabeledValue(id: "w", label: "Wind", value: "7 km/h", spoken: "Wind 7 Kilometer pro Stunde")
     ]
     display.sky = [LabeledValue(id: "m", label: "Mond", value: "Vollmond, 98 %", spoken: "Mond: Vollmond")]
-    display.attribution = "Weather data by Open-Meteo.com"
     return NavigationStack {
         ScrollView { ConditionsSection(display: display, detail: nil).padding(.horizontal) }
     }

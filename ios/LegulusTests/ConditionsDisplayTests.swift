@@ -125,7 +125,6 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertTrue(d.hourly.isEmpty)
         XCTAssertEqual(d.sky.count, 3)
         XCTAssertEqual(d.note, "Keine Wetterdaten für diesen Tag", "the answer holds no day values")
-        XCTAssertEqual(d.attribution, "NOAA · Meeus", "the weather source is not shown without weather values")
     }
 
     /// A final answer without weather for a sample with a time of day.
@@ -142,7 +141,7 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.sky.map(\.label), ["Mond"], "what is there is still shown")
     }
 
-    func testValues_DailyClimateAndAttribution() throws {
+    func testValues_DailyAndClimate() throws {
         let rich = """
         {"features": [
           {"properties": {"kind": "weather", "temperature2m": 16, "weatherCode": 61,
@@ -174,12 +173,11 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.daily[3].spoken, "Tagestemperatur 14,2 bis 18,5 Grad Celsius")
         XCTAssertEqual(d.climate?.value, "Dfb · submontan-kollin")
         XCTAssertEqual(d.climate?.spoken, "Köppen-Klima Dfb, Höhenstufe submontan-kollin")
-        XCTAssertEqual(d.attribution, "Quelle A · Quelle B", "each source once")
     }
 
     /// After a pull the row holds the server's new answer while the
     /// stored features still belong to the previous one (they are
-    /// fetched afterwards, and that can fail). Their text and sources
+    /// fetched afterwards, and that can fail). Their text
     /// must not appear next to the new values.
     func testValues_FeaturesOfAnotherAnswerAreNotUsed() throws {
         let rich = """
@@ -195,7 +193,6 @@ final class ConditionsDisplayTests: XCTestCase {
         s.conditions?.fetchedAt = newer
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Regen", "the text of the code, not the old feature's")
-        XCTAssertNil(d.attribution)
         XCTAssertEqual(d.temperature, "16,0\u{00A0}°C", "the values themselves are the row's and stay")
         XCTAssertTrue(ConditionsDetailModel(sample: s, night: false, features: rows).isEmpty)
     }
