@@ -80,6 +80,7 @@ private struct SampleEditorContent: View {
     @State private var presentingNewDetermination = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
     /// Height of the action bar's buttons: large enough for gloves.
     @ScaledMetric(relativeTo: .body) private var actionBarHeight: CGFloat = 56
     /// At AX sizes the buttons show icons only: more height buys nothing
@@ -401,16 +402,12 @@ private struct SampleEditorContent: View {
             markButton(marked: sample.marked)
         }
         SyncStatusBadge(status: sample.syncStatus, compact: false)
-            .padding(.horizontal, AppSpacing.sm)
-            .padding(.vertical, AppSpacing.xs)
-            .background(AppColor.surfaceCard, in: Capsule())
+            .appChipStyle()
         if let fieldtrip = viewModel.savedFieldtrip {
             Label(fieldtrip.title, systemImage: fieldtrip.nightFieldtrip ? "moon.stars" : "map")
                 .font(AppFont.caption)
                 .foregroundStyle(AppColor.textSecondary)
-                .padding(.horizontal, AppSpacing.sm)
-                .padding(.vertical, AppSpacing.xs)
-                .background(AppColor.surfaceCard, in: Capsule())
+                .appChipStyle()
                 .accessibilityLabel("Exkursion \(fieldtrip.title)")
         }
     }
@@ -498,6 +495,13 @@ private struct SampleEditorContent: View {
                 prominent ? AppColor.brandPrimary : AppColor.brandTint,
                 in: RoundedRectangle(cornerRadius: AppRadius.lg)
             )
+            // The light tint fades with Increase Contrast: an outline
+            // keeps the button's edge.
+            .overlay {
+                if contrast == .increased, !prominent {
+                    RoundedRectangle(cornerRadius: AppRadius.lg).strokeBorder(AppColor.brandPrimaryText)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(ActionBarButtonStyle())

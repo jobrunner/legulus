@@ -80,9 +80,7 @@ struct ConditionsSection: View {
             if let koppen = display.koppen {
                 Text("Köppen \(koppen)")
                     .font(AppFont.footnote.weight(.medium))
-                    .padding(.horizontal, AppSpacing.sm)
-                    .padding(.vertical, AppSpacing.xs)
-                    .background(AppColor.surfaceGrouped, in: Capsule())
+                    .appChipStyle(fill: AppColor.surfaceGrouped)
                     .accessibilityLabel("Köppen-Klima \(koppen)")
             }
             if detail != nil {

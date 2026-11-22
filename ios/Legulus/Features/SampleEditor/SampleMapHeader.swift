@@ -14,7 +14,7 @@ struct SampleMapHeader: View {
     let coordinate: CLLocationCoordinate2D?
 
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
     @State private var isTopo = false
     @State private var showsAttribution = false
@@ -31,6 +31,8 @@ struct SampleMapHeader: View {
     /// the pin stays in the middle.
     private static let renderSize = CGSize(width: 430, height: height)
     private let minTapTarget: CGFloat = 44
+    /// Width the sources popover asks for; it wraps below that.
+    @ScaledMetric(relativeTo: .footnote) private var popoverWidth: CGFloat = 280
 
     var body: some View {
         if let coordinate {
@@ -51,23 +53,17 @@ struct SampleMapHeader: View {
         }
     }
 
+    /// The ⓘ button; the sources open in a popover, which wraps at any
+    /// text size instead of being cut by the map's frame.
     @ViewBuilder
     private var attribution: some View {
         if isTopo {
-            HStack(alignment: .bottom, spacing: AppSpacing.sm) {
-                if showsAttribution {
-                    Text("Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Kartendarstellung © OpenTopoMap (CC-BY-SA)")
-                        .font(AppFont.caption)
-                        .foregroundStyle(AppColor.textPrimary)
-                        .padding(AppSpacing.sm)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppRadius.md))
-                        .transition(.opacity)
-                }
+            HStack {
                 Spacer(minLength: 0)
                 Button {
-                    withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) { showsAttribution.toggle() }
+                    showsAttribution = true
                 } label: {
-                    Image(systemName: showsAttribution ? "xmark.circle.fill" : "info.circle.fill")
+                    Image(systemName: "info.circle.fill")
                         .font(AppFont.headline)
                         .foregroundStyle(AppColor.textSecondary)
                         .padding(AppSpacing.xs)
@@ -76,7 +72,17 @@ struct SampleMapHeader: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(showsAttribution ? "Kartenquellen ausblenden" : "Kartenquellen")
+                .accessibilityLabel("Kartenquellen")
+                .popover(isPresented: $showsAttribution) {
+                    Text("Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Kartendarstellung © OpenTopoMap (CC-BY-SA)")
+                        .font(AppFont.footnote)
+                        // Lets the popover grow with the text instead of
+                        // truncating it at large sizes (wanted here).
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(AppSpacing.lg)
+                        .frame(idealWidth: popoverWidth)
+                        .presentationCompactAdaptation(.popover)
+                }
             }
             .padding(AppSpacing.xs)
         }
@@ -116,7 +122,9 @@ struct SampleMapHeader: View {
         }
         failed = false
         // A missing map never blocks the sample.
-        let result = await TopoMapRenderer.image(at: coordinate, size: Self.renderSize, dark: colorScheme == .dark)
+        let result = await TopoMapRenderer.image(
+            at: coordinate, size: Self.renderSize, scale: displayScale, dark: colorScheme == .dark
+        )
         if Task.isCancelled { return }
         guard let result else {
             failed = true

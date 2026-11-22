@@ -46,6 +46,14 @@
                             }
                         }
                     }
+                    NavigationLink("AppChipStyle") {
+                        CatalogPage {
+                            HStack(spacing: AppSpacing.sm) {
+                                SyncStatusBadge(status: .synced, compact: false).appChipStyle()
+                                Text("Köppen Cfb").font(AppFont.footnote).appChipStyle(fill: AppColor.surfaceGrouped)
+                            }
+                        }
+                    }
                     NavigationLink("PrimaryButton") {
                         CatalogPage {
                             VStack(spacing: AppSpacing.md) {
