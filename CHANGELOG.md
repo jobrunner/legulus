@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/jobrunner/legulus/compare/v0.5.0...v0.5.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **ios:** veraltete eigene Wetterwerte blockieren nicht, Zeitstempel und Tap-Fläche ([80dd956](https://github.com/jobrunner/legulus/commit/80dd95684ee2c46a8cb377d4f29df198c0244d6a))
+* **ios:** veraltete Wetterwerte erst nach der Placemark-Auflösung freigeben ([dbc553e](https://github.com/jobrunner/legulus/commit/dbc553e6234f1a566fe71f35a732fa5cd40a9b09))
+
 ## [0.5.0](https://github.com/jobrunner/legulus/compare/v0.4.1...v0.5.0) (2026-11-21)
 
 
