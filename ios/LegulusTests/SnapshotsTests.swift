@@ -77,25 +77,13 @@ final class SnapshotsTests: XCTestCase {
         display.weatherSymbol = "cloud.rain"
         display.temperature = "16,0\u{00A0}°C"
         display.temperatureSpoken = "16,0 Grad Celsius"
-        display.hourly = [
-            LabeledValue(id: "h", label: "Luftfeuchte", value: "85\u{00A0}%", spoken: ""),
-            LabeledValue(id: "d", label: "Taupunkt", value: "13,5\u{00A0}°C", spoken: ""),
-            LabeledValue(id: "w", label: "Wind", value: "7\u{00A0}km/h", spoken: ""),
-            LabeledValue(id: "c", label: "Bewölkung", value: "100\u{00A0}%", spoken: ""),
-            LabeledValue(id: "p", label: "Niederschlag", value: "1,4\u{00A0}mm", spoken: "")
+        display.summary = [
+            LabeledValue(id: "wind", label: "Wind", value: "leichte Brise (7\u{00A0}km/h)", spoken: ""),
+            LabeledValue(id: "clouds", label: "Bewölkung", value: "100\u{00A0}%", spoken: ""),
+            LabeledValue(id: "humidity", label: "Luftfeuchte", value: "leicht feucht (85\u{00A0}%)", spoken: ""),
+            LabeledValue(id: "precipitation72", label: "Niederschlag 72\u{00A0}h", value: "62,5\u{00A0}mm", spoken: ""),
+            LabeledValue(id: "koppen", label: "Köppen", value: "Dfb", spoken: "")
         ]
-        display.daily = [
-            LabeledValue(id: "p24", label: "Niederschlag 24\u{00A0}h", value: "34,0\u{00A0}mm", spoken: ""),
-            LabeledValue(id: "p72", label: "Niederschlag 72\u{00A0}h", value: "62,5\u{00A0}mm", spoken: ""),
-            LabeledValue(id: "day", label: "Tag", value: "14,2 – 18,5\u{00A0}°C", spoken: ""),
-            LabeledValue(id: "mean", label: "Tagesmittel", value: "17,3\u{00A0}°C", spoken: "")
-        ]
-        display.sky = [
-            LabeledValue(id: "moon", label: "Mond", value: "Vollmond, 98\u{00A0}%", spoken: ""),
-            LabeledValue(id: "rise", label: "Sonnenaufgang", value: "05:16", spoken: ""),
-            LabeledValue(id: "set", label: "Sonnenuntergang", value: "21:17", spoken: "")
-        ]
-        display.climate = LabeledValue(id: "climate", label: "Klima", value: "Dfb · submontan-kollin", spoken: "")
 
         let os = "iOS\(ProcessInfo.processInfo.operatingSystemVersion.majorVersion)"
         for (name, typeSize) in [("default", DynamicTypeSize.large), ("ax5", .accessibility5)] {

@@ -394,7 +394,7 @@ final class SampleEditorEditTests: XCTestCase {
             version: 1, backendUpdatedAt: Date()
         )])
         XCTAssertEqual(vm.conditionsDisplay?.state, .values)
-        XCTAssertEqual(vm.conditionsDisplay?.sky.first?.value, "Neumond")
+        XCTAssertEqual(vm.conditionsDisplay?.moon?.value, "Neumond")
     }
 
     private func makeVM(sampleID: String) -> SampleEditorViewModel {

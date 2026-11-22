@@ -24,10 +24,11 @@ final class ConditionsDisplayTests: XCTestCase {
     /// The sample with the answer of `TempusFixtures.allOk` (0 °C, 85 %,
     /// 7,4 km/h, code 61, sun, moon), as the resolver stores it.
     private func answered(
-        _ sample: LocalSample, fetchedAfter: TimeInterval = 40 * 86400, json: String = TempusFixtures.allOk
+        _ sample: LocalSample, fetchedAfter: TimeInterval = 40 * 86400, json: String = TempusFixtures.allOk,
+        night: Bool = false
     ) throws -> (LocalSample, [LocalSampleFeature]) {
         var s = sample
-        let request = try XCTUnwrap(ConditionsRequest(s, night: false))
+        let request = try XCTUnwrap(ConditionsRequest(s, night: night))
         let result = ConditionsMapper.map(
             TempusFixtures.response(json), queriedFor: request.instant,
             fetchedAt: request.instant.addingTimeInterval(fetchedAfter)
@@ -92,9 +93,9 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.temperatureSpoken, "0,0 Grad Celsius")
         XCTAssertEqual(d.weatherSymbol, "cloud.rain")
         XCTAssertEqual(d.weatherTitle, "Regen", "fallback text: the trimmed fixture has no description")
-        XCTAssertEqual(d.hourly.map(\.label), ["Luftfeuchte", "Wind"], "what Tempus did not deliver is not listed")
-        XCTAssertEqual(d.hourly.map(\.value), ["85\u{00A0}%", "7\u{00A0}km/h"])
-        XCTAssertEqual(d.hourly.first?.spoken, "Luftfeuchte 85 Prozent")
+        XCTAssertEqual(d.summary.map(\.label), ["Wind", "Luftfeuchte"], "what Tempus did not deliver is not listed")
+        XCTAssertEqual(d.summary.map(\.value), ["leichte Brise (7\u{00A0}km/h)", "85\u{00A0}%"])
+        XCTAssertEqual(d.summary.map(\.spoken), ["Wind leichte Brise, 7 Kilometer pro Stunde", "Luftfeuchte 85 Prozent"])
         XCTAssertNil(d.note)
     }
 
@@ -104,8 +105,48 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(base)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         // 03:27Z and 19:02Z; the Canaries are at UTC+1 in May.
-        XCTAssertEqual(d.sky.map(\.value), ["Neumond, 5\u{00A0}%", "04:27", "20:02"])
-        XCTAssertEqual(d.sky.last?.spoken, "Sonnenuntergang 20:02 Uhr")
+        XCTAssertEqual(d.sunrise, "04:27")
+        XCTAssertEqual(d.sunset, "20:02")
+        XCTAssertEqual(d.moon?.value, "Neumond, 5\u{00A0}%")
+        XCTAssertEqual(d.moonSymbol, "moonphase.new.moon")
+    }
+
+    /// 12:00 UTC lies between sunrise and sunset of the fixture; it has
+    /// no twilight times, so day/night comes from sunrise and sunset.
+    func testValues_DayShowsSunOnly() throws {
+        let (s, rows) = try answered(sample())
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.lightPhase, .day)
+        XCTAssertTrue(d.showsSun)
+        XCTAssertFalse(d.showsMoon)
+    }
+
+    /// The twilight times come from the stored sun feature: 12:00 UTC
+    /// lies between nautical and civil dawn here.
+    func testValues_TwilightFromSunFeatureShowsBoth() throws {
+        let json = """
+        {"features": [{"properties": {"kind": "sun", "sunrise": "2026-05-19T13:00:00Z", "sunset": "2026-05-19T22:00:00Z",
+                        "twilight": {"civil": {"dawn": "2026-05-19T12:30:00Z", "dusk": "2026-05-19T22:30:00Z"},
+                                     "nautical": {"dawn": "2026-05-19T11:30:00Z", "dusk": "2026-05-19T23:00:00Z"}}},
+                       "license": {"name": "PD", "attribution": "NOAA"}}], "providers": []}
+        """
+        let (s, rows) = try answered(sample(), json: json)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.lightPhase, .twilight)
+        XCTAssertTrue(d.showsSun)
+        XCTAssertTrue(d.showsMoon)
+    }
+
+    /// An all-day sample has no instant of its own: night for a night
+    /// fieldtrip, day otherwise.
+    func testValues_AllDayLightPhaseFollowsFieldtrip() throws {
+        var base = try sample()
+        base.isAllDay = true
+        let (day, dayRows) = try answered(base)
+        XCTAssertEqual(ConditionsDisplay(sample: day, night: false, features: dayRows).lightPhase, .day)
+        // A night fieldtrip asks for another instant.
+        let (night, nightRows) = try answered(base, night: true)
+        XCTAssertEqual(ConditionsDisplay(sample: night, night: true, features: nightRows).lightPhase, .night)
     }
 
     func testValues_Provisional() throws {
@@ -122,8 +163,9 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(d.state, .values)
         XCTAssertNil(d.temperature)
         XCTAssertNil(d.weatherSymbol)
-        XCTAssertTrue(d.hourly.isEmpty)
-        XCTAssertEqual(d.sky.count, 3)
+        XCTAssertTrue(d.summary.isEmpty, "no hourly values, no day values in the fixture")
+        XCTAssertNotNil(d.moon)
+        XCTAssertNotNil(d.sunrise)
         XCTAssertEqual(d.note, "Keine Wetterdaten für diesen Tag", "the answer holds no day values")
     }
 
@@ -138,10 +180,10 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(sample(), json: noWeather)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.note, "Keine Daten für diesen Zeitpunkt")
-        XCTAssertEqual(d.sky.map(\.label), ["Mond"], "what is there is still shown")
+        XCTAssertEqual(d.moon?.value, "Neumond, 5\u{00A0}%", "what is there is still shown")
     }
 
-    func testValues_DailyAndClimate() throws {
+    func testValues_SummaryAndClimate() throws {
         let rich = """
         {"features": [
           {"properties": {"kind": "weather", "temperature2m": 16, "weatherCode": 61,
@@ -161,18 +203,15 @@ final class ConditionsDisplayTests: XCTestCase {
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Leichter Regen", "the text comes from the feature")
         XCTAssertEqual(d.temperature, "16,0\u{00A0}°C")
-        XCTAssertEqual(d.hourly.map(\.value), ["13,5\u{00A0}°C"])
-        XCTAssertEqual(
-            d.daily.map(\.label),
-            ["Niederschlag 24\u{00A0}h", "Niederschlag 72\u{00A0}h", "Niederschlag 120\u{00A0}h", "Tag", "Tagesmittel"]
-        )
-        XCTAssertEqual(
-            d.daily.map(\.value),
-            ["34,0\u{00A0}mm", "62,5\u{00A0}mm", "62,7\u{00A0}mm", "14,2 – 18,5\u{00A0}°C", "17,3\u{00A0}°C"]
-        )
-        XCTAssertEqual(d.daily[3].spoken, "Tagestemperatur 14,2 bis 18,5 Grad Celsius")
-        XCTAssertEqual(d.climate?.value, "Dfb · submontan-kollin")
-        XCTAssertEqual(d.climate?.spoken, "Köppen-Klima Dfb, Höhenstufe submontan-kollin")
+        // Dew point without a percentage: the feeling alone. Only the
+        // 72 h precipitation, no day temperatures; the belt moves to
+        // the place.
+        XCTAssertEqual(d.summary.map(\.label), ["Luftfeuchte", "Niederschlag 72\u{00A0}h", "Köppen"])
+        XCTAssertEqual(d.summary.map(\.value), ["leicht feucht", "62,5\u{00A0}mm", "Dfb"])
+        XCTAssertEqual(d.summary.map(\.spoken), [
+            "Luftfeuchte leicht feucht", "Niederschlag der letzten 72 Stunden 62,5 Millimeter", "Köppen-Klima Dfb"
+        ])
+        XCTAssertEqual(d.altitudinalBelt, "submontan-kollin")
     }
 
     /// After a pull the row holds the server's new answer while the
@@ -209,24 +248,27 @@ final class ConditionsDisplayTests: XCTestCase {
 
     private let license = "\"license\": {\"name\": \"CC-BY 4.0\", \"attribution\": \"Quelle\"}"
 
-    /// Only one of the day's extremes delivered: it is still shown.
-    func testPartial_SingleDayExtremeIsShown() throws {
-        let onlyMax = try partial(#"{"properties": {"kind": "aggregate", "temperatureDay": {"max": 18.5}}, \#(license)}"#)
-        XCTAssertEqual(onlyMax.daily.map(\.label), ["Tagesmaximum"])
-        XCTAssertEqual(onlyMax.daily.map(\.value), ["18,5\u{00A0}°C"])
-        XCTAssertEqual(onlyMax.daily.first?.spoken, "Tagesmaximum 18,5 Grad Celsius")
+    /// Dew point and percentage: „schwül (85 %)“.
+    func testPartial_HumidityWithDewPoint() throws {
+        let d = try partial(#"""
+        {"properties": {"kind": "weather", "relativeHumidity2m": 85}, \#(license)},
+        {"properties": {"kind": "dewpoint", "dewPoint2m": 19}, \#(license)}
+        """#)
+        XCTAssertEqual(d.summary.map(\.value), ["schwül (85\u{00A0}%)"])
+        XCTAssertEqual(d.summary.first?.spoken, "Luftfeuchte schwül, 85 Prozent")
+    }
 
-        let onlyMin = try partial(#"{"properties": {"kind": "aggregate", "temperatureDay": {"min": 0}}, \#(license)}"#)
-        XCTAssertEqual(onlyMin.daily.map(\.label), ["Tagesminimum"])
-        XCTAssertEqual(onlyMin.daily.map(\.value), ["0,0\u{00A0}°C"])
+    func testPartial_FullMoonSymbol() throws {
+        let d = try partial(#"{"properties": {"kind": "moon", "phase": {"de": "Vollmond"}, "illuminationPct": 99.6}, \#(license)}"#)
+        XCTAssertEqual(d.moonSymbol, "moonphase.full.moon")
     }
 
     /// The illuminated part without a phase text is still shown.
     func testPartial_MoonIlluminationWithoutPhase() throws {
         let d = try partial(#"{"properties": {"kind": "moon", "illuminationPct": 43.2}, \#(license)}"#)
-        XCTAssertEqual(d.sky.map(\.label), ["Mond"])
-        XCTAssertEqual(d.sky.first?.value, "43\u{00A0}% beleuchtet")
-        XCTAssertEqual(d.sky.first?.spoken, "Mond: 43 Prozent beleuchtet")
+        XCTAssertEqual(d.moon?.value, "43\u{00A0}% beleuchtet")
+        XCTAssertEqual(d.moon?.spoken, "Mond: 43 Prozent beleuchtet")
+        XCTAssertEqual(d.moonSymbol, "moon", "no phase, no phase symbol")
     }
 
     /// The code alone is weather for this instant: no „Keine Daten“.
@@ -246,6 +288,55 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(try partial(hourlyOnly, allDay: true).note, "Keine Wetterdaten für diesen Tag")
         let withDay = #"{"properties": {"kind": "aggregate", "precipitation": {"last24h": 0}}, \#(license)}"#
         XCTAssertNil(try partial(withDay, allDay: true).note)
+    }
+
+    // MARK: - light phase
+
+    /// One day in UTC: nautical dawn 03:00, civil dawn 03:40, sunrise
+    /// 04:20, sunset 20:00, civil dusk 20:40, nautical dusk 21:30.
+    private func phase(at hhmm: String, twilight: Bool = true, nautical: Bool = true) -> ConditionsDisplay.LightPhase? {
+        func t(_ v: String) -> Date {
+            // swiftlint:disable:next force_unwrapping
+            ISO8601DateFormatter().date(from: "2026-05-19T\(v):00Z")!
+        }
+        return ConditionsDisplay.lightPhase(
+            at: t(hhmm), sunrise: t("04:20"), sunset: t("20:00"),
+            civilDawn: twilight ? t("03:40") : nil, civilDusk: twilight ? t("20:40") : nil,
+            nauticalDawn: twilight && nautical ? t("03:00") : nil, nauticalDusk: twilight && nautical ? t("21:30") : nil
+        )
+    }
+
+    func testLightPhase_DayLastsThroughCivilTwilight() {
+        XCTAssertEqual(phase(at: "12:00"), .day)
+        XCTAssertEqual(phase(at: "03:50"), .day, "after civil dawn, before sunrise")
+        XCTAssertEqual(phase(at: "20:30"), .day, "after sunset, before civil dusk")
+    }
+
+    func testLightPhase_TwilightIsNauticalTwilight() {
+        XCTAssertEqual(phase(at: "03:20"), .twilight, "morning")
+        XCTAssertEqual(phase(at: "21:00"), .twilight, "evening")
+    }
+
+    func testLightPhase_NightFromAstronomicalTwilight() {
+        XCTAssertEqual(phase(at: "02:00"), .night)
+        XCTAssertEqual(phase(at: "23:00"), .night)
+    }
+
+    /// No nautical dusk while civil dusk exists: the sun stays above
+    /// -12° (high summer up north), so it never gets night.
+    func testLightPhase_NoNauticalTimesMeansTwilight() {
+        XCTAssertEqual(phase(at: "23:00", nautical: false), .twilight)
+    }
+
+    func testLightPhase_WithoutTwilightTimesSunriseAndSunsetDecide() {
+        XCTAssertEqual(phase(at: "12:00", twilight: false), .day)
+        XCTAssertEqual(phase(at: "20:30", twilight: false), .night)
+    }
+
+    func testLightPhase_NothingKnownIsNil() {
+        XCTAssertNil(ConditionsDisplay.lightPhase(
+            at: Date(), sunrise: nil, sunset: nil, civilDawn: nil, civilDusk: nil, nauticalDawn: nil, nauticalDusk: nil
+        ))
     }
 
     func testNumber_GermanDecimalsAndNoNegativeZero() {

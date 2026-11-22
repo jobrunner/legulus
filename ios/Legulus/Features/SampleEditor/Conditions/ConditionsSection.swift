@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// The area „Wetter und Klima“ of the sample view: the weather at the
-/// sample's instant, the days before, sun and moon, the climate of the
-/// place. `detail` opens the page with everything Tempus delivered and
-/// the sources.
+/// sample's instant, prominent, and a compact summary (wind, clouds,
+/// humidity, rain of the last days, Köppen climate). Sun and moon stand
+/// with the date, the altitudinal belt with the place. `detail` opens
+/// the page with everything Tempus delivered and the sources.
 struct ConditionsSection: View {
     let display: ConditionsDisplay
     /// nil hides the link (nothing to show there).
@@ -73,14 +74,8 @@ struct ConditionsSection: View {
         if let note = display.note {
             message(note)
         }
-        if !display.hourly.isEmpty {
-            ValuePairGrid(display.hourly)
-        }
-        if !display.daily.isEmpty {
-            ValuePairGrid(display.daily)
-        }
-        if !display.sky.isEmpty || display.climate != nil {
-            ValuePairGrid(display.sky + [display.climate].compactMap { $0 })
+        if !display.summary.isEmpty {
+            ValuePairGrid(display.summary)
         }
         if let detail {
             NavigationLink {
@@ -116,7 +111,7 @@ struct ConditionsSection: View {
                 temperatureText
             }
         }
-        .font(AppFont.bodyEmphasized)
+        .font(AppFont.sectionTitle)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             [display.weatherTitle, display.temperatureSpoken].compactMap { $0 }.joined(separator: ", ")
@@ -152,11 +147,10 @@ struct ConditionsSection: View {
     display.weatherSymbol = "cloud.rain"
     display.temperature = "16,0 °C"
     display.temperatureSpoken = "16,0 Grad Celsius"
-    display.hourly = [
-        LabeledValue(id: "h", label: "Luftfeuchte", value: "85 %", spoken: "Luftfeuchte 85 Prozent"),
-        LabeledValue(id: "w", label: "Wind", value: "7 km/h", spoken: "Wind 7 Kilometer pro Stunde")
+    display.summary = [
+        LabeledValue(id: "wind", label: "Wind", value: "leichte Brise (7 km/h)", spoken: "Wind leichte Brise, 7 Kilometer pro Stunde"),
+        LabeledValue(id: "humidity", label: "Luftfeuchte", value: "schwül (85 %)", spoken: "Luftfeuchte schwül, 85 Prozent")
     ]
-    display.sky = [LabeledValue(id: "m", label: "Mond", value: "Vollmond, 98 %", spoken: "Mond: Vollmond")]
     return NavigationStack {
         ScrollView { ConditionsSection(display: display, detail: nil).padding(.horizontal) }
     }
