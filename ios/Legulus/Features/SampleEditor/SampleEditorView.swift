@@ -82,6 +82,9 @@ private struct SampleEditorContent: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Height of the action bar's buttons: large enough for gloves.
     @ScaledMetric(relativeTo: .body) private var actionBarHeight: CGFloat = 56
+    /// At AX sizes the buttons show icons only: more height buys nothing
+    /// and would eat a quarter of the screen.
+    private let actionBarMaxHeight: CGFloat = 80
 
     /// Width of the leading icon column in the location rows; grows
     /// with Dynamic Type so the icons keep their proportion.
@@ -165,16 +168,16 @@ private struct SampleEditorContent: View {
                             presentingNew: $presentingNewDetermination
                         )
                     }
-                    if let saveError = viewModel.saveError {
-                        Text(saveError)
-                            .font(AppFont.footnote)
-                            .foregroundStyle(AppColor.danger)
-                    }
                 }
                 .padding(.bottom, AppSpacing.lg)
             }
-            // The field actions stay in thumb reach while scrolling.
-            .safeAreaInset(edge: .bottom) { actionBar(proxy) }
+            // The field actions stay in thumb reach while scrolling; while
+            // typing the keyboard needs the room.
+            .safeAreaInset(edge: .bottom) {
+                if !notesFocused, !codeFocused {
+                    actionBar(proxy)
+                }
+            }
         }
         // contentMargins greift VOR dem iOS-26-CALayer-Shift und ist
         // unsere einzige Stellschraube auf der ScrollView-Ebene.
@@ -205,7 +208,8 @@ private struct SampleEditorContent: View {
                 .accessibilityLabel("Zurück")
             }
             // Exactly one trailing item: with more, iOS 26 folds them
-            // into a „…“ menu. Star and camera sit in the content.
+            // into a „…“ menu. The star sits in the code band, the camera in
+            // the action bar.
             if viewModel.isExistingSample {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: openForm) {
@@ -336,7 +340,10 @@ private struct SampleEditorContent: View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack(alignment: .center, spacing: AppSpacing.sm) {
                 TextField("Code", text: $viewModel.code)
-                    .font(AppFont.codeLarge)
+                    .font(AppFont.codeTitle)
+                    // Last resort for long codes at AX sizes; the star
+                    // already moved below to give the code the width.
+                    .minimumScaleFactor(0.6)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .submitLabel(.next)
@@ -345,7 +352,7 @@ private struct SampleEditorContent: View {
                     .accessibilityHint(
                         "Vorschlag nach deinem ID-Format. Anpassbar oder leer lassbar, falls du eine andere Nummer auf dem Röhrchen hast."
                     )
-                if viewModel.isExistingSample, let sample = viewModel.savedSample {
+                if !dynamicTypeSize.isAccessibilitySize, viewModel.isExistingSample, let sample = viewModel.savedSample {
                     markButton(marked: sample.marked)
                 }
             }
@@ -361,6 +368,14 @@ private struct SampleEditorContent: View {
             // The server appended a conflict suffix to the sent ID.
             if viewModel.savedSample?.hasIdConflict == true {
                 IdConflictHint()
+            }
+
+            // Up here, not at the end of the page: „Zurück“ that does
+            // nothing must show its reason where the eye is.
+            if let saveError = viewModel.saveError {
+                Text(saveError)
+                    .font(AppFont.footnote)
+                    .foregroundStyle(AppColor.danger)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -381,6 +396,10 @@ private struct SampleEditorContent: View {
 
     @ViewBuilder
     private func chips(_ sample: LocalSample) -> some View {
+        // At AX sizes the star leaves the code's line and leads here.
+        if dynamicTypeSize.isAccessibilitySize, viewModel.isExistingSample {
+            markButton(marked: sample.marked)
+        }
         SyncStatusBadge(status: sample.syncStatus, compact: false)
             .padding(.horizontal, AppSpacing.sm)
             .padding(.vertical, AppSpacing.xs)
@@ -451,7 +470,7 @@ private struct SampleEditorContent: View {
                     presentingNewDetermination = true
                 }
                 .disabled(!canDetermine)
-                .accessibilityHint(canDetermine ? "" : "Erst nach dem Sync möglich.")
+                .modifier(DisabledHint(isDisabled: !canDetermine, hint: "Erst nach dem Sync möglich."))
             }
         }
         .padding(.horizontal, AppSpacing.lg)
@@ -473,7 +492,7 @@ private struct SampleEditorContent: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: actionBarHeight)
+            .frame(maxWidth: .infinity, minHeight: min(actionBarHeight, actionBarMaxHeight))
             .foregroundStyle(prominent ? AppColor.brandOnPrimary : AppColor.brandPrimaryText)
             .background(
                 prominent ? AppColor.brandPrimary : AppColor.brandTint,
@@ -481,7 +500,7 @@ private struct SampleEditorContent: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ActionBarButtonStyle())
         .accessibilityLabel(title)
     }
 
@@ -1061,4 +1080,30 @@ private struct SavedPhotoThumbnail: View {
     }
     .environmentObject(container)
     .environmentObject(container.config)
+}
+
+/// Plain button that shows its disabled state: `.plain` with explicit
+/// colours would otherwise look the same enabled or not.
+private struct ActionBarButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+    }
+}
+
+/// An accessibility hint that only applies while the control is
+/// disabled (the reason it can't be used).
+private struct DisabledHint: ViewModifier {
+    let isDisabled: Bool
+    let hint: String
+
+    func body(content: Content) -> some View {
+        if isDisabled {
+            content.accessibilityHint(hint)
+        } else {
+            content
+        }
+    }
 }

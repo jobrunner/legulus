@@ -18,6 +18,12 @@ struct SampleMapHeader: View {
     @State private var image: UIImage?
     @State private var isTopo = false
     @State private var showsAttribution = false
+    /// Neither the tiles nor the Apple map could be had: the placeholder
+    /// says so instead of an endless spinner.
+    @State private var failed = false
+    /// The coordinate the current image shows (without the colour
+    /// scheme): a new one drops the old picture and its pin.
+    @State private var shownCoordinateKey: String?
 
     /// The map doesn't grow with Dynamic Type: it is a picture, not text.
     static let height: CGFloat = 200
@@ -28,14 +34,20 @@ struct SampleMapHeader: View {
 
     var body: some View {
         if let coordinate {
-            MapSnippetImage(image: image, height: Self.height)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Karte des Probenorts")
-                .accessibilityAddTraits(.isImage)
-                .overlay(alignment: .bottom) { attribution }
-                .task(id: renderKey(for: coordinate)) { await load(coordinate) }
+            Group {
+                if failed, image == nil {
+                    placeholder("Karte ist offline nicht verfügbar.")
+                } else {
+                    MapSnippetImage(image: image, height: Self.height)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Karte des Probenorts")
+                        .accessibilityAddTraits(.isImage)
+                        .overlay(alignment: .bottom) { attribution }
+                }
+            }
+            .task(id: renderKey(for: coordinate)) { await load(coordinate) }
         } else {
-            placeholder
+            placeholder("Karte erscheint, sobald die Position bekannt ist.")
         }
     }
 
@@ -70,7 +82,7 @@ struct SampleMapHeader: View {
         }
     }
 
-    private var placeholder: some View {
+    private func placeholder(_ text: String) -> some View {
         ZStack {
             AppColor.surfaceTertiary
             VStack(spacing: AppSpacing.sm) {
@@ -78,7 +90,7 @@ struct SampleMapHeader: View {
                     .font(AppFont.sectionTitle)
                     .foregroundStyle(AppColor.textSecondary)
                     .accessibilityHidden(true)
-                Text("Karte erscheint, sobald die Position bekannt ist.")
+                Text(text)
                     .font(AppFont.footnote)
                     .foregroundStyle(AppColor.textSecondary)
                     .multilineTextAlignment(.center)
@@ -95,10 +107,21 @@ struct SampleMapHeader: View {
     }
 
     private func load(_ coordinate: CLLocationCoordinate2D) async {
-        // A missing map never blocks the sample: the gradient stays.
-        guard let result = await TopoMapRenderer.image(
-            at: coordinate, size: Self.renderSize, dark: colorScheme == .dark
-        ) else { return }
+        let coordinateKey = String(format: "%.5f|%.5f", coordinate.latitude, coordinate.longitude)
+        if coordinateKey != shownCoordinateKey {
+            image = nil
+            isTopo = false
+            showsAttribution = false
+            shownCoordinateKey = coordinateKey
+        }
+        failed = false
+        // A missing map never blocks the sample.
+        let result = await TopoMapRenderer.image(at: coordinate, size: Self.renderSize, dark: colorScheme == .dark)
+        if Task.isCancelled { return }
+        guard let result else {
+            failed = true
+            return
+        }
         image = result.image
         isTopo = result.isTopo
     }

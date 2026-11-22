@@ -45,4 +45,16 @@ final class TopoTilesTests: XCTestCase {
         XCTAssertFalse(tiles.isEmpty)
         XCTAssertTrue(tiles.allSatisfy { $0.y >= 0 && $0.y < 8 })
     }
+
+    /// The poles lie outside Web Mercator: clamped, no trap on infinity.
+    func testWorldPixel_PolesAreClamped() {
+        let south = TopoTiles.worldPixel(lat: -90, lon: 0, zoom: 3)
+        XCTAssertTrue(south.y.isFinite)
+        XCTAssertEqual(south.y, 8, accuracy: 0.001, "the bottom edge of the world")
+        let tiles = TopoTiles.placements(
+            center: CLLocationCoordinate2D(latitude: -90, longitude: 0), zoom: 3,
+            size: CGSize(width: 390, height: 200), tileSide: 192
+        )
+        XCTAssertTrue(tiles.allSatisfy { $0.y >= 0 && $0.y < 8 })
+    }
 }

@@ -6,6 +6,8 @@ import Foundation
 /// OpenTopoMap number their tiles). Pure, so the geometry is tested
 /// without a network.
 enum TopoTiles {
+    /// Northern and southern edge of the Web Mercator world.
+    static let maxLatitude = 85.051_128_78
     /// One tile to draw: its index and where its top-left corner lands
     /// in the image, in points.
     struct TilePlacement: Equatable {
@@ -20,7 +22,9 @@ enum TopoTiles {
     static func worldPixel(lat: Double, lon: Double, zoom: Int) -> CGPoint {
         let n = pow(2, Double(zoom))
         let x = (lon + 180) / 360 * n
-        let phi = lat * .pi / 180
+        // Web Mercator ends at ±85.0511°; at the poles the formula runs
+        // to infinity and Int(floor(_:)) would trap.
+        let phi = min(max(lat, -maxLatitude), maxLatitude) * .pi / 180
         let y = (1 - log(tan(phi) + 1 / cos(phi)) / .pi) / 2 * n
         return CGPoint(x: x, y: y)
     }

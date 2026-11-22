@@ -18,6 +18,10 @@ enum TopoMapRenderer {
     static let tileSide: CGFloat = 192
 
     private static let timeout: TimeInterval = 8
+    /// Overall deadlines: a server that trickles bytes never trips the
+    /// per-request idle timeout, the header must still give up.
+    private static let topoDeadline: TimeInterval = 10
+    private static let fallbackDeadline: TimeInterval = 8
     private static let memoryCache: NSCache<NSString, UIImage> = {
         let c = NSCache<NSString, UIImage>()
         c.countLimit = 100
@@ -37,7 +41,7 @@ enum TopoMapRenderer {
             return (image, true)
         }
         let start = Date()
-        if let image = await renderTopo(coord: coord, size: size) {
+        if let image = await withDeadline(topoDeadline, { await renderTopo(coord: coord, size: size) }) {
             Log.network.info(
                 "topo header rendered in \(Int(Date().timeIntervalSince(start) * 1000), privacy: .public) ms"
             )
@@ -50,10 +54,30 @@ enum TopoMapRenderer {
             }
             return (image, true)
         }
-        if let fallback = try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark) {
+        // Left the view or the coordinate changed: no fallback render.
+        if Task.isCancelled { return nil }
+        if let fallback = await withDeadline(fallbackDeadline, {
+            try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark)
+        }) {
             return (fallback, false)
         }
         return nil
+    }
+
+    /// `operation`'s result, or nil once `seconds` have passed.
+    private static func withDeadline<T>(
+        _ seconds: TimeInterval, _ operation: @escaping @Sendable () async -> T?
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await operation() }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(seconds))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
     }
 
     // MARK: - private
@@ -75,7 +99,10 @@ enum TopoMapRenderer {
                 }
             }
         } catch {
-            Log.network.warning("topo tile failed, Apple map stands in: \(error.localizedDescription, privacy: .public)")
+            let cancelled = error is CancellationError || (error as? URLError)?.code == .cancelled
+            if !cancelled {
+                Log.network.warning("topo tile failed, Apple map stands in: \(error.localizedDescription, privacy: .public)")
+            }
             return nil
         }
         let scale = await MainActor.run { UIScreen.main.scale }

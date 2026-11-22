@@ -1,50 +1,6 @@
 {
   "sourceLanguage" : "de",
   "strings" : {
-    "angenehm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "angenehm"
-          }
-        }
-      }
-    },
-    "drückend" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "drückend"
-          }
-        }
-      }
-    },
-    "feucht" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "feucht"
-          }
-        }
-      }
-    },
-    "frische Brise" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "frische Brise"
-          }
-        }
-      }
-    },
     "– (leer lassen)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -89,173 +45,8 @@
         }
       }
     },
-    "leicht feucht" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "leicht feucht"
-          }
-        }
-      }
-    },
-    "leichte Brise" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "leichte Brise"
-          }
-        }
-      }
-    },
-    "leiser Zug" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "leiser Zug"
-          }
-        }
-      }
-    },
     "%@ m" : {
 
-    },
-    "mäßige Brise" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "mäßige Brise"
-          }
-        }
-      }
-    },
-    "Orkan" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Orkan"
-          }
-        }
-      }
-    },
-    "orkanartiger Sturm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "orkanartiger Sturm"
-          }
-        }
-      }
-    },
-    "schwache Brise" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "schwache Brise"
-          }
-        }
-      }
-    },
-    "schwerer Sturm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "schwerer Sturm"
-          }
-        }
-      }
-    },
-    "schwül" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "schwül"
-          }
-        }
-      }
-    },
-    "sehr schwül" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "sehr schwül"
-          }
-        }
-      }
-    },
-    "starker Wind" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "starker Wind"
-          }
-        }
-      }
-    },
-    "steifer Wind" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "steifer Wind"
-          }
-        }
-      }
-    },
-    "Sturm" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sturm"
-          }
-        }
-      }
-    },
-    "stürmischer Wind" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "stürmischer Wind"
-          }
-        }
-      }
-    },
-    "trocken" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "trocken"
-          }
-        }
-      }
     },
     "%@ von %@ gefiltert" : {
       "localizations" : {
@@ -420,6 +211,17 @@
     "Alle" : {
 
     },
+    "angenehm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "angenehm"
+          }
+        }
+      }
+    },
     "Auf die Karte tippen, um eine Koordinate zu setzen." : {
 
     },
@@ -529,6 +331,17 @@
     "Diese Exkursion liegt vermutlich im Fundort **%@**." : {
 
     },
+    "drückend" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "drückend"
+          }
+        }
+      }
+    },
     "Eine Exkursion passt, wenn eine ihrer Proben passt." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -583,6 +396,17 @@
     "Felderfassung für entomologische Aufsammlungen" : {
 
     },
+    "feucht" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "feucht"
+          }
+        }
+      }
+    },
     "Format" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -597,14 +421,22 @@
     "Foto wird gelesen …" : {
 
     },
-    "Fotos" : {
-
-    },
     "Fotos werden in voller Auflösung hochgeladen. Proben werden weiter über jede Verbindung synchronisiert." : {
 
     },
     "Fotos zu Proben tauchen automatisch hier auf, sobald du beim Anlegen einer Probe ein Bild aufnimmst." : {
 
+    },
+    "frische Brise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "frische Brise"
+          }
+        }
+      }
     },
     "Ganztägig: gespeichert wird nur das Datum, ohne Uhrzeit und Ende." : {
 
@@ -675,6 +507,9 @@
     "Karte erscheint, sobald die Position bekannt ist." : {
 
     },
+    "Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Kartendarstellung © OpenTopoMap (CC-BY-SA)" : {
+
+    },
     "Kartenpunkt setzen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -740,6 +575,9 @@
     "Koordinate verwerfen?" : {
 
     },
+    "Köppen %@" : {
+
+    },
     "Lädt alle eigenen Datensätze und PDFs als ZIP-Archiv vom Backend." : {
 
     },
@@ -774,6 +612,39 @@
     "Legulus" : {
 
     },
+    "leicht feucht" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leicht feucht"
+          }
+        }
+      }
+    },
+    "leichte Brise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leichte Brise"
+          }
+        }
+      }
+    },
+    "leiser Zug" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "leiser Zug"
+          }
+        }
+      }
+    },
     "Lokale Daten bleiben erhalten. Der Token wird aus dem Schlüsselbund entfernt." : {
 
     },
@@ -787,6 +658,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manuelle Ortsangaben zurücksetzen"
+          }
+        }
+      }
+    },
+    "mäßige Brise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mäßige Brise"
           }
         }
       }
@@ -837,10 +719,10 @@
     "Noch keine Bestimmung." : {
 
     },
-    "Noch keine lokalen Proben für diese Exkursion." : {
+    "Noch keine Fotos. „Foto“ in der Leiste unten nimmt eins auf." : {
 
     },
-    "Notizen" : {
+    "Noch keine lokalen Proben für diese Exkursion." : {
 
     },
     "Nur gesyncte Proben können gedruckt werden." : {
@@ -873,6 +755,28 @@
     },
     "Optional, nur fürs Archiv. Bleibt auf dem Backend liegen." : {
 
+    },
+    "Orkan" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Orkan"
+          }
+        }
+      }
+    },
+    "orkanartiger Sturm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "orkanartiger Sturm"
+          }
+        }
+      }
     },
     "Ort" : {
       "extractionState" : "manual",
@@ -1044,6 +948,50 @@
         }
       }
     },
+    "schwache Brise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwache Brise"
+          }
+        }
+      }
+    },
+    "schwerer Sturm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwerer Sturm"
+          }
+        }
+      }
+    },
+    "schwül" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schwül"
+          }
+        }
+      }
+    },
+    "sehr schwül" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sehr schwül"
+          }
+        }
+      }
+    },
     "Sobald du Proben anlegst, tauchen die jeweiligen Sammeltage hier auf." : {
 
     },
@@ -1067,8 +1015,49 @@
     "Später" : {
 
     },
-    "STANDORT UND ZEIT" : {
-
+    "starker Wind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "starker Wind"
+          }
+        }
+      }
+    },
+    "steifer Wind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "steifer Wind"
+          }
+        }
+      }
+    },
+    "Sturm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sturm"
+          }
+        }
+      }
+    },
+    "stürmischer Wind" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "stürmischer Wind"
+          }
+        }
+      }
     },
     "Sync fehlgeschlagen" : {
       "extractionState" : "manual",
@@ -1117,6 +1106,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tokens: <YY>/<YYYY>, <MM>, <DD>, <PREFIX>, <seq> (Tageszähler) oder <n> (laufender Zähler). Das Backend kann die ID beim Sync um ein Suffix ergänzen, falls sie schon vergeben ist."
+          }
+        }
+      }
+    },
+    "trocken" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "trocken"
           }
         }
       }
