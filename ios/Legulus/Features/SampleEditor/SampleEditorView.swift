@@ -76,6 +76,12 @@ private struct SampleEditorContent: View {
 
     /// The edit form („Bearbeiten“) is pushed.
     @State private var showingForm = false
+    /// „Bestimmen“ in the action bar opens a new determination.
+    @State private var presentingNewDetermination = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Height of the action bar's buttons: large enough for gloves.
+    @ScaledMetric(relativeTo: .body) private var actionBarHeight: CGFloat = 56
 
     /// Width of the leading icon column in the location rows; grows
     /// with Dynamic Type so the icons keep their proportion.
@@ -135,28 +141,40 @@ private struct SampleEditorContent: View {
     private let simulatorJPEGQuality: CGFloat = 0.92
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                editableSection
-                Divider()
-                locationTimeSection
-                if let conditions = viewModel.conditionsDisplay {
-                    ConditionsSection(display: conditions, detail: viewModel.conditionsDetail)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: AppSpacing.md) {
+                    // Edge to edge: cancels the contentMargins with the
+                    // same negative padding.
+                    SampleMapHeader(coordinate: viewModel.coordinate)
+                        .padding(.leading, -leadingMargin)
+                        .padding(.trailing, -trailingMargin)
+                    codeBand
+                    AppCard { placeCard }
+                    AppCard { timeCard }
+                    if let conditions = viewModel.conditionsDisplay {
+                        AppCard { ConditionsSection(display: conditions, detail: viewModel.conditionsDetail) }
+                    }
+                    AppCard { notesCard }
+                        .id(Self.notesAnchor)
+                    AppCard { photoSection }
+                    if viewModel.isExistingSample {
+                        SampleDeterminationsSection(
+                            localSampleID: viewModel.savedSample?.id ?? "",
+                            backendSampleID: viewModel.savedSample?.backendId,
+                            presentingNew: $presentingNewDetermination
+                        )
+                    }
+                    if let saveError = viewModel.saveError {
+                        Text(saveError)
+                            .font(AppFont.footnote)
+                            .foregroundStyle(AppColor.danger)
+                    }
                 }
-                // Karte bewusst edge-to-edge — negiert die
-                // contentMargins via gleichgroße negative padding.
-                SampleMapHeader(coordinate: viewModel.coordinate)
-                    .padding(.leading, -leadingMargin)
-                    .padding(.trailing, -trailingMargin)
-                if viewModel.isExistingSample {
-                    SampleDeterminationsSection(
-                        localSampleID: viewModel.savedSample?.id ?? "",
-                        backendSampleID: viewModel.savedSample?.backendId
-                    )
-                    .padding(.top, AppSpacing.lg)
-                    .padding(.bottom, AppSpacing.xl)
-                }
+                .padding(.bottom, AppSpacing.lg)
             }
+            // The field actions stay in thumb reach while scrolling.
+            .safeAreaInset(edge: .bottom) { actionBar(proxy) }
         }
         // contentMargins greift VOR dem iOS-26-CALayer-Shift und ist
         // unsere einzige Stellschraube auf der ScrollView-Ebene.
@@ -166,7 +184,7 @@ private struct SampleEditorContent: View {
         // iPhone keyboard has no dismiss key and Return adds a line in
         // the notes.
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(.systemBackground))
+        .background(AppColor.surfaceGrouped)
         .navigationTitle(viewModel.isExistingSample && !viewModel.isNew ? "Probe" : "Neue Probe")
         .navigationBarTitleDisplayMode(.inline)
         // Our own back button saves first. The swipe-back is switched
@@ -308,13 +326,17 @@ private struct SampleEditorContent: View {
         )
     }
 
-    // MARK: - editable section
+    // MARK: - code band and cards
 
-    private var editableSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.lg) {
+    private static let notesAnchor = "notes"
+
+    /// The sample code right under the map, large and editable, with the
+    /// star and the sample's status.
+    private var codeBand: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
             HStack(alignment: .center, spacing: AppSpacing.sm) {
                 TextField("Code", text: $viewModel.code)
-                    .font(AppFont.codeEmphasized)
+                    .font(AppFont.codeLarge)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .submitLabel(.next)
@@ -327,11 +349,12 @@ private struct SampleEditorContent: View {
                     markButton(marked: sample.marked)
                 }
             }
+            statusChips
 
             if let codeError = viewModel.codeValidationError {
                 Text(codeError)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+                    .font(AppFont.footnote)
+                    .foregroundStyle(AppColor.danger)
                     .accessibilityLabel("Fehler im Code-Feld: \(codeError)")
             }
 
@@ -339,38 +362,127 @@ private struct SampleEditorContent: View {
             if viewModel.savedSample?.hasIdConflict == true {
                 IdConflictHint()
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, AppSpacing.xs)
+    }
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text("Notizen")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
-                // Vertical TextField without an upper line limit: grows
-                // with the text and never scrolls itself, so the outer
-                // ScrollView stays the only scroll area (a TextEditor
-                // with maxHeight nested a second scroll view in it).
-                TextField("optional", text: $viewModel.notes, axis: .vertical)
-                    .lineLimit(notesMinLines...)
-                    .focused($notesFocused)
-                    .accessibilityLabel("Notizen zur Probe")
-            }
-
-            photoSection
-
-            if let saveError = viewModel.saveError {
-                Text(saveError)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+    /// Sync state and fieldtrip side by side; below each other when
+    /// they don't fit (large type).
+    @ViewBuilder
+    private var statusChips: some View {
+        if let sample = viewModel.savedSample {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: AppSpacing.sm) { chips(sample) }
+                VStack(alignment: .leading, spacing: AppSpacing.xs) { chips(sample) }
             }
         }
-        // Horizontale Margin sitzt auf der ScrollView (contentMargins).
-        // Hier nur vertikale Paddings + frame-Stretching für TextField/
-        // TextEditor.
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, AppSpacing.md)
-        .padding(.bottom, AppSpacing.lg)
+    }
+
+    @ViewBuilder
+    private func chips(_ sample: LocalSample) -> some View {
+        SyncStatusBadge(status: sample.syncStatus, compact: false)
+            .padding(.horizontal, AppSpacing.sm)
+            .padding(.vertical, AppSpacing.xs)
+            .background(AppColor.surfaceCard, in: Capsule())
+        if let fieldtrip = viewModel.savedFieldtrip {
+            Label(fieldtrip.title, systemImage: fieldtrip.nightFieldtrip ? "moon.stars" : "map")
+                .font(AppFont.caption)
+                .foregroundStyle(AppColor.textSecondary)
+                .padding(.horizontal, AppSpacing.sm)
+                .padding(.vertical, AppSpacing.xs)
+                .background(AppColor.surfaceCard, in: Capsule())
+                .accessibilityLabel("Exkursion \(fieldtrip.title)")
+        }
+    }
+
+    private var notesCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            SectionHeader(title: "Notizen")
+            // Vertical TextField without an upper line limit: grows
+            // with the text and never scrolls itself, so the outer
+            // ScrollView stays the only scroll area (a TextEditor
+            // with maxHeight nested a second scroll view in it).
+            TextField("optional", text: $viewModel.notes, axis: .vertical)
+                .lineLimit(notesMinLines...)
+                .focused($notesFocused)
+                .accessibilityLabel("Notizen zur Probe")
+        }
+    }
+
+    private var placeCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            SectionHeader(title: "Ort")
+            locationRow
+            if viewModel.isExistingSample {
+                // The leading inset aligns the divider with the right
+                // edge of the icon column inside each row.
+                Divider().padding(.leading, iconColumnWidth)
+                placeSection
+            }
+        }
+    }
+
+    private var timeCard: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            SectionHeader(title: "Zeit")
+            timeRow
+        }
+    }
+
+    // MARK: - action bar
+
+    /// Notiz · Foto · Bestimmen in thumb reach. At accessibility sizes
+    /// the buttons show their icon only; the label stays for VoiceOver.
+    private func actionBar(_ proxy: ScrollViewProxy) -> some View {
+        HStack(spacing: AppSpacing.sm) {
+            actionButton("Notiz", systemImage: "square.and.pencil", prominent: false) {
+                notesFocused = true
+                withAnimation(AppMotion.respecting(AppMotion.base, reduceMotion: reduceMotion)) {
+                    proxy.scrollTo(Self.notesAnchor, anchor: .center)
+                }
+            }
+            actionButton("Foto", systemImage: "camera.fill", prominent: true, action: openCamera)
+            if viewModel.isExistingSample {
+                let canDetermine = viewModel.savedSample?.backendId != nil
+                actionButton("Bestimmen", systemImage: "magnifyingglass", prominent: false) {
+                    notesFocused = false
+                    codeFocused = false
+                    presentingNewDetermination = true
+                }
+                .disabled(!canDetermine)
+                .accessibilityHint(canDetermine ? "" : "Erst nach dem Sync möglich.")
+            }
+        }
+        .padding(.horizontal, AppSpacing.lg)
+        .padding(.vertical, AppSpacing.sm)
+        .background(.bar)
+    }
+
+    private func actionButton(
+        _ title: String, systemImage: String, prominent: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: systemImage)
+                } else {
+                    VStack(spacing: AppSpacing.xxs) {
+                        Image(systemName: systemImage)
+                        Text(title).font(AppFont.captionEmphasized)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: actionBarHeight)
+            .foregroundStyle(prominent ? AppColor.brandOnPrimary : AppColor.brandPrimaryText)
+            .background(
+                prominent ? AppColor.brandPrimary : AppColor.brandTint,
+                in: RoundedRectangle(cornerRadius: AppRadius.lg)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     /// The star: filled when marked, so the state shows in the shape
@@ -392,27 +504,15 @@ private struct SampleEditorContent: View {
         .accessibilityLabel(marked ? "Markierung entfernen" : "Probe markieren")
     }
 
-    /// „Fotos“ with the camera button, always visible; the strip
-    /// follows once there are photos.
+    /// „Fotos“ with the strip, or a hint where the camera is.
     private var photoSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            HStack(alignment: .center, spacing: AppSpacing.sm) {
-                Text("Fotos")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: AppSpacing.sm)
-                Button(action: openCamera) {
-                    Image(systemName: "camera.fill")
-                        .font(AppFont.sectionTitle)
-                        .foregroundStyle(AppColor.brandPrimaryText)
-                        .frame(minWidth: minTapTarget, minHeight: minTapTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Foto aufnehmen")
-            }
-            if !viewModel.savedPhotos.isEmpty {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            SectionHeader(title: viewModel.savedPhotos.isEmpty ? "Fotos" : "Fotos · \(viewModel.savedPhotos.count)")
+            if viewModel.savedPhotos.isEmpty {
+                Text("Noch keine Fotos. „Foto“ in der Leiste unten nimmt eins auf.")
+                    .font(AppFont.footnote)
+                    .foregroundStyle(AppColor.textSecondary)
+            } else {
                 photoStrip
             }
         }
@@ -462,40 +562,7 @@ private struct SampleEditorContent: View {
         }
     }
 
-    // MARK: - bottom section
-
-    private var locationTimeSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.md) {
-            Text("STANDORT UND ZEIT")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.top, AppSpacing.lg)
-                .accessibilityAddTraits(.isHeader)
-
-            locationRow
-
-            if viewModel.isExistingSample {
-                // The leading inset aligns the divider with the right
-                // edge of the icon column inside each row.
-                Divider().padding(.leading, iconColumnWidth)
-                placeSection
-            }
-
-            Divider().padding(.leading, iconColumnWidth)
-            timeRow
-        }
-        // Horizontale Margin sitzt auf der ScrollView. Background
-        // soll trotzdem edge-to-edge — Color in der background-Closure
-        // wird mit negativer horizontaler Padding über die
-        // contentMargins-Grenze hinaus aufgeweitet.
-        .padding(.bottom, AppSpacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            Color(.secondarySystemBackground)
-                .padding(.leading, -leadingMargin)
-                .padding(.trailing, -trailingMargin)
-        }
-    }
+    // MARK: - place and time
 
     private var locationRow: some View {
         HStack(alignment: .top, spacing: AppSpacing.sm) {

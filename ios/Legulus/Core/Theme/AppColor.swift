@@ -62,6 +62,10 @@ enum AppColor {
     /// the actual name).
     static let brandPrimaryMuted = Color("BrandPrimaryMuted")
 
+    /// Light brand fill behind `brandPrimaryText`: the secondary
+    /// buttons of the sample view's action bar.
+    static let brandTint = Color("BrandPrimary").opacity(0.14)
+
     // MARK: - Surfaces
 
     // System wrappers — let iOS handle Light/Dark/Contrast for us.
@@ -77,6 +81,10 @@ enum AppColor {
 
     /// Grouped-list backdrop (used by Settings, Home menu).
     static let surfaceGrouped = Color(uiColor: .systemGroupedBackground)
+
+    /// A card on the grouped backdrop (`AppCard`, the sample view's
+    /// sections): white in Light, lifted grey in Dark.
+    static let surfaceCard = Color(uiColor: .secondarySystemGroupedBackground)
 
     /// Dims the screen behind a blocking progress card (e.g. „Foto wird
     /// gelesen …“): the grouped backdrop at 60 %, so the content stays

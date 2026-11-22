@@ -30,7 +30,6 @@ struct ConditionsSection: View {
                 values
             }
         }
-        .padding(.vertical, AppSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
