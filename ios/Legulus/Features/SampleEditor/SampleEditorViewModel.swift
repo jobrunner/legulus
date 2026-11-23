@@ -623,10 +623,11 @@ final class SampleEditorViewModel: ObservableObject {
     }
 
     /// „MTB 6326/1 Ochsenfurt“ (DE only), nil otherwise.
-    var mtbText: String? {
+    /// „6326/1 Ochsenfurt“; the view puts the „MTB“ label in front.
+    var mtbValue: String? {
         guard let sample = savedSample else { return nil }
-        return PlaceDisplay.mtbText(number: sample.mtbSheetNumber, name: sample.mtbSheetName,
-                                    quadrant: sample.mtbQuadrant, countryISO: currentPlacemark?.countryISO)
+        return PlaceDisplay.mtbValue(number: sample.mtbSheetNumber, name: sample.mtbSheetName,
+                                     quadrant: sample.mtbQuadrant, countryISO: currentPlacemark?.countryISO)
     }
 
     var hasSuggestion: Bool {

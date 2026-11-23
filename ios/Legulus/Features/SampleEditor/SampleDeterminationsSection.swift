@@ -9,24 +9,24 @@ import SwiftUI
 struct SampleDeterminationsSection: View {
     let localSampleID: String
     let backendSampleID: String?
+    /// „Bestimmen“ in the sample view's action bar opens the same sheet.
+    @Binding var presentingNew: Bool
 
     @EnvironmentObject private var container: AppContainer
 
     @State private var determinations: [Determination] = []
     @State private var loading = false
     @State private var loadError: String?
-    @State private var presentingNew = false
     @State private var editing: Determination?
     @State private var people: [String: Person] = [:]
 
     private let berlin = TimeZone(identifier: "Europe/Berlin") ?? .current
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 12) {
+        AppCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
                 HStack {
-                    Text("Bestimmungen")
-                        .font(.headline)
+                    SectionHeader(title: "Bestimmungen")
                     Spacer()
                     Button {
                         presentingNew = true

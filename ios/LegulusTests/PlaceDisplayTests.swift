@@ -81,6 +81,13 @@ final class PlaceDisplayTests: XCTestCase {
         XCTAssertNil(PlaceDisplay.mtbText(number: "", name: "X", quadrant: 1, countryISO: "DE"))
     }
 
+    /// The value without the „MTB“ label, for a separately styled label.
+    func testMTBValue() {
+        XCTAssertEqual(PlaceDisplay.mtbValue(number: "6326", name: "Ochsenfurt", quadrant: 1, countryISO: "DE"),
+                       "6326/1 Ochsenfurt")
+        XCTAssertNil(PlaceDisplay.mtbValue(number: "6326", name: "X", quadrant: 1, countryISO: "AT"), "only DE")
+    }
+
     func testMatches_SearchesAllPlaceFieldsCaseAndDiacriticInsensitive() {
         XCTAssertTrue(PlaceDisplay.matches(ochsenfurt, query: "wurzburg"))
         XCTAssertTrue(PlaceDisplay.matches(ochsenfurt, query: "BAYERN"))

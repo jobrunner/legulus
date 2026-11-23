@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Generic card surface — a rounded rectangle with the app's default
-/// background colour and inner padding. Use this instead of
+/// Generic card surface — a rounded rectangle on the grouped backdrop
+/// (`AppColor.surfaceGrouped`) with inner padding. Use this instead of
 /// `GroupBox` when you want the design-system look (corner radius
-/// from `AppRadius.md`, padding from `AppSpacing.lg`).
+/// from `AppRadius.xl`, padding from `AppSpacing.lg`).
 ///
 /// Composition over inheritance: `AppCard` itself doesn't know about
 /// its content. Pass any view — header, value rows, buttons — and
@@ -15,8 +15,8 @@ struct AppCard<Content: View>: View {
         content
             .padding(AppSpacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColor.surfaceSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
+            .background(AppColor.surfaceCard)
+            .clipShape(RoundedRectangle(cornerRadius: AppRadius.xl))
     }
 }
 
@@ -41,5 +41,5 @@ struct AppCard<Content: View>: View {
         }
     }
     .padding()
-    .background(AppColor.surface)
+    .background(AppColor.surfaceGrouped)
 }

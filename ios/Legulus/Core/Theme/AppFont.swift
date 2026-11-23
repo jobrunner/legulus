@@ -40,4 +40,7 @@ enum AppFont {
     static let codeEmphasized = Font.body.monospaced().weight(.semibold)
     /// Used for the headline sample code on the editor's success card.
     static let codeLarge = Font.system(.largeTitle, design: .monospaced).weight(.bold)
+    /// The editable sample code under the sample view's map: large, but
+    /// one step below `codeLarge` so it fits one line up to AX5.
+    static let codeTitle = Font.system(.title, design: .monospaced).weight(.bold)
 }

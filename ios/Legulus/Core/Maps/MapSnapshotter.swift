@@ -92,7 +92,13 @@ enum MapSnapshotter {
         options.mapType = .standard
 
         let snapshotter = MKMapSnapshotter(options: options)
-        return try await snapshotter.start()
+        // `start()` ignores task cancellation; the deadline in
+        // `TopoMapRenderer` cancels, and only `cancel()` stops the render.
+        return try await withTaskCancellationHandler {
+            try await snapshotter.start()
+        } onCancel: {
+            snapshotter.cancel()
+        }
     }
 
     private static func drawPin(on snapshot: MKMapSnapshotter.Snapshot, coord: CLLocationCoordinate2D) -> UIImage {
@@ -102,29 +108,21 @@ enum MapSnapshotter {
         let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
         return renderer.image { ctx in
             image.draw(at: .zero)
-            let point = snapshot.point(for: coord)
-
-            // Outer ring + inner dot — high-contrast pin that reads
-            // on both light and dark map tiles.
-            let outerRadius: CGFloat = 11
-            let innerRadius: CGFloat = 5
-            let outer = CGRect(
-                x: point.x - outerRadius,
-                y: point.y - outerRadius,
-                width: outerRadius * 2,
-                height: outerRadius * 2
-            )
-            let inner = CGRect(
-                x: point.x - innerRadius,
-                y: point.y - innerRadius,
-                width: innerRadius * 2,
-                height: innerRadius * 2
-            )
-            UIColor.white.setFill()
-            ctx.cgContext.fillEllipse(in: outer)
-            UIColor.systemBlue.setFill()
-            ctx.cgContext.fillEllipse(in: inner)
+            drawPinMark(at: snapshot.point(for: coord), in: ctx.cgContext)
         }
+    }
+
+    /// Outer ring + inner dot — high-contrast pin that reads on light,
+    /// dark and topographic maps alike. Shared with `TopoMapRenderer`.
+    static func drawPinMark(at point: CGPoint, in cg: CGContext) {
+        let outerRadius: CGFloat = 11
+        let innerRadius: CGFloat = 5
+        UIColor.white.setFill()
+        cg.fillEllipse(in: CGRect(x: point.x - outerRadius, y: point.y - outerRadius,
+                                  width: outerRadius * 2, height: outerRadius * 2))
+        UIColor.systemBlue.setFill()
+        cg.fillEllipse(in: CGRect(x: point.x - innerRadius, y: point.y - innerRadius,
+                                  width: innerRadius * 2, height: innerRadius * 2))
     }
 
     private static func cacheKey(coord: CLLocationCoordinate2D, size: CGSize, span: Double, dark: Bool) -> String {

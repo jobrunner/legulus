@@ -46,6 +46,14 @@
                             }
                         }
                     }
+                    NavigationLink("AppChipStyle") {
+                        CatalogPage {
+                            HStack(spacing: AppSpacing.sm) {
+                                SyncStatusBadge(status: .synced, compact: false).appChipStyle()
+                                Text("Köppen Cfb").font(AppFont.footnote).appChipStyle(fill: AppColor.surfaceGrouped)
+                            }
+                        }
+                    }
                     NavigationLink("PrimaryButton") {
                         CatalogPage {
                             VStack(spacing: AppSpacing.md) {
@@ -138,6 +146,8 @@
                 .init(name: "surfaceSecondary", color: AppColor.surfaceSecondary),
                 .init(name: "surfaceTertiary", color: AppColor.surfaceTertiary),
                 .init(name: "surfaceGrouped", color: AppColor.surfaceGrouped),
+                .init(name: "surfaceCard", color: AppColor.surfaceCard),
+                .init(name: "brandTint", color: AppColor.brandTint),
                 .init(name: "scrim", color: AppColor.scrim),
                 .init(name: "separator", color: AppColor.separator),
                 .init(name: "outlineSubtle", color: AppColor.outlineSubtle)
@@ -273,7 +283,8 @@
             .init(name: "captionEmphasized", font: AppFont.captionEmphasized),
             .init(name: "code", font: AppFont.code),
             .init(name: "codeEmphasized", font: AppFont.codeEmphasized),
-            .init(name: "codeLarge", font: AppFont.codeLarge)
+            .init(name: "codeLarge", font: AppFont.codeLarge),
+            .init(name: "codeTitle", font: AppFont.codeTitle)
         ]
 
         var body: some View {

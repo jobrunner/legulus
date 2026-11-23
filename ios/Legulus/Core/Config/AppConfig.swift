@@ -72,6 +72,11 @@ final class AppConfig: ObservableObject {
 
     static let defaultTempusEndpointURL = "https://tempus.legulus.app"
 
+    /// Tile source of the sample's map header (OpenTopoMap). `{s}` is a
+    /// server letter a–c, `{z}/{x}/{y}` the slippy-map tile index. The
+    /// tiles are CC-BY-SA: the header shows the attribution.
+    nonisolated static let topoTileURLTemplate = "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+
     /// Sample-ID template (Phase Z). Mirrored from the users record
     /// (`sample_id_format`) and cached here so the offline generator
     /// works without a network. Invalid templates (both counters) are
