@@ -34,28 +34,18 @@ struct ConditionsSection: View {
     }
 
     private var header: some View {
-        // The status moves below the title when both do not fit in one
-        // line (large type); it is text, never colour alone.
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionHeader(title: "Wetter und Klima")
-                Spacer(minLength: AppSpacing.sm)
-                provisionalLabel
-            }
-            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                SectionHeader(title: "Wetter und Klima")
-                provisionalLabel
-            }
-        }
+        SectionHeader(title: "Wetter und Klima")
     }
 
+    /// Only the weather is provisional, so the note stands with it, not
+    /// on the whole card: „Wetterwerte vorläufig bis 24.05.“ or
+    /// „Unvollständig, wird nachgeholt“. Icon and text, never colour alone.
     @ViewBuilder
-    private var provisionalLabel: some View {
-        if display.state == .values, display.isProvisional {
-            Text("vorläufig")
+    private var provisionalLine: some View {
+        if let note = display.provisionalNote {
+            Label(note, systemImage: "clock.arrow.circlepath")
                 .font(AppFont.caption)
                 .foregroundStyle(AppColor.textSecondary)
-                .accessibilityLabel("Werte vorläufig")
         }
     }
 
@@ -70,6 +60,7 @@ struct ConditionsSection: View {
         if display.weatherTitle != nil || display.temperature != nil {
             weatherLine
         }
+        provisionalLine
         if let note = display.note {
             message(note)
         }
@@ -158,6 +149,7 @@ struct ConditionsSection: View {
 #Preview("Werte") {
     var display = ConditionsDisplay(state: .values)
     display.isProvisional = true
+    display.provisionalNote = "Wetterwerte vorläufig bis 24.05."
     display.weatherTitle = "Leichter Regen"
     display.weatherSymbol = "cloud.rain"
     display.temperature = "16,0 °C"

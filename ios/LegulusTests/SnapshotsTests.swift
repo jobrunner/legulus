@@ -73,6 +73,7 @@ final class SnapshotsTests: XCTestCase {
     func testConditionsSection() {
         var display = ConditionsDisplay(state: .values)
         display.isProvisional = true
+        display.provisionalNote = "Wetterwerte vorläufig bis 24.05."
         display.weatherTitle = "Leichter Regen"
         display.weatherSymbol = "cloud.rain"
         display.temperature = "16,0\u{00A0}°C"

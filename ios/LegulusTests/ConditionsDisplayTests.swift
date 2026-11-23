@@ -178,6 +178,38 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertTrue(ConditionsDisplay(sample: s, night: false, features: rows).isProvisional)
     }
 
+    /// Young values say until when: 120 h after the instant (12:00 UTC on
+    /// 19.05. → 24.05., in the sample's zone).
+    func testValues_ProvisionalByAgeNamesTheDate() throws {
+        let (s, rows) = try answered(sample(), fetchedAfter: 3600)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.provisionalNote, "Wetterwerte vorläufig bis 24.05.")
+        XCTAssertEqual(
+            ConditionsDetailModel(sample: s, night: false, features: rows).provisionalNote,
+            "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden; "
+                + "endgültig ab 24.05. Sonne, Mond und Klima sind endgültig."
+        )
+    }
+
+    /// Old enough, but a provider was unavailable: something is missing
+    /// and is asked again, which is a different reason.
+    func testValues_ProvisionalByUnavailableProvider() throws {
+        let json = """
+        {"features": [{"properties": {"kind": "moon", "phase": {"de": "Neumond"}}, "license": {"name": "PD", "attribution": "Meeus"}}],
+         "providers": [{"id": "open-meteo", "kind": "weather", "status": "unavailable"},
+                       {"id": "moon", "kind": "moon", "status": "ok"}]}
+        """
+        let (s, rows) = try answered(sample(), json: json)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertTrue(d.isProvisional)
+        XCTAssertEqual(d.provisionalNote, "Unvollständig, wird nachgeholt")
+    }
+
+    func testValues_FinalHasNoProvisionalNote() throws {
+        let (s, rows) = try answered(sample())
+        XCTAssertNil(ConditionsDisplay(sample: s, night: false, features: rows).provisionalNote)
+    }
+
     /// An all-day sample shows day values only.
     func testValues_AllDayHidesHourlyWeather() throws {
         var base = try sample()

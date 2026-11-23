@@ -19,8 +19,8 @@ struct ConditionsDetailView: View {
                 if let fetchedAt = model.fetchedAt {
                     LabeledContent("Abgerufen am", value: fetchedAt)
                 }
-                if model.isProvisional {
-                    Text("Die Werte sind vorläufig und werden später durch endgültige ersetzt.")
+                if let note = model.provisionalNote {
+                    Text(note)
                         .font(AppFont.footnote)
                         .foregroundStyle(AppColor.textSecondary)
                 }
@@ -37,7 +37,9 @@ struct ConditionsDetailView: View {
                             .accessibilityLabel(row.spoken)
                     }
                 } header: {
-                    Text(group.title)
+                    // Only the weather is provisional; the other groups
+                    // are final as they are.
+                    Text(group.id == "weather" && model.isProvisional ? group.title + " · vorläufig" : group.title)
                 } footer: {
                     source(of: group)
                 }

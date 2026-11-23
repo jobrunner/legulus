@@ -38,6 +38,9 @@ struct ConditionsDisplay: Equatable {
     /// The answer will be replaced (forecast data, or a provider was
     /// unavailable).
     var isProvisional = false
+    /// What „provisional“ means here, for the weather line: until when
+    /// the model data may still change, or that something is missing.
+    var provisionalNote: String?
     /// Text for the WMO code, e.g. „Leichter Regen“.
     var weatherTitle: String?
     /// SF Symbol for the WMO code.
@@ -103,6 +106,14 @@ struct ConditionsDisplay: Equatable {
         let features = conditions.holdsItsFeatures ? features : []
         isProvisional = conditions.status == .provisional
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
+        switch Self.provisionalReason(conditions) {
+        case let .young(finalFrom):
+            provisionalNote = "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone))"
+        case .incomplete:
+            provisionalNote = "Unvollständig, wird nachgeholt"
+        case nil:
+            break
+        }
 
         var hasHourly = false
         if !sample.isAllDay {
@@ -256,6 +267,38 @@ struct ConditionsDisplay: Equatable {
         if moon != nil { moonSymbol = Self.moonSymbol(phase: phase) }
         sunrise = c.date("sunrise").map { Self.time($0, zone: zone) }
         sunset = c.date("sunset").map { Self.time($0, zone: zone) }
+    }
+
+    // MARK: - provisional
+
+    /// Why an answer is provisional. Only the weather is: sun, moon and
+    /// climate are computed or climatological and don't change.
+    enum ProvisionalReason: Equatable {
+        /// The instant was younger than `ConditionsQuery.finalAfter` when
+        /// fetched: the weather comes from model data that is still being
+        /// revised; final from the given date (the backend's job asks again).
+        case young(finalFrom: Date)
+        /// A provider was unavailable: values are missing and asked again.
+        case incomplete
+    }
+
+    static func provisionalReason(_ c: SampleConditions) -> ProvisionalReason? {
+        guard c.status == .provisional else { return nil }
+        if let instant = c.queriedFor, let fetchedAt = c.fetchedAt,
+           !ConditionsQuery.isFinalAge(instant: instant, fetchedAt: fetchedAt)
+        {
+            return .young(finalFrom: instant.addingTimeInterval(ConditionsQuery.finalAfter))
+        }
+        return .incomplete
+    }
+
+    /// „24.05.“ in `zone`.
+    static func dayMonth(_ date: Date, zone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeZone = zone
+        f.dateFormat = "dd.MM."
+        return f.string(from: date)
     }
 
     // MARK: - light phase
