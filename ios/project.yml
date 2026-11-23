@@ -22,6 +22,11 @@ settings:
     # Button tints, sheet handles) to the brand green defined in
     # Assets.xcassets/AccentColor.colorset.
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    # Every UI text is translatable (CLAUDE.md): the compiler extracts
+    # String(localized:) and LocalizedStringKey into the string catalog,
+    # not only the SwiftUI literals the editor's parser finds.
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
