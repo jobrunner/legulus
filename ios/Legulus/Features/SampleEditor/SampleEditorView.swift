@@ -449,10 +449,7 @@ private struct SampleEditorContent: View {
     }
 
     private var timeCard: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            SectionHeader(title: "Zeit")
-            timeRow
-        }
+        SampleTimeCard(texts: dateTexts, skyItems: skyItems, zoneLabel: timezoneLabelText)
     }
 
     // MARK: - action bar
@@ -864,111 +861,10 @@ private struct SampleEditorContent: View {
         return display.skyItems
     }
 
-    /// „🌅 07:31  🌇 16:42  🌕 Vollmond, 98 %“ side by side; one per line
-    /// when that doesn't fit (AX sizes). Read with the date row.
-    @ViewBuilder
-    private var skyLine: some View {
-        let items = skyItems
-        if !items.isEmpty {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.lg) {
-                    ForEach(items) { skyLabel($0) }
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    ForEach(items) { skyLabel($0) }
-                }
-            }
-            .font(AppFont.subhead)
-        }
-    }
-
-    private func skyLabel(_ item: ConditionsDisplay.SkyItem) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-            Image(systemName: item.symbol)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(item.value)
-                .monospacedDigit()
-        }
-    }
-
     /// „Exposition: SSW (203°)“ with a secondary label, or a bare „eben“.
     private func terrainText(_ item: PlaceDisplay.DetailLine) -> Text {
         guard let label = item.label else { return Text(item.value) }
         return Text("\(label):").foregroundStyle(.secondary) + Text(" " + item.value)
-    }
-
-    /// Variant A: date (bold) and time window on one line, sun/moon and
-    /// time zone on the next; each pair stacks when it doesn't fit
-    /// (large type). The card's „Zeit“ header replaces the calendar icon,
-    /// so the date has the full width.
-    private var timeRow: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
-                    dateText.lineLimit(1)
-                    Spacer(minLength: AppSpacing.sm)
-                    windowText
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    // One line while it fits; at large type sizes the date
-                    // breaks after the weekday instead of mid-date.
-                    ViewThatFits(in: .horizontal) {
-                        // Truncation never shows: `ViewThatFits` takes the
-                        // stacked variant when one line is too narrow.
-                        dateText.lineLimit(1)
-                        if let weekday = dateTexts.weekday, let rest = dateTexts.dayAndYear {
-                            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                                Text(weekday)
-                                Text(rest)
-                            }
-                            .font(AppFont.bodyEmphasized)
-                        } else {
-                            // A range of days wraps as a whole.
-                            dateText
-                        }
-                    }
-                    windowText
-                }
-            }
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
-                    skyLine.lineLimit(1)
-                    Spacer(minLength: AppSpacing.sm)
-                    zoneText
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    skyLine
-                    zoneText
-                }
-            }
-        }
-        .padding(.vertical, AppSpacing.xs)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(timeA11yLabel)
-    }
-
-    private var dateText: some View {
-        Text(dateTexts.date)
-            .font(AppFont.bodyEmphasized)
-    }
-
-    @ViewBuilder
-    private var windowText: some View {
-        if let window = dateTexts.window {
-            Text(window)
-                .font(AppFont.body.monospacedDigit())
-        }
-    }
-
-    @ViewBuilder
-    private var zoneText: some View {
-        if let zoneLabel = timezoneLabelText {
-            Text(zoneLabel)
-                .font(AppFont.footnote)
-                .foregroundStyle(AppColor.textSecondary)
-        }
     }
 
     // MARK: - derived view state
@@ -1059,13 +955,6 @@ private struct SampleEditorContent: View {
         if let acc = viewModel.savedSample?.verticalAccuracy {
             parts.append(String(format: "Fehler etwa %.0f Meter", acc))
         }
-        return parts.joined(separator: ", ")
-    }
-
-    private var timeA11yLabel: String {
-        var parts = [dateTexts.spoken]
-        parts += skyItems.map(\.spoken)
-        if let zone = timezoneLabelText { parts.append(zone) }
         return parts.joined(separator: ", ")
     }
 }
