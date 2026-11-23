@@ -35,13 +35,17 @@ enum MapSnapshotter {
     ///     view's pixel size for a 1:1 result).
     ///   - span: latitude span in degrees. ~0.04 ≈ city block + walk.
     ///   - dark: light vs. dark map style.
+    ///   - anchor: where the coordinate and pin go, in points; the middle
+    ///     when nil (the sample's map header lowers it below the bars).
     static func snapshot(
         at coord: CLLocationCoordinate2D,
         size: CGSize,
         span: Double = 0.04,
-        dark: Bool = false
+        dark: Bool = false,
+        anchor: CGPoint? = nil
     ) async throws -> UIImage {
-        let key = cacheKey(coord: coord, size: size, span: span, dark: dark)
+        let pin = anchor ?? CGPoint(x: size.width / 2, y: size.height / 2)
+        let key = cacheKey(coord: coord, size: size, span: span, dark: dark, anchor: pin)
 
         if let cached = memoryCache.object(forKey: key as NSString) {
             return cached
@@ -56,7 +60,8 @@ enum MapSnapshotter {
             return image
         }
 
-        let snapshot = try await renderSnapshot(coord: coord, size: size, span: span, dark: dark)
+        let centre = regionCenter(for: coord, size: size, span: span, anchor: pin)
+        let snapshot = try await renderSnapshot(coord: centre, size: size, span: span, dark: dark)
         let image = drawPin(on: snapshot, coord: coord)
         memoryCache.setObject(image, forKey: key as NSString)
         if let url = diskURL(for: key), let data = image.pngData() {
@@ -67,6 +72,24 @@ enum MapSnapshotter {
             try? data.write(to: url)
         }
         return image
+    }
+
+    /// The region's centre that puts `coord` at `anchor`: MapKit shows
+    /// `span` degrees of latitude over the image's height, so a point
+    /// below the middle means a centre that far north. The horizontal
+    /// shift works the same way across the width. Close enough for a
+    /// few hundred metres; the pin itself is drawn at the exact point.
+    static func regionCenter(
+        for coord: CLLocationCoordinate2D, size: CGSize, span: Double, anchor: CGPoint
+    ) -> CLLocationCoordinate2D {
+        let degreesPerPoint = span / Double(size.height)
+        let dy = Double(anchor.y - size.height / 2)
+        let dx = Double(anchor.x - size.width / 2)
+        let cosLat = max(cos(coord.latitude * .pi / 180), 0.01)
+        return CLLocationCoordinate2D(
+            latitude: coord.latitude + dy * degreesPerPoint,
+            longitude: coord.longitude - dx * degreesPerPoint / cosLat
+        )
     }
 
     // MARK: - private
@@ -125,15 +148,19 @@ enum MapSnapshotter {
                                   width: innerRadius * 2, height: innerRadius * 2))
     }
 
-    private static func cacheKey(coord: CLLocationCoordinate2D, size: CGSize, span: Double, dark: Bool) -> String {
+    private static func cacheKey(
+        coord: CLLocationCoordinate2D, size: CGSize, span: Double, dark: Bool, anchor: CGPoint
+    ) -> String {
         let raw = String(
-            format: "%.5f|%.5f|%.4f|%.0fx%.0f|%d",
+            format: "%.5f|%.5f|%.4f|%.0fx%.0f|%d|%.0f,%.0f",
             coord.latitude,
             coord.longitude,
             span,
             size.width,
             size.height,
-            dark ? 1 : 0
+            dark ? 1 : 0,
+            anchor.x,
+            anchor.y
         )
         let digest = SHA256.hash(data: Data(raw.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()

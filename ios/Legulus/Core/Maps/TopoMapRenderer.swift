@@ -43,8 +43,8 @@ enum TopoMapRenderer {
     /// The header image and whether it is the topographic map (the
     /// attribution belongs to it) or the Apple fallback; nil when both
     /// fail. `scale` is the screen's display scale; `anchor` is where the
-    /// coordinate and pin go (the middle when nil). The Apple fallback
-    /// always centres it.
+    /// coordinate and pin go (the middle when nil), for the Apple
+    /// fallback as well.
     static func image(
         at coord: CLLocationCoordinate2D, size: CGSize, anchor: CGPoint? = nil, scale: CGFloat, dark: Bool
     ) async -> (image: UIImage, isTopo: Bool)? {
@@ -80,7 +80,7 @@ enum TopoMapRenderer {
             Log.network.debug("topo header: server skipped after a recent failure")
         }
         if let fallback = await withDeadline(fallbackDeadline, {
-            try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark)
+            try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark, anchor: pin)
         }) {
             return (fallback, false)
         }
