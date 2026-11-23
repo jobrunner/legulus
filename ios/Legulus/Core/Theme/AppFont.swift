@@ -26,6 +26,9 @@ enum AppFont {
     // MARK: - Body
 
     static let headline = Font.headline
+    /// A single prominent measurement, e.g. the temperature in the
+    /// sample's weather card.
+    static let valueLarge = Font.largeTitle.weight(.semibold)
     static let body = Font.body
     static let bodyEmphasized = Font.body.weight(.semibold)
     static let callout = Font.callout

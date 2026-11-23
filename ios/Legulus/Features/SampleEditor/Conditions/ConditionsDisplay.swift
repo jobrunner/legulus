@@ -45,7 +45,7 @@ struct ConditionsDisplay: Equatable {
     var weatherTitle: String?
     /// SF Symbol for the WMO code.
     var weatherSymbol: String?
-    /// „18,4 °C“
+    /// „18°C“
     var temperature: String?
     var temperatureSpoken: String?
     /// The tiles of the section, in this order: wind, cloud cover,
@@ -205,8 +205,10 @@ struct ConditionsDisplay: Equatable {
             weatherTitle = Self.weatherDescription(in: features) ?? Self.title(wmoCode: Int(code))
         }
         if let t = c.number("weather_temperature_c") {
-            temperature = Self.number(t, digits: 1) + Self.nbsp + "°C"
-            temperatureSpoken = Self.number(t, digits: 1) + " Grad Celsius"
+            // Whole degrees, written together: „16°C“; the details keep
+            // the decimal.
+            temperature = Self.number(t, digits: 0) + "°C"
+            temperatureSpoken = Self.number(t, digits: 0) + " Grad Celsius"
         }
         let before = tiles.count
         if let wind = c.number("weather_wind_speed_kmh") {

@@ -284,7 +284,8 @@
             .init(name: "code", font: AppFont.code),
             .init(name: "codeEmphasized", font: AppFont.codeEmphasized),
             .init(name: "codeLarge", font: AppFont.codeLarge),
-            .init(name: "codeTitle", font: AppFont.codeTitle)
+            .init(name: "codeTitle", font: AppFont.codeTitle),
+            .init(name: "valueLarge", font: AppFont.valueLarge)
         ]
 
         var body: some View {

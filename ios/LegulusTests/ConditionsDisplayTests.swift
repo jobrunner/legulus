@@ -89,8 +89,8 @@ final class ConditionsDisplayTests: XCTestCase {
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.state, .values)
         XCTAssertFalse(d.isProvisional)
-        XCTAssertEqual(d.temperature, "0,0\u{00A0}°C", "0 °C is a value and is shown")
-        XCTAssertEqual(d.temperatureSpoken, "0,0 Grad Celsius")
+        XCTAssertEqual(d.temperature, "0°C", "0 °C is a value and is shown; whole degrees, no space")
+        XCTAssertEqual(d.temperatureSpoken, "0 Grad Celsius")
         XCTAssertEqual(d.weatherSymbol, "cloud.rain")
         XCTAssertEqual(d.weatherTitle, "Regen", "fallback text: the trimmed fixture has no description")
         XCTAssertEqual(d.tiles.map(\.id), ["wind", "humidity"], "what Tempus did not deliver is not listed")
@@ -258,7 +258,7 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(sample(), json: rich)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Leichter Regen", "the text comes from the feature")
-        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C")
+        XCTAssertEqual(d.temperature, "16°C")
         // Dew point without a percentage: the feeling alone. Only the
         // 72 h precipitation, no day temperatures; the belt moves to
         // the place.
@@ -291,7 +291,7 @@ final class ConditionsDisplayTests: XCTestCase {
         s.conditions?.fetchedAt = newer
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Regen", "the text of the code, not the old feature's")
-        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C", "the values themselves are the row's and stay")
+        XCTAssertEqual(d.temperature, "16°C", "the values themselves are the row's and stay")
         XCTAssertTrue(ConditionsDetailModel(sample: s, night: false, features: rows).isEmpty)
     }
 
@@ -468,6 +468,12 @@ final class ConditionsDisplayTests: XCTestCase {
             withoutFeatures.note, "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
         )
         XCTAssertNil(ConditionsDisplay(sample: s, night: false, features: rows).note, "the detail page shows them")
+    }
+
+    /// -0,3 °C rounds to 0, not to „-0“.
+    func testValues_TemperatureRoundsWithoutNegativeZero() throws {
+        let d = try partial(#"{"properties": {"kind": "weather", "temperature2m": -0.3}, \#(license)}"#)
+        XCTAssertEqual(d.temperature, "0°C")
     }
 
     func testNumber_GermanDecimalsAndNoNegativeZero() {
