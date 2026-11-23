@@ -12,6 +12,10 @@ import UIKit
 /// tap shows the sources over the map's lower edge.
 struct SampleMapHeader: View {
     let coordinate: CLLocationCoordinate2D?
+    /// Height of the bars above the map (status and navigation bar): the
+    /// map reaches up under them and grows by this much, the pin stays in
+    /// the middle of the part that is not covered.
+    var topInset: CGFloat = 0
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
@@ -29,8 +33,25 @@ struct SampleMapHeader: View {
     static let height: CGFloat = 200
     /// Rendered for the widest phone; narrower screens crop the sides,
     /// the pin stays in the middle.
-    private static let renderSize = CGSize(width: 430, height: height)
+    private static let renderWidth: CGFloat = 430
+
+    /// Whole points, so a fractional inset doesn't change the cache key.
+    private var inset: CGFloat {
+        topInset.rounded()
+    }
+
+    private var totalHeight: CGFloat {
+        Self.height + inset
+    }
+
+    /// The pin in the middle of the visible part, below the bars.
+    private var anchor: CGPoint {
+        CGPoint(x: Self.renderWidth / 2, y: inset + Self.height / 2)
+    }
+
     private let minTapTarget: CGFloat = 44
+    /// Strength of the fade under the bars.
+    private let barFadeOpacity: Double = 0.85
     /// Width the sources popover asks for; it wraps below that.
     @ScaledMetric(relativeTo: .footnote) private var popoverWidth: CGFloat = 280
 
@@ -40,10 +61,11 @@ struct SampleMapHeader: View {
                 if failed, image == nil {
                     placeholder("Karte ist offline nicht verfügbar.")
                 } else {
-                    MapSnippetImage(image: image, height: Self.height)
+                    MapSnippetImage(image: image, height: totalHeight)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Karte des Probenorts")
                         .accessibilityAddTraits(.isImage)
+                        .overlay(alignment: .top) { barFade }
                         .overlay(alignment: .bottom) { attribution }
                 }
             }
@@ -88,6 +110,23 @@ struct SampleMapHeader: View {
         }
     }
 
+    /// Keeps the back button and the title readable on the busy map
+    /// (iOS 18 draws them without a background): nearly opaque at the
+    /// top, clear where the visible map begins.
+    private var barFade: some View {
+        LinearGradient(
+            stops: [
+                .init(color: AppColor.surfaceGrouped.opacity(barFadeOpacity), location: 0),
+                .init(color: AppColor.surfaceGrouped.opacity(barFadeOpacity), location: 0.5),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+        .frame(height: inset)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
     private func placeholder(_ text: String) -> some View {
         ZStack {
             AppColor.surfaceTertiary
@@ -102,14 +141,15 @@ struct SampleMapHeader: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, AppSpacing.xl)
             }
+            .padding(.top, inset)
         }
-        .frame(height: Self.height)
+        .frame(height: totalHeight)
         .frame(maxWidth: .infinity)
     }
 
     /// Five decimals ≈ 1 m: stable while nothing moves the pin.
     private func renderKey(for coord: CLLocationCoordinate2D) -> String {
-        String(format: "%.5f|%.5f|%d", coord.latitude, coord.longitude, colorScheme == .dark ? 1 : 0)
+        String(format: "%.5f|%.5f|%d|%.0f", coord.latitude, coord.longitude, colorScheme == .dark ? 1 : 0, inset)
     }
 
     private func load(_ coordinate: CLLocationCoordinate2D) async {
@@ -123,7 +163,8 @@ struct SampleMapHeader: View {
         failed = false
         // A missing map never blocks the sample.
         let result = await TopoMapRenderer.image(
-            at: coordinate, size: Self.renderSize, scale: displayScale, dark: colorScheme == .dark
+            at: coordinate, size: CGSize(width: Self.renderWidth, height: totalHeight), anchor: anchor,
+            scale: displayScale, dark: colorScheme == .dark
         )
         if Task.isCancelled { return }
         guard let result else {

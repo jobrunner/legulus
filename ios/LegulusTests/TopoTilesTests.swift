@@ -57,4 +57,23 @@ final class TopoTilesTests: XCTestCase {
         )
         XCTAssertTrue(tiles.allSatisfy { $0.y >= 0 && $0.y < 8 })
     }
+
+    /// With an anchor below the middle (the part under the bars is
+    /// hidden) the coordinate lands on the anchor: every tile moves by
+    /// the anchor's offset.
+    func testPlacements_AnchorMovesTheCoordinate() {
+        let size = CGSize(width: 390, height: 300)
+        let centred = TopoTiles.placements(center: wuerzburg, zoom: 15, size: size, tileSide: 192)
+        let anchored = TopoTiles.placements(
+            center: wuerzburg, zoom: 15, size: size, tileSide: 192, anchor: CGPoint(x: 195, y: 200)
+        )
+        let shift = 200 - size.height / 2
+        for tile in centred where tile.origin.y + shift < size.height {
+            let expectedY: CGFloat = tile.origin.y + shift
+            let match = anchored.first { $0.x == tile.x && $0.y == tile.y }
+            XCTAssertEqual(match?.origin.y ?? -1, expectedY, accuracy: 0.001)
+        }
+        XCTAssertGreaterThanOrEqual((anchored.map(\.origin.y).max() ?? 0) + 192, size.height, "still covers the bottom")
+        XCTAssertLessThanOrEqual(anchored.map(\.origin.y).min() ?? 1, 0, "and the top")
+    }
 }

@@ -78,6 +78,9 @@ private struct SampleEditorContent: View {
     @State private var showingForm = false
     /// „Bestimmen“ in the action bar opens a new determination.
     @State private var presentingNewDetermination = false
+    /// Height of status and navigation bar: the map reaches up under
+    /// them by this much.
+    @State private var topBarInset: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
@@ -149,8 +152,8 @@ private struct SampleEditorContent: View {
             ScrollView {
                 VStack(spacing: AppSpacing.md) {
                     // Edge to edge: cancels the contentMargins with the
-                    // same negative padding.
-                    SampleMapHeader(coordinate: viewModel.coordinate)
+                    // same negative padding; up under the bars, too.
+                    SampleMapHeader(coordinate: viewModel.coordinate, topInset: topBarInset)
                         .padding(.leading, -leadingMargin)
                         .padding(.trailing, -trailingMargin)
                     codeBand
@@ -172,6 +175,8 @@ private struct SampleEditorContent: View {
                 }
                 .padding(.bottom, AppSpacing.lg)
             }
+            // The map lies under the notch and the navigation bar.
+            .ignoresSafeArea(edges: .top)
             // The field actions stay in thumb reach while scrolling; while
             // typing the keyboard needs the room.
             .safeAreaInset(edge: .bottom) {
@@ -180,6 +185,9 @@ private struct SampleEditorContent: View {
                 }
             }
         }
+        // The bars' height, read outside the scroll view: inside, the top
+        // safe area is already given up and reads 0.
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { topBarInset = $0 }
         // contentMargins greift VOR dem iOS-26-CALayer-Shift und ist
         // unsere einzige Stellschraube auf der ScrollView-Ebene.
         .contentMargins(.leading, leadingMargin, for: .scrollContent)
@@ -191,6 +199,7 @@ private struct SampleEditorContent: View {
         .background(AppColor.surfaceGrouped)
         .navigationTitle(viewModel.isExistingSample && !viewModel.isNew ? "Probe" : "Neue Probe")
         .navigationBarTitleDisplayMode(.inline)
+        .modifier(BarOverMap())
         // Our own back button saves first. The swipe-back is switched
         // off explicitly so it can't bypass the id validation.
         .navigationBarBackButtonHidden(true)
@@ -1108,6 +1117,19 @@ private struct DisabledHint: ViewModifier {
             content.accessibilityHint(hint)
         } else {
             content
+        }
+    }
+}
+
+/// Before iOS 26 the navigation bar's items have no glass of their own:
+/// over the map they need the bar's blur to stay readable. iOS 26 draws
+/// its glass buttons on the map directly.
+private struct BarOverMap: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+        } else {
+            content.toolbarBackground(.visible, for: .navigationBar)
         }
     }
 }

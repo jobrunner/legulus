@@ -29,24 +29,27 @@ enum TopoTiles {
         return CGPoint(x: x, y: y)
     }
 
-    /// The tiles covering an image of `size` points with `center` in its
-    /// middle, each drawn `tileSide` points wide. Columns wrap around the
-    /// date line; rows beyond the poles are left out.
+    /// The tiles covering an image of `size` points with `center` at
+    /// `anchor` (the middle by default; lower when the image's top lies
+    /// under the bars), each drawn `tileSide` points wide. Columns wrap
+    /// around the date line; rows beyond the poles are left out.
     static func placements(
-        center: CLLocationCoordinate2D, zoom: Int, size: CGSize, tileSide: CGFloat
+        center: CLLocationCoordinate2D, zoom: Int, size: CGSize, tileSide: CGFloat, anchor: CGPoint? = nil
     ) -> [TilePlacement] {
+        let a = anchor ?? CGPoint(x: size.width / 2, y: size.height / 2)
         let c = worldPixel(lat: center.latitude, lon: center.longitude, zoom: zoom)
         let n = 1 << zoom
-        let halfW = size.width / 2 / tileSide
-        let halfH = size.height / 2 / tileSide
-        let minX = Int(floor(c.x - halfW)), maxX = Int(floor(c.x + halfW))
-        let minY = Int(floor(c.y - halfH)), maxY = Int(floor(c.y + halfH))
+        // Tile units from the anchor to the image's edges.
+        let left = a.x / tileSide, right = (size.width - a.x) / tileSide
+        let top = a.y / tileSide, bottom = (size.height - a.y) / tileSide
+        let minX = Int(floor(c.x - left)), maxX = Int(floor(c.x + right))
+        let minY = Int(floor(c.y - top)), maxY = Int(floor(c.y + bottom))
         var tiles: [TilePlacement] = []
         for ty in minY ... maxY where ty >= 0 && ty < n {
             for tx in minX ... maxX {
                 let origin = CGPoint(
-                    x: (CGFloat(tx) - c.x) * tileSide + size.width / 2,
-                    y: (CGFloat(ty) - c.y) * tileSide + size.height / 2
+                    x: (CGFloat(tx) - c.x) * tileSide + a.x,
+                    y: (CGFloat(ty) - c.y) * tileSide + a.y
                 )
                 tiles.append(TilePlacement(x: ((tx % n) + n) % n, y: ty, z: zoom, origin: origin))
             }
