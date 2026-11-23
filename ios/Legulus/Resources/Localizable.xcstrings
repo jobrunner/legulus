@@ -319,9 +319,6 @@
     "Die Ortsangaben dieser Probe hast du von Hand gesetzt. Sollen für die neue Koordinate die ermittelten Ortsangaben übernommen werden?" : {
 
     },
-    "Die Werte sind vorläufig und werden später durch endgültige ersetzt." : {
-
-    },
     "Dienst für Wetter, Klima, Sonne und Mond. Leer lassen, um die Abfrage auf dem Gerät abzuschalten – das Backend reichert dann an." : {
 
     },
@@ -504,9 +501,6 @@
     "Jahresübergreifend: Tag-und-Monat-Bereich wird über alle Jahre angewendet. Bereich darf den Jahreswechsel umfassen." : {
 
     },
-    "Karte erscheint, sobald die Position bekannt ist." : {
-
-    },
     "Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Kartendarstellung © OpenTopoMap (CC-BY-SA)" : {
 
     },
@@ -576,6 +570,9 @@
 
     },
     "Köppen %@" : {
+
+    },
+    "Köppen Cfb" : {
 
     },
     "Lädt alle eigenen Datensätze und PDFs als ZIP-Archiv vom Backend." : {
@@ -1158,9 +1155,6 @@
       }
     },
     "Vor dem Löschen" : {
-
-    },
-    "vorläufig" : {
 
     },
     "Vorschlag: %@" : {

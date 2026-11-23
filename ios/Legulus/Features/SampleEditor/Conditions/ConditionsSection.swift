@@ -154,8 +154,8 @@ struct ConditionsSection: View {
     display.provisionalNote = "Wetterwerte vorläufig bis 24.05."
     display.weatherTitle = "Leichter Regen"
     display.weatherSymbol = "cloud.rain"
-    display.temperature = "16,0 °C"
-    display.temperatureSpoken = "16,0 Grad Celsius"
+    display.temperature = "16°C"
+    display.temperatureSpoken = "16 Grad Celsius"
     display.tiles = [
         WeatherTile(id: "wind", value: "7", unit: "km/h", caption: "Wind", word: "leichte Brise",
                     spoken: "Wind leichte Brise, 7 Kilometer pro Stunde"),

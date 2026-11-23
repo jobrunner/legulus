@@ -76,8 +76,8 @@ final class SnapshotsTests: XCTestCase {
         display.provisionalNote = "Wetterwerte vorläufig bis 24.05."
         display.weatherTitle = "Leichter Regen"
         display.weatherSymbol = "cloud.rain"
-        display.temperature = "16,0\u{00A0}°C"
-        display.temperatureSpoken = "16,0 Grad Celsius"
+        display.temperature = "16°C"
+        display.temperatureSpoken = "16 Grad Celsius"
         display.tiles = [
             WeatherTile(id: "wind", value: "7", unit: "km/h", caption: "Wind", word: "leichte Brise", spoken: ""),
             WeatherTile(id: "clouds", value: "100", unit: "%", caption: "Wolken", word: nil, spoken: ""),
