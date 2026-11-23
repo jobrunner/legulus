@@ -131,6 +131,14 @@ struct ConditionsDisplay: Equatable {
                 note = "Keine Daten für diesen Zeitpunkt"
             }
         }
+        // Day values the card doesn't show live on the detail page, which
+        // needs the features; until they are there, the card would stand
+        // empty without saying why.
+        if note == nil, tiles.isEmpty, weatherTitle == nil, temperature == nil, features.isEmpty,
+           Self.hasDayValues(conditions)
+        {
+            note = "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
+        }
     }
 
     /// Nothing at all to show besides the state.

@@ -422,6 +422,22 @@ final class ConditionsDisplayTests: XCTestCase {
         ))
     }
 
+    /// Only day values that the card no longer shows and no features yet
+    /// (no detail page): the card points to the details instead of
+    /// standing empty. With the features there, the details show them.
+    func testValues_DayValuesWithoutDetailPagePointToDetails() throws {
+        var base = try sample()
+        base.isAllDay = true
+        let json = #"{"features": [{"properties": {"kind": "aggregate", "temperatureDay": {"max": 18.5}}, \#(license)}], "providers": []}"#
+        let (s, rows) = try answered(base, json: json)
+        let withoutFeatures = ConditionsDisplay(sample: s, night: false, features: [])
+        XCTAssertTrue(withoutFeatures.tiles.isEmpty)
+        XCTAssertEqual(
+            withoutFeatures.note, "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
+        )
+        XCTAssertNil(ConditionsDisplay(sample: s, night: false, features: rows).note, "the detail page shows them")
+    }
+
     func testNumber_GermanDecimalsAndNoNegativeZero() {
         XCTAssertEqual(ConditionsDisplay.number(18.44, digits: 1), "18,4")
         XCTAssertEqual(ConditionsDisplay.number(-0.04, digits: 1), "0,0")
