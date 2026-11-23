@@ -235,53 +235,6 @@ final class SampleEditorViewModel: ObservableObject {
             ?? TimeZone(identifier: "Europe/Berlin") ?? .current
     }
 
-    /// „10:07 – 10:22“ in the sample's zone; the end carries its date
-    /// when it falls on another local day. nil for an all-day sample
-    /// (the view shows only the date then).
-    static func timeWindowText(begin: Date, end: Date?, isAllDay: Bool, zone: TimeZone) -> String? {
-        guard !isAllDay else { return nil }
-        let time = DateFormatter()
-        time.locale = Locale(identifier: "de_DE")
-        time.timeZone = zone
-        time.dateFormat = "HH:mm"
-        let beginText = time.string(from: begin)
-        guard let end, end != begin else { return beginText }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = zone
-        if calendar.isDate(end, inSameDayAs: begin) {
-            return "\(beginText) – \(time.string(from: end))"
-        }
-        let full = DateFormatter()
-        full.locale = Locale(identifier: "de_DE")
-        full.timeZone = zone
-        full.dateFormat = "dd.MM.yyyy HH:mm"
-        return "\(beginText) – \(full.string(from: end))"
-    }
-
-    /// „Montag,“ and „16. November 2026“ in the sample's zone. Two parts
-    /// so the view can break after the weekday at large type sizes.
-    static func longDateParts(_ date: Date, zone: TimeZone) -> (weekday: String, date: String) {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "de_DE")
-        formatter.timeZone = zone
-        // Two letters („Mo“): the date gets the room. The German short
-        // form carries a dot („Mo.“), which the comma replaces.
-        formatter.dateFormat = "EEEEEE"
-        let weekday = formatter.string(from: date).replacingOccurrences(of: ".", with: "") + ","
-        formatter.dateFormat = "dd. MMMM yyyy"
-        return (weekday, formatter.string(from: date))
-    }
-
-    /// „Montag, 16. November 2026“ for VoiceOver: the short weekday
-    /// would be read as a syllable.
-    static func spokenDate(_ date: Date, zone: TimeZone) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "de_DE")
-        formatter.timeZone = zone
-        formatter.dateFormat = "EEEE, dd. MMMM yyyy"
-        return formatter.string(from: date)
-    }
-
     var canSave: Bool {
         if isSaving { return false }
         // An empty sample id is valid (stored as "").

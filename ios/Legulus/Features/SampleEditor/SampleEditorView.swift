@@ -917,11 +917,16 @@ private struct SampleEditorContent: View {
                         // Truncation never shows: `ViewThatFits` takes the
                         // stacked variant when one line is too narrow.
                         dateText.lineLimit(1)
-                        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                            Text(longDateParts.weekday)
-                            Text(longDateParts.date)
+                        if let weekday = dateTexts.weekday, let rest = dateTexts.dayAndYear {
+                            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                                Text(weekday)
+                                Text(rest)
+                            }
+                            .font(AppFont.bodyEmphasized)
+                        } else {
+                            // A range of days wraps as a whole.
+                            dateText
                         }
-                        .font(AppFont.bodyEmphasized)
                     }
                     windowText
                 }
@@ -945,13 +950,13 @@ private struct SampleEditorContent: View {
     }
 
     private var dateText: some View {
-        Text(longDateText)
+        Text(dateTexts.date)
             .font(AppFont.bodyEmphasized)
     }
 
     @ViewBuilder
     private var windowText: some View {
-        if let window = timeWindowText {
+        if let window = dateTexts.window {
             Text(window)
                 .font(AppFont.body.monospacedDigit())
         }
@@ -1020,34 +1025,17 @@ private struct SampleEditorContent: View {
         return "—"
     }
 
-    private var longDateParts: (weekday: String, date: String) {
-        // Existing sample: the sample's zone; a new one reads the
-        // device zone (that is the zone it will be created in).
+    /// Date or range of days and the time window, in the sample's zone
+    /// and the device's region. A new, unsaved sample shows today in the
+    /// device zone (the zone it will be created in) and no window.
+    private var dateTexts: SampleDateTexts {
         if viewModel.isExistingSample {
-            return SampleEditorViewModel.longDateParts(viewModel.beginDate, zone: viewModel.timeZone)
+            return SampleDateTexts(
+                begin: viewModel.beginDate, end: viewModel.endDate,
+                isAllDay: viewModel.isAllDay, zone: viewModel.timeZone
+            )
         }
-        return SampleEditorViewModel.longDateParts(Date(), zone: .current)
-    }
-
-    /// The date with the weekday written out, for VoiceOver.
-    private var spokenDateText: String {
-        if viewModel.isExistingSample {
-            return SampleEditorViewModel.spokenDate(viewModel.beginDate, zone: viewModel.timeZone)
-        }
-        return SampleEditorViewModel.spokenDate(Date(), zone: .current)
-    }
-
-    private var longDateText: String {
-        "\(longDateParts.weekday) \(longDateParts.date)"
-    }
-
-    /// „10:07 – 10:22“; nil for an all-day or a not yet saved sample.
-    private var timeWindowText: String? {
-        guard viewModel.isExistingSample else { return nil }
-        return SampleEditorViewModel.timeWindowText(
-            begin: viewModel.beginDate, end: viewModel.endDate,
-            isAllDay: viewModel.isAllDay, zone: viewModel.timeZone
-        )
+        return SampleDateTexts(begin: Date(), end: nil, isAllDay: true, zone: .current)
     }
 
     /// „Atlantic/Canary (WET)“ — Kürzel gilt zum Beginn-Zeitpunkt.
@@ -1075,8 +1063,7 @@ private struct SampleEditorContent: View {
     }
 
     private var timeA11yLabel: String {
-        var parts = [spokenDateText]
-        if let window = timeWindowText { parts.append(window) }
+        var parts = [dateTexts.spoken]
         parts += skyItems.map(\.spoken)
         if let zone = timezoneLabelText { parts.append(zone) }
         return parts.joined(separator: ", ")
