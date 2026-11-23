@@ -898,44 +898,72 @@ private struct SampleEditorContent: View {
         return Text("\(label):").foregroundStyle(.secondary) + Text(" " + item.value)
     }
 
+    /// Variant A: date (bold) and time window on one line, sun/moon and
+    /// time zone on the next; each pair stacks when it doesn't fit
+    /// (large type). The card's „Zeit“ header replaces the calendar icon,
+    /// so the date has the full width.
     private var timeRow: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            Image(systemName: "calendar")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: iconColumnWidth)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                // One line while it fits; at large type sizes the date
-                // breaks after the weekday instead of mid-date.
-                ViewThatFits(in: .horizontal) {
-                    Text(longDateText)
-                        // Truncation never shows: `ViewThatFits` takes
-                        // the stacked variant when one line is too narrow.
-                        .lineLimit(1)
-                    VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                        Text(longDateParts.weekday)
-                        Text(longDateParts.date)
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
+                    dateText.lineLimit(1)
+                    Spacer(minLength: AppSpacing.sm)
+                    windowText
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                    // One line while it fits; at large type sizes the date
+                    // breaks after the weekday instead of mid-date.
+                    ViewThatFits(in: .horizontal) {
+                        // Truncation never shows: `ViewThatFits` takes the
+                        // stacked variant when one line is too narrow.
+                        dateText.lineLimit(1)
+                        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                            Text(longDateParts.weekday)
+                            Text(longDateParts.date)
+                        }
+                        .font(AppFont.bodyEmphasized)
                     }
-                }
-                .font(AppFont.body)
-                if let window = timeWindowText {
-                    Text(window)
-                        .font(.body.monospacedDigit())
-                }
-                skyLine
-                if let zoneLabel = timezoneLabelText {
-                    Text(zoneLabel)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    windowText
                 }
             }
-            Spacer(minLength: AppSpacing.sm)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.sm) {
+                    skyLine.lineLimit(1)
+                    Spacer(minLength: AppSpacing.sm)
+                    zoneText
+                }
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    skyLine
+                    zoneText
+                }
+            }
         }
-        .padding(.vertical, AppSpacing.md)
+        .padding(.vertical, AppSpacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(timeA11yLabel)
+    }
+
+    private var dateText: some View {
+        Text(longDateText)
+            .font(AppFont.bodyEmphasized)
+    }
+
+    @ViewBuilder
+    private var windowText: some View {
+        if let window = timeWindowText {
+            Text(window)
+                .font(AppFont.body.monospacedDigit())
+        }
+    }
+
+    @ViewBuilder
+    private var zoneText: some View {
+        if let zoneLabel = timezoneLabelText {
+            Text(zoneLabel)
+                .font(AppFont.footnote)
+                .foregroundStyle(AppColor.textSecondary)
+        }
     }
 
     // MARK: - derived view state
@@ -1001,6 +1029,14 @@ private struct SampleEditorContent: View {
         return SampleEditorViewModel.longDateParts(Date(), zone: .current)
     }
 
+    /// The date with the weekday written out, for VoiceOver.
+    private var spokenDateText: String {
+        if viewModel.isExistingSample {
+            return SampleEditorViewModel.spokenDate(viewModel.beginDate, zone: viewModel.timeZone)
+        }
+        return SampleEditorViewModel.spokenDate(Date(), zone: .current)
+    }
+
     private var longDateText: String {
         "\(longDateParts.weekday) \(longDateParts.date)"
     }
@@ -1039,7 +1075,7 @@ private struct SampleEditorContent: View {
     }
 
     private var timeA11yLabel: String {
-        var parts = [longDateText]
+        var parts = [spokenDateText]
         if let window = timeWindowText { parts.append(window) }
         parts += skyItems.map(\.spoken)
         if let zone = timezoneLabelText { parts.append(zone) }

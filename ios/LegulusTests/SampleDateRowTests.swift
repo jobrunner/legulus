@@ -9,7 +9,7 @@ final class SampleDateRowTests: XCTestCase {
         let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-16T12:00:00Z"))
         let zone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
         let parts = SampleEditorViewModel.longDateParts(date, zone: zone)
-        XCTAssertEqual(parts.weekday, "Montag,")
+        XCTAssertEqual(parts.weekday, "Mo,", "two letters leave the date more room")
         XCTAssertEqual(parts.date, "16. November 2026")
     }
 
@@ -18,7 +18,14 @@ final class SampleDateRowTests: XCTestCase {
         let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-16T23:30:00Z"))
         let zone = try XCTUnwrap(TimeZone(identifier: "Pacific/Auckland"))
         let parts = SampleEditorViewModel.longDateParts(date, zone: zone)
-        XCTAssertEqual(parts.weekday, "Dienstag,")
+        XCTAssertEqual(parts.weekday, "Di,")
         XCTAssertEqual(parts.date, "17. November 2026")
+    }
+
+    /// VoiceOver reads the weekday in full; „Mo“ would be read as a syllable.
+    func testSpokenDate_WritesTheWeekdayOut() throws {
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-16T12:00:00Z"))
+        let zone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
+        XCTAssertEqual(SampleEditorViewModel.spokenDate(date, zone: zone), "Montag, 16. November 2026")
     }
 }

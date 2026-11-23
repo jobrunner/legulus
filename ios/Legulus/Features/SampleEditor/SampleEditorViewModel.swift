@@ -264,10 +264,22 @@ final class SampleEditorViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "de_DE")
         formatter.timeZone = zone
-        formatter.dateFormat = "EEEE,"
-        let weekday = formatter.string(from: date)
+        // Two letters („Mo“): the date gets the room. The German short
+        // form carries a dot („Mo.“), which the comma replaces.
+        formatter.dateFormat = "EEEEEE"
+        let weekday = formatter.string(from: date).replacingOccurrences(of: ".", with: "") + ","
         formatter.dateFormat = "dd. MMMM yyyy"
         return (weekday, formatter.string(from: date))
+    }
+
+    /// „Montag, 16. November 2026“ for VoiceOver: the short weekday
+    /// would be read as a syllable.
+    static func spokenDate(_ date: Date, zone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "de_DE")
+        formatter.timeZone = zone
+        formatter.dateFormat = "EEEE, dd. MMMM yyyy"
+        return formatter.string(from: date)
     }
 
     var canSave: Bool {
