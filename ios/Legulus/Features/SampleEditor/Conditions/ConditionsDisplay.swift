@@ -108,9 +108,9 @@ struct ConditionsDisplay: Equatable {
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
         switch Self.provisionalReason(conditions) {
         case let .young(finalFrom):
-            provisionalNote = "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone))"
+            provisionalNote = String(localized: "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone))")
         case .incomplete:
-            provisionalNote = "Unvollständig, wird nachgeholt"
+            provisionalNote = String(localized: "Unvollständig, wird nachgeholt")
         case nil:
             break
         }
@@ -122,8 +122,8 @@ struct ConditionsDisplay: Equatable {
         if let rain = conditions.number("precipitation_72h_mm") {
             let value = Self.number(rain, digits: 1)
             tiles.append(WeatherTile(
-                id: "precipitation72", value: value, unit: "mm", caption: "72\(Self.nbsp)h", word: nil,
-                spoken: "Niederschlag der letzten 72 Stunden \(value) Millimeter"
+                id: "precipitation72", value: value, unit: "mm", caption: String(localized: "72\(Self.nbsp)h"), word: nil,
+                spoken: String(localized: "Niederschlag der letzten 72 Stunden \(value) Millimeter")
             ))
         }
         koppen = conditions.text("climate_koppen_code")
@@ -137,9 +137,9 @@ struct ConditionsDisplay: Equatable {
         // day values of an all-day sample.
         if conditions.status == .final {
             if sample.isAllDay {
-                if !Self.hasDayValues(conditions) { note = "Keine Wetterdaten für diesen Tag" }
+                if !Self.hasDayValues(conditions) { note = String(localized: "Keine Wetterdaten für diesen Tag") }
             } else if weatherTitle == nil, temperature == nil, !hasHourly {
-                note = "Keine Daten für diesen Zeitpunkt"
+                note = String(localized: "Keine Daten für diesen Zeitpunkt")
             }
         }
         // Day values the card doesn't show live on the detail page, which
@@ -148,7 +148,7 @@ struct ConditionsDisplay: Equatable {
         if note == nil, tiles.isEmpty, weatherTitle == nil, temperature == nil, features.isEmpty,
            Self.hasDayValues(conditions)
         {
-            note = "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
+            note = String(localized: "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind.")
         }
     }
 
@@ -183,10 +183,20 @@ struct ConditionsDisplay: Equatable {
         var items: [SkyItem] = []
         if showsSun {
             if let sunrise {
-                items.append(SkyItem(id: "sunrise", symbol: "sunrise", value: sunrise, spoken: "Sonnenaufgang \(sunrise) Uhr"))
+                items.append(SkyItem(
+                    id: "sunrise",
+                    symbol: "sunrise",
+                    value: sunrise,
+                    spoken: String(localized: "Sonnenaufgang \(sunrise) Uhr")
+                ))
             }
             if let sunset {
-                items.append(SkyItem(id: "sunset", symbol: "sunset", value: sunset, spoken: "Sonnenuntergang \(sunset) Uhr"))
+                items.append(SkyItem(
+                    id: "sunset",
+                    symbol: "sunset",
+                    value: sunset,
+                    spoken: String(localized: "Sonnenuntergang \(sunset) Uhr")
+                ))
             }
         }
         if showsMoon, let moon {
@@ -208,7 +218,7 @@ struct ConditionsDisplay: Equatable {
             // Whole degrees, written together: „16°C“; the details keep
             // the decimal.
             temperature = Self.number(t, digits: 0) + "°C"
-            temperatureSpoken = Self.number(t, digits: 0) + " Grad Celsius"
+            temperatureSpoken = String(localized: "\(Self.number(t, digits: 0)) Grad Celsius")
         }
         let before = tiles.count
         if let wind = c.number("weather_wind_speed_kmh") {
@@ -216,25 +226,25 @@ struct ConditionsDisplay: Equatable {
             let force = WeatherWording.beaufort(kmh: wind.rounded())
             let speed = Self.number(wind, digits: 0)
             tiles.append(WeatherTile(
-                id: "wind", value: speed, unit: "km/h", caption: "Wind", word: force,
-                spoken: "Wind \(force), \(speed) Kilometer pro Stunde"
+                id: "wind", value: speed, unit: "km/h", caption: String(localized: "Wind"), word: force,
+                spoken: String(localized: "Wind \(force), \(speed) Kilometer pro Stunde")
             ))
         }
         if let clouds = c.number("weather_cloud_cover_pct") {
             let value = Self.number(clouds, digits: 0)
             tiles.append(WeatherTile(
-                id: "clouds", value: value, unit: "%", caption: "Wolken", word: nil,
-                spoken: "Bewölkung \(value) Prozent"
+                id: "clouds", value: value, unit: "%", caption: String(localized: "Wolken"), word: nil,
+                spoken: String(localized: "Bewölkung \(value) Prozent")
             ))
         }
         let feeling = c.number("weather_dew_point_c").map { WeatherWording.humidityFeeling(dewPointC: $0) }
         let percent = c.number("weather_humidity_pct").map { Self.number($0, digits: 0) }
         if let value = percent ?? feeling {
-            let spoken = [feeling, percent.map { "\($0) Prozent" }].compactMap { $0 }.joined(separator: ", ")
+            let spoken = [feeling, percent.map { String(localized: "\($0) Prozent") }].compactMap { $0 }.joined(separator: ", ")
             // Without a percentage the feeling itself is the value.
             tiles.append(WeatherTile(
-                id: "humidity", value: value, unit: percent == nil ? nil : "%", caption: "Feuchte",
-                word: percent == nil ? nil : feeling, spoken: "Luftfeuchte \(spoken)"
+                id: "humidity", value: value, unit: percent == nil ? nil : "%", caption: String(localized: "Feuchte"),
+                word: percent == nil ? nil : feeling, spoken: String(localized: "Luftfeuchte \(spoken)")
             ))
         }
         return tiles.count > before || c.number("weather_precipitation_mm") != nil
@@ -253,17 +263,18 @@ struct ConditionsDisplay: Equatable {
         let phase = c.text("moon_phase")
         if let phase {
             var value = phase
-            var spoken = "Mond: \(phase)"
+            var spoken = String(localized: "Mond: \(phase)")
             if let illumination {
                 value += ", " + illumination + Self.nbsp + "%"
-                spoken += ", \(illumination) Prozent beleuchtet"
+                spoken += ", " + String(localized: "\(illumination) Prozent beleuchtet")
             }
-            moon = Pair(id: "moon", label: "Mond", value: value, spoken: spoken)
+            moon = Pair(id: "moon", label: String(localized: "Mond"), value: value, spoken: spoken)
         } else if let illumination {
             // The percentage alone, when Tempus sent no phase text.
             moon = Pair(
-                id: "moon", label: "Mond", value: illumination + Self.nbsp + "% beleuchtet",
-                spoken: "Mond: \(illumination) Prozent beleuchtet"
+                id: "moon", label: String(localized: "Mond"),
+                value: illumination + Self.nbsp + "% " + String(localized: "beleuchtet"),
+                spoken: String(localized: "Mond: \(illumination) Prozent beleuchtet")
             )
         }
         if moon != nil { moonSymbol = Self.moonSymbol(phase: phase) }
@@ -465,15 +476,15 @@ struct ConditionsDisplay: Equatable {
     /// Fallback text when the feature carries no description.
     static func title(wmoCode code: Int) -> String {
         switch code {
-        case 0: "Klar"
-        case 1, 2: "Leicht bewölkt"
-        case 3: "Bedeckt"
-        case 45, 48: "Nebel"
-        case 51 ... 57: "Nieselregen"
-        case 61 ... 67, 80 ... 82: "Regen"
-        case 71 ... 77, 85, 86: "Schnee"
-        case 95 ... 99: "Gewitter"
-        default: "Wettercode \(code)"
+        case 0: String(localized: "Klar")
+        case 1, 2: String(localized: "Leicht bewölkt")
+        case 3: String(localized: "Bedeckt")
+        case 45, 48: String(localized: "Nebel")
+        case 51 ... 57: String(localized: "Nieselregen")
+        case 61 ... 67, 80 ... 82: String(localized: "Regen")
+        case 71 ... 77, 85, 86: String(localized: "Schnee")
+        case 95 ... 99: String(localized: "Gewitter")
+        default: String(localized: "Wettercode \(code)")
         }
     }
 }

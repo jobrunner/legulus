@@ -111,18 +111,20 @@ struct ConditionsDetailModel: Equatable {
         isProvisional = conditions.status == .provisional
         switch ConditionsDisplay.provisionalReason(conditions) {
         case let .young(finalFrom):
-            provisionalNote = "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt "
-                + "noch korrigiert werden; endgültig ab \(ConditionsDisplay.dayMonth(finalFrom, zone: zone)) "
-                + "Sonne, Mond und Klima sind endgültig."
+            let date = ConditionsDisplay.dayMonth(finalFrom, zone: zone)
+            provisionalNote = String(localized: """
+            Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden; \
+            endgültig ab \(date) Sonne, Mond und Klima sind endgültig.
+            """)
         case .incomplete:
-            provisionalNote = "Ein Dienst war beim Abruf nicht erreichbar; fehlende Werte werden nachgeholt."
+            provisionalNote = String(localized: "Ein Dienst war beim Abruf nicht erreichbar; fehlende Werte werden nachgeholt.")
         case nil:
             break
         }
         queriedFor = conditions.queriedFor.map { Self.dateTime($0, zone: zone) }
         fetchedAt = conditions.fetchedAt.map { Self.dateTime($0, zone: zone) }
         if let metres = conditions.inputs?.elevationMetres {
-            elevationNote = "Werte für \(metres) m über dem Meer"
+            elevationNote = String(localized: "Werte für \(metres) m über dem Meer")
         }
         for subject in Self.subjects {
             let own = subject.kinds.flatMap { kind in features.filter { $0.layer == kind } }
