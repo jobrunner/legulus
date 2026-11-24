@@ -52,6 +52,9 @@ struct CameraView: View {
 
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 44
+    /// The ringed „Fertig“ button, as large as the thumbnail and at least
+    /// a tap target.
+    @ScaledMetric(relativeTo: .body) private var finishSize: CGFloat = 48
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
@@ -279,6 +282,7 @@ struct CameraView: View {
                     drawsDisc: false,
                     uprightRotation: .degrees(camera.controlRotation)
                 )
+                .animation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion), value: camera.zoomFactor)
                 .transition(.opacity)
             } else {
                 lensButtons
@@ -477,7 +481,9 @@ struct CameraView: View {
     }
 
     /// Ends the series: the photos are stored already, nothing is thrown
-    /// away. A checkmark where „Fertig“ does not fit (large text).
+    /// away. A checkmark in a ringed circle: it turns with the phone like
+    /// the other controls, and the ring gives it weight next to the
+    /// thumbnail and gallery on the other side.
     private var finishButton: some View {
         Button {
             // The view goes away at once; a trigger-based feedback would
@@ -485,29 +491,19 @@ struct CameraView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             onDone()
         } label: {
-            Group {
-                // Turned upright in landscape the word needs more height
-                // than the bar has; the checkmark fits either way.
-                if camera.controlRotation == 0 {
-                    ViewThatFits(in: .horizontal) {
-                        Text("Fertig")
-                            .font(AppFont.bodyEmphasized)
-                        finishCheckmark
-                    }
-                } else {
-                    finishCheckmark
-                }
-            }
-            .modifier(upright)
-            .foregroundStyle(.white)
-            .frame(minWidth: minTapTarget, minHeight: minTapTarget)
-            .contentShape(Rectangle())
+            finishCheckmark
+                .modifier(upright)
+                .foregroundStyle(.white)
+                .frame(width: finishSize, height: finishSize)
+                .background(AppColor.cameraScrimStrong, in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: placeholderLineWidth))
+                .contentShape(Circle())
         }
     }
 
     private var finishCheckmark: some View {
         Image(systemName: "checkmark")
-            .font(AppFont.sectionTitle)
+            .font(AppFont.headline)
             .accessibilityLabel("Fertig")
     }
 

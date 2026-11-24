@@ -34,4 +34,15 @@ final class ZoomDialTests: XCTestCase {
         XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 1.6, step: step), 1)
         XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 2, step: step), 1)
     }
+
+    /// Zahlen am Zeiger blenden stufenlos aus, statt zu springen.
+    func testLabelOpacity_FadesNearThePointer() {
+        let gap: CGFloat = 0.1
+        let fade: CGFloat = 0.1
+        XCTAssertEqual(ZoomDial.labelOpacity(distance: 0.05, gap: gap, fade: fade), 0)
+        XCTAssertEqual(ZoomDial.labelOpacity(distance: 0.1, gap: gap, fade: fade), 0)
+        XCTAssertEqual(ZoomDial.labelOpacity(distance: 0.15, gap: gap, fade: fade), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(ZoomDial.labelOpacity(distance: -0.15, gap: gap, fade: fade), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(ZoomDial.labelOpacity(distance: 0.3, gap: gap, fade: fade), 1)
+    }
 }

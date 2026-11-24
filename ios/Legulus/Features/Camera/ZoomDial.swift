@@ -9,9 +9,11 @@ import SwiftUI
 /// `CameraView`, which stays while it swaps lens buttons and dial, so a
 /// drag that starts on the buttons goes on on the dial. VoiceOver zooms
 /// through that control as one adjustable element.
-struct ZoomDial: View {
+struct ZoomDial: View, Animatable {
     let scale: ZoomScale
-    let factor: CGFloat
+    /// Animatable: a jump of the zoom (lens button) turns the dial over
+    /// instead of snapping, so the numbers do not pop.
+    var factor: CGFloat
     /// The camera draws the disc itself, as one arch down to the screen
     /// edge (`DialArch`), so it is not darkened twice.
     var drawsDisc = true
@@ -42,8 +44,15 @@ struct ZoomDial: View {
     /// The pointer: narrow, its length the tick length times the golden ratio.
     private let pointerWidth: CGFloat = 6
     private let goldenRatio: CGFloat = 1.618
-    /// Snap labels this close to the pointer give way to the current value.
+    /// Snap labels this close to the pointer give way to the current value,
+    /// fading out over `labelFade` before.
     private let labelGap: Angle = .degrees(10)
+    private let labelFade: Angle = .degrees(8)
+
+    var animatableData: CGFloat {
+        get { factor }
+        set { factor = newValue }
+    }
 
     /// Tick angles from the first to the last mark: each section between
     /// two marks divided into equal parts of about `step`, so every mark
@@ -73,6 +82,14 @@ struct ZoomDial: View {
 
     /// Length of the ticks beside the pointer, as a share of a full tick.
     static let neighbourLengthShare: CGFloat = 0.3
+
+    /// Opacity of a snap label by its angle from the pointer: hidden within
+    /// `gap`, fading in over `fade`, full beyond.
+    static func labelOpacity(distance: CGFloat, gap: CGFloat, fade: CGFloat) -> CGFloat {
+        let beyond = abs(distance) - gap
+        guard beyond > 0 else { return 0 }
+        return fade > 0 ? min(beyond / fade, 1) : 1
+    }
 
     var body: some View {
         Canvas { context, size in
@@ -111,8 +128,10 @@ struct ZoomDial: View {
             context.stroke(path, with: .color(color), lineWidth: width)
         }
         func label(_ text: String, at labelAngle: CGFloat) {
-            guard abs(labelAngle) < .pi / 2, abs(labelAngle) > labelGap.radians else { return }
+            let opacity = Self.labelOpacity(distance: labelAngle, gap: labelGap.radians, fade: labelFade.radians)
+            guard abs(labelAngle) < .pi / 2, opacity > 0 else { return }
             var layer = context
+            layer.opacity = opacity
             let spot = point(labelAngle, inset: labelInset)
             layer.translateBy(x: spot.x, y: spot.y)
             layer.rotate(by: uprightRotation == .zero ? .radians(labelAngle) : uprightRotation)
