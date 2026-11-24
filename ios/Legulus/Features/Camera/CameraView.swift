@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreLocation
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -29,6 +30,7 @@ struct CameraView: View {
     @State private var lastFix = FixBox()
     /// The photo picker covers the camera; the LED goes off meanwhile.
     @State private var pickerOpen = false
+    @State private var pickedItems: [PhotosPickerItem] = []
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorSchemeContrast) private var contrast
@@ -80,7 +82,16 @@ struct CameraView: View {
         .onChange(of: camera.light) { _, _ in updateTorch() }
         .onChange(of: camera.state) { _, _ in updateTorch() }
         .onChange(of: scenePhase) { _, _ in updateTorch() }
-        .onChange(of: pickerOpen) { _, _ in updateTorch() }
+        .onChange(of: pickerOpen) { _, open in
+            if open { camera.pause() } else { camera.resume() }
+            updateTorch()
+        }
+        .photosPicker(isPresented: $pickerOpen, selection: $pickedItems, matching: .images)
+        .onChange(of: pickedItems) { _, items in
+            guard !items.isEmpty else { return }
+            pickedItems = []
+            importFromGallery(items)
+        }
         .onDisappear { camera.stop() }
         .accessibilityAddTraits(.isModal)
     }
@@ -211,6 +222,7 @@ struct CameraView: View {
             HStack(alignment: .center, spacing: AppSpacing.md) {
                 lastPhotoBlock
                 Spacer(minLength: 0)
+                galleryButton
             }
             .frame(maxWidth: .infinity)
             shutter
@@ -220,6 +232,19 @@ struct CameraView: View {
         }
         .padding(.horizontal, AppSpacing.lg)
         .padding(.vertical, AppSpacing.lg)
+    }
+
+    private var galleryButton: some View {
+        Button {
+            pickerOpen = true
+        } label: {
+            Image(systemName: "photo.on.rectangle")
+                .font(AppFont.sectionTitle)
+                .foregroundStyle(.white)
+                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Foto aus der Galerie")
     }
 
     private var shutter: some View {
@@ -312,6 +337,32 @@ struct CameraView: View {
 
     private var countText: String {
         count == 1 ? String(localized: "1 Foto") : String(localized: "\(count) Fotos")
+    }
+
+    /// Takes the picked photos over in the background; the shutter stays
+    /// usable meanwhile.
+    private func importFromGallery(_ items: [PhotosPickerItem]) {
+        let loaders: [() async throws -> Data?] = items.map { item in
+            { try await item.loadTransferable(type: Data.self) }
+        }
+        Task {
+            let result = await CameraGalleryImport.run(
+                loaders,
+                prepare: { await PhotoImportFormat.prepared($0) },
+                store: { try onPhoto($0) }
+            )
+            if result.stored > 0, let last = result.last {
+                count += result.stored
+                lastPhoto = PhotoStorage.thumbnail(data: last, maxPixel: lastPhotoPixels)
+                errorMessage = nil
+            }
+            if result.failed > 0 {
+                errorMessage = String(localized: "\(result.failed) Fotos aus der Galerie nicht übernommen")
+                AccessibilityNotification.Announcement("Fotos aus der Galerie nicht übernommen").post()
+            } else if result.stored > 0 {
+                AccessibilityNotification.Announcement("\(result.stored) Fotos übernommen, \(countText)").post()
+            }
+        }
     }
 
     private func updateTorch() {
