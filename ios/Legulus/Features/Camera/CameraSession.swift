@@ -39,6 +39,9 @@ final class CameraSession: NSObject, ObservableObject {
     @Published private(set) var macroAvailable = false
     /// Lens position of the fixed stages, 0 (near) … 1 (far).
     @Published private(set) var lensPosition: Float = 0
+    /// Turn of the controls in degrees, so numbers and icons stand upright
+    /// to the horizon while the layout stays in portrait.
+    @Published private(set) var controlRotation: Double = 0
     /// Current zoom in device factors, and the scale to show it with.
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var zoomScale = ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 1)
@@ -136,6 +139,18 @@ final class CameraSession: NSObject, ObservableObject {
         clampedZoom(autoZoom / autoMain * targetMain, min: minimum, max: maximum)
     }
 
+    /// Turn of the controls for the horizon-level capture angle of the rear
+    /// camera (90 = portrait). Upside down keeps the last turn.
+    nonisolated static func controlRotation(captureAngle: CGFloat, previous: Double) -> Double {
+        let angle = Int(captureAngle.rounded()) % 360
+        switch angle {
+        case 0: return 90
+        case 90: return 0
+        case 180: return -90
+        default: return previous
+        }
+    }
+
     nonisolated static func canCapture(state: State, isCapturing: Bool) -> Bool {
         state == .running && !isCapturing
     }
@@ -155,6 +170,17 @@ final class CameraSession: NSObject, ObservableObject {
     /// Asks for camera access if needed, configures the session once and
     /// starts it.
     func start() async {
+        // Set before the session is configured, on the same queue, so the
+        // first coordinator already reports to it.
+        let horizonCore = core
+        horizonCore.queue.async {
+            horizonCore.onHorizonAngle = { [weak self] angle in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.controlRotation = Self.controlRotation(captureAngle: angle, previous: self.controlRotation)
+                }
+            }
+        }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             break
@@ -363,6 +389,10 @@ private final class CameraCore: @unchecked Sendable {
     private var generation = 0
     private var subjectAreaObserver: NSObjectProtocol?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var horizonObservation: NSKeyValueObservation?
+    /// Called (on any thread) with the horizon-level capture angle whenever
+    /// the phone is turned; drives the turn of the controls.
+    var onHorizonAngle: ((CGFloat) -> Void)?
     /// Zoom factor when the current pinch began.
     private var zoomAtGestureStart: CGFloat = 1
 
@@ -397,7 +427,7 @@ private final class CameraCore: @unchecked Sendable {
             output.maxPhotoQualityPrioritization = .balanced
             session.commitConfiguration()
             device = camera
-            rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: camera, previewLayer: nil)
+            makeRotationCoordinator(for: camera)
             let initial = CameraSession.initialZoom(
                 deviceType: camera.deviceType,
                 switchOverFactors: camera.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
@@ -492,9 +522,18 @@ private final class CameraCore: @unchecked Sendable {
         session.commitConfiguration()
         input = newInput
         device = target
-        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: target, previewLayer: nil)
+        makeRotationCoordinator(for: target)
         observeSubjectArea(of: target)
         return true
+    }
+
+    private func makeRotationCoordinator(for camera: AVCaptureDevice) {
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: camera, previewLayer: nil)
+        rotationCoordinator = coordinator
+        horizonObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.initial, .new]) {
+            [weak self] coordinator, _ in
+            self?.onHorizonAngle?(coordinator.videoRotationAngleForHorizonLevelCapture)
+        }
     }
 
     /// Auto gets its old zoom back; a fixed stage opens on the main-lens

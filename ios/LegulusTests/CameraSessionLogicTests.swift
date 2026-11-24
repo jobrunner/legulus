@@ -216,4 +216,17 @@ final class CameraSessionLogicTests: XCTestCase {
         XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 2, autoMain: 2, targetMain: 1, min: 1, max: 15), 1)
         XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 1, autoMain: 2, targetMain: 1, min: 1, max: 15), 1, "geklemmt")
     }
+
+    // MARK: - Querformat
+
+    /// Rückkamera: 90° ist Hochformat. Im Querformat drehen sich die
+    /// Bedienelemente so, dass sie aufrecht zum Horizont stehen; auf dem
+    /// Kopf bleibt die letzte Lage.
+    func testControlRotation() {
+        XCTAssertEqual(CameraSession.controlRotation(captureAngle: 90, previous: 0), 0)
+        XCTAssertEqual(CameraSession.controlRotation(captureAngle: 0, previous: 0), 90)
+        XCTAssertEqual(CameraSession.controlRotation(captureAngle: 180, previous: 0), -90)
+        XCTAssertEqual(CameraSession.controlRotation(captureAngle: 270, previous: 90), 90)
+        XCTAssertEqual(CameraSession.controlRotation(captureAngle: 360, previous: -90), 90, "360 ist 0")
+    }
 }

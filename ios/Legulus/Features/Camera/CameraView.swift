@@ -211,6 +211,7 @@ struct CameraView: View {
             focusSymbol
                 .font(AppFont.sectionTitle)
                 .foregroundStyle(camera.focusStage == .auto ? Color.white : AppColor.cameraActive)
+                .modifier(upright)
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
@@ -248,6 +249,7 @@ struct CameraView: View {
     private var focusSlider: some View {
         HStack(spacing: AppSpacing.sm) {
             Text("Nah")
+                .modifier(upright)
                 .accessibilityHidden(true)
             Slider(
                 value: Binding(get: { camera.lensPosition }, set: { camera.setLensPosition($0) }),
@@ -257,6 +259,7 @@ struct CameraView: View {
             .accessibilityLabel("Schärfe-Entfernung")
             .accessibilityValue(FocusStage.focusValueText(lensPosition: camera.lensPosition))
             Text("Fern")
+                .modifier(upright)
                 .accessibilityHidden(true)
         }
         .font(AppFont.footnote)
@@ -270,8 +273,13 @@ struct CameraView: View {
     private var zoomControl: some View {
         Group {
             if dialVisible {
-                ZoomDial(scale: camera.zoomScale, factor: camera.zoomFactor, drawsDisc: false)
-                    .transition(.opacity)
+                ZoomDial(
+                    scale: camera.zoomScale,
+                    factor: camera.zoomFactor,
+                    drawsDisc: false,
+                    uprightRotation: .degrees(camera.controlRotation)
+                )
+                .transition(.opacity)
             } else {
                 lensButtons
                     .padding(.horizontal, AppSpacing.lg)
@@ -339,6 +347,7 @@ struct CameraView: View {
         Text(text)
             .font(AppFont.footnote.monospacedDigit().weight(active ? .semibold : .regular))
             .foregroundStyle(active ? AppColor.cameraActive : .white)
+            .modifier(upright)
             .frame(minWidth: minTapTarget, minHeight: minTapTarget)
             .background(AppColor.cameraScrim, in: Circle())
             .contentShape(Circle())
@@ -380,6 +389,7 @@ struct CameraView: View {
                     .foregroundStyle(AppColor.cameraActive)
                     .opacity(focusLocked ? 1 : 0)
             }
+            .modifier(upright)
             .position(focusMark)
             .accessibilityHidden(true)
             .transition(.opacity)
@@ -408,6 +418,7 @@ struct CameraView: View {
             Image(systemName: lightSymbol)
                 .font(AppFont.sectionTitle)
                 .foregroundStyle(camera.light == .off ? Color.white : AppColor.cameraActive)
+                .modifier(upright)
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
@@ -453,6 +464,7 @@ struct CameraView: View {
         ZStack {
             HStack(alignment: .center, spacing: AppSpacing.md) {
                 lastPhotoView
+                    .modifier(upright)
                 galleryButton
                 // Keeps the sides off the shutter.
                 Spacer(minLength: shutterSize + AppSpacing.md * 2)
@@ -473,17 +485,36 @@ struct CameraView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             onDone()
         } label: {
-            ViewThatFits(in: .horizontal) {
-                Text("Fertig")
-                    .font(AppFont.bodyEmphasized)
-                Image(systemName: "checkmark")
-                    .font(AppFont.sectionTitle)
-                    .accessibilityLabel("Fertig")
+            Group {
+                // Turned upright in landscape the word needs more height
+                // than the bar has; the checkmark fits either way.
+                if camera.controlRotation == 0 {
+                    ViewThatFits(in: .horizontal) {
+                        Text("Fertig")
+                            .font(AppFont.bodyEmphasized)
+                        finishCheckmark
+                    }
+                } else {
+                    finishCheckmark
+                }
             }
+            .modifier(upright)
             .foregroundStyle(.white)
             .frame(minWidth: minTapTarget, minHeight: minTapTarget)
             .contentShape(Rectangle())
         }
+    }
+
+    private var finishCheckmark: some View {
+        Image(systemName: "checkmark")
+            .font(AppFont.sectionTitle)
+            .accessibilityLabel("Fertig")
+    }
+
+    /// Turns numbers and icons upright to the horizon in landscape; the
+    /// layout itself stays in portrait, as in the system camera.
+    private var upright: UprightToHorizon {
+        UprightToHorizon(degrees: camera.controlRotation, reduceMotion: reduceMotion)
     }
 
     private var galleryButton: some View {
@@ -493,6 +524,7 @@ struct CameraView: View {
             Image(systemName: "photo.on.rectangle")
                 .font(AppFont.sectionTitle)
                 .foregroundStyle(.white)
+                .modifier(upright)
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
@@ -649,6 +681,19 @@ struct CameraView: View {
         count += 1
         lastPhoto = PhotoStorage.thumbnail(data: data, maxPixel: lastPhotoPixels)
         AccessibilityNotification.Announcement("Foto \(count) aufgenommen").post()
+    }
+}
+
+/// Turns a control by the given degrees, animated unless Reduce Motion
+/// is on.
+private struct UprightToHorizon: ViewModifier {
+    let degrees: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .rotationEffect(.degrees(degrees))
+            .animation(AppMotion.respecting(AppMotion.base, reduceMotion: reduceMotion), value: degrees)
     }
 }
 

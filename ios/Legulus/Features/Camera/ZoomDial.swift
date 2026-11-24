@@ -15,6 +15,9 @@ struct ZoomDial: View {
     /// The camera draws the disc itself, as one arch down to the screen
     /// edge (`DialArch`), so it is not darkened twice.
     var drawsDisc = true
+    /// In landscape the labels stand upright to the horizon by this turn;
+    /// in portrait (zero) they follow the arc.
+    var uprightRotation: Angle = .zero
 
     /// Radius of the disc relative to its width: the arc of the video
     /// mode, which reaches both screen edges a short way down.
@@ -112,7 +115,7 @@ struct ZoomDial: View {
             var layer = context
             let spot = point(labelAngle, inset: labelInset)
             layer.translateBy(x: spot.x, y: spot.y)
-            layer.rotate(by: .radians(labelAngle))
+            layer.rotate(by: uprightRotation == .zero ? .radians(labelAngle) : uprightRotation)
             layer.draw(Text(text).font(AppFont.headline).foregroundStyle(.white), at: .zero)
         }
 
@@ -147,12 +150,21 @@ struct ZoomDial: View {
         pointer.addLine(to: CGPoint(x: top.x, y: top.y + tickLength * goldenRatio))
         pointer.closeSubpath()
         context.fill(pointer, with: .color(AppColor.cameraActive))
-        context.draw(
+        // Turned upright in landscape the value runs lengthwise; it moves
+        // inward by its own extent so it stays clear of the pointer tip.
+        let value = context.resolve(
             Text(ZoomScale.text(scale.displayFactor(factor)))
                 .font(AppFont.headline.monospacedDigit())
-                .foregroundStyle(AppColor.cameraActive),
-            at: point(0, inset: labelInset)
+                .foregroundStyle(AppColor.cameraActive)
         )
+        let valueSize = value.measure(in: size)
+        let radialExtent = uprightRotation == .zero ? valueSize.height : valueSize.width
+        let pointerTip = AppSpacing.xs + tickLength * goldenRatio
+        var valueLayer = context
+        let valueSpot = point(0, inset: max(labelInset, pointerTip + AppSpacing.xs + radialExtent / 2))
+        valueLayer.translateBy(x: valueSpot.x, y: valueSpot.y)
+        valueLayer.rotate(by: uprightRotation)
+        valueLayer.draw(value, at: .zero)
     }
 }
 
