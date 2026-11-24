@@ -39,6 +39,9 @@ final class CameraSession: NSObject, ObservableObject {
     @Published private(set) var macroAvailable = false
     /// Lens position of the fixed stages, 0 (near) … 1 (far).
     @Published private(set) var lensPosition: Float = 0
+    /// Current zoom in device factors, and the scale to show it with.
+    @Published private(set) var zoomFactor: CGFloat = 1
+    @Published private(set) var zoomScale = ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 1)
 
     /// Called on the main actor with the file data of each photo.
     var onPhoto: ((Data) -> Void)?
@@ -90,7 +93,7 @@ final class CameraSession: NSObject, ObservableObject {
         state == .running && !isCapturing
     }
 
-    /// Factor of one tap on the zoom buttons.
+    /// Factor of one VoiceOver step between two lenses.
     nonisolated static let zoomStep: CGFloat = 1.5
 
     /// The zoom factor the camera opens with. On the virtual devices
@@ -132,6 +135,7 @@ final class CameraSession: NSObject, ObservableObject {
         macroAvailable = macro
         if !flash, light == .auto { light = .off }
         state = newState
+        await refreshZoom()
     }
 
     func stop() {
@@ -249,6 +253,7 @@ final class CameraSession: NSObject, ObservableObject {
         if switched {
             focusStage = stage
             lensPosition = 0
+            await refreshZoom()
         } else {
             Log.ui.error("camera: lens switch failed")
             onCaptureError?(String(localized: "Das Objektiv ließ sich nicht wechseln."))
@@ -260,29 +265,29 @@ final class CameraSession: NSObject, ObservableObject {
     func zoom(by factor: CGFloat) {
         let core = core
         core.queue.async { core.zoom(by: factor) }
+        Task { await refreshZoom() }
     }
 
     func zoomEnded() {
         let core = core
         core.queue.async { core.zoomEnded() }
+        Task { await refreshZoom() }
     }
 
-    /// One step in or out — the button path next to the pinch, which
-    /// VoiceOver and Switch Control cannot perform.
-    func zoomIn() {
-        stepZoom(Self.zoomStep)
-    }
-
-    func zoomOut() {
-        stepZoom(1 / Self.zoomStep)
-    }
-
-    private func stepZoom(_ factor: CGFloat) {
+    /// Lens buttons, dial and VoiceOver: straight to a device factor.
+    func setZoom(_ deviceFactor: CGFloat) {
+        zoomFactor = min(max(deviceFactor, zoomScale.minFactor), zoomScale.maxFactor)
         let core = core
-        core.queue.async {
-            core.zoom(by: factor)
-            core.zoomEnded()
+        core.queue.async { core.setZoom(deviceFactor) }
+    }
+
+    private func refreshZoom() async {
+        let core = core
+        let (factor, scale) = await withCheckedContinuation { continuation in
+            core.queue.async { continuation.resume(returning: (core.zoomFactor, core.zoomScale)) }
         }
+        zoomFactor = factor
+        zoomScale = scale
     }
 }
 
@@ -303,6 +308,7 @@ private final class CameraCore: @unchecked Sendable {
     private var input: AVCaptureDeviceInput?
     /// Zoom of Auto before a fixed stage, restored on the way back.
     private var autoZoom: CGFloat = 1
+    private var stage: FocusStage = .auto
     private var subjectAreaObserver: NSObjectProtocol?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     /// Zoom factor when the current pinch began.
@@ -399,14 +405,13 @@ private final class CameraCore: @unchecked Sendable {
         session.commitConfiguration()
         input = newInput
         device = target
+        self.stage = stage
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: target, previewLayer: nil)
         observeSubjectArea(of: target)
         guard (try? target.lockForConfiguration()) != nil else { return true }
         let zoom: CGFloat = switch stage {
         case .auto: autoZoom
-        // The ultra-wide picture cropped to about the main lens: the
-        // first switch-over factor of the virtual camera is that ratio.
-        case .macro: autoDevice.virtualDeviceSwitchOverVideoZoomFactors.first.map { CGFloat(truncating: $0) } ?? 2
+        case .macro: macroMainFactor
         case .fixed: 1
         }
         target.videoZoomFactor = CameraSession.clampedZoom(
@@ -421,6 +426,42 @@ private final class CameraCore: @unchecked Sendable {
             expose(at: CGPoint(x: 0.5, y: 0.5))
         }
         return true
+    }
+
+    /// The ultra-wide picture cropped to about the main lens: the first
+    /// switch-over factor of the virtual camera is that ratio.
+    private var macroMainFactor: CGFloat {
+        autoDevice?.virtualDeviceSwitchOverVideoZoomFactors.first.map { CGFloat(truncating: $0) } ?? 2
+    }
+
+    var zoomFactor: CGFloat {
+        device?.videoZoomFactor ?? 1
+    }
+
+    var zoomScale: ZoomScale {
+        guard let device else { return ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 1) }
+        let low = device.minAvailableVideoZoomFactor
+        let high = device.maxAvailableVideoZoomFactor
+        switch stage {
+        case .auto:
+            return ZoomScale(
+                deviceType: device.deviceType,
+                switchOverFactors: device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) },
+                minFactor: low,
+                maxFactor: high
+            )
+        case .fixed: return ZoomScale(mainFactor: 1, minFactor: low, maxFactor: high)
+        case .macro: return ZoomScale(mainFactor: macroMainFactor, minFactor: low, maxFactor: high)
+        }
+    }
+
+    func setZoom(_ deviceFactor: CGFloat) {
+        guard let device, (try? device.lockForConfiguration()) != nil else { return }
+        device.videoZoomFactor = CameraSession.clampedZoom(
+            deviceFactor, min: device.minAvailableVideoZoomFactor, max: device.maxAvailableVideoZoomFactor
+        )
+        zoomAtGestureStart = device.videoZoomFactor
+        device.unlockForConfiguration()
     }
 
     /// Focus and exposure follow the picture by themselves.

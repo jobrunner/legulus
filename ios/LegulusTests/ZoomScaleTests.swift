@@ -50,4 +50,19 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(wide.lensStops, [1])
         XCTAssertEqual(wide.displayFactor(1), 1)
     }
+
+    /// Makro läuft auf dem Ultraweitwinkel, auf den Hauptausschnitt
+    /// beschnitten: dort heißt der Faktor 1×, Knöpfe gibt es keine.
+    func testFixedLensScale() {
+        let macro = ZoomScale(mainFactor: 2, minFactor: 1, maxFactor: 20)
+        XCTAssertEqual(macro.displayFactor(2), 1)
+        XCTAssertEqual(macro.lensStops, [])
+        XCTAssertEqual(macro.maxFactor, 10)
+    }
+
+    func testSpokenText_German() {
+        let german = Locale(identifier: "de_DE")
+        XCTAssertEqual(ZoomScale.spokenText(1.4, locale: german), "1,4-fach")
+        XCTAssertEqual(ZoomScale.spokenText(0.5, locale: german), "0,5-fach")
+    }
 }

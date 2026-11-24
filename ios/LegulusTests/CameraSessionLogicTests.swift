@@ -60,8 +60,6 @@ final class CameraSessionLogicTests: XCTestCase {
 
     func testZoomStep() {
         XCTAssertEqual(CameraSession.zoomStep, 1.5)
-        XCTAssertEqual(CameraSession.clampedZoom(2 * CameraSession.zoomStep, min: 1, max: 15), 3)
-        XCTAssertEqual(CameraSession.clampedZoom(1 / CameraSession.zoomStep, min: 1, max: 15), 1)
     }
 
     // MARK: - Licht

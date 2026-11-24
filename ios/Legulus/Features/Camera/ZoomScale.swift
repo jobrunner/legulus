@@ -21,6 +21,16 @@ struct ZoomScale: Equatable {
         lensStops = [minFactor] + switchOverFactors.filter { $0 > minFactor && $0 <= upper }
     }
 
+    /// A single physical lens of the fixed stages: no lens buttons, and
+    /// `mainFactor` is where its picture matches the main lens (the
+    /// cropped ultra-wide in Macro).
+    init(mainFactor: CGFloat, minFactor: CGFloat, maxFactor: CGFloat) {
+        self.mainFactor = mainFactor
+        self.minFactor = minFactor
+        self.maxFactor = max(minFactor, min(maxFactor, CameraSession.maxZoom))
+        lensStops = []
+    }
+
     func displayFactor(_ deviceFactor: CGFloat) -> CGFloat {
         deviceFactor / mainFactor
     }
@@ -34,6 +44,12 @@ struct ZoomScale: Equatable {
     static func text(_ display: CGFloat, locale: Locale = .current) -> String {
         let number = Double(display).formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale))
         return display < 1 ? number : "\(number)×"
+    }
+
+    /// The factor for VoiceOver: „1,4-fach“.
+    static func spokenText(_ display: CGFloat, locale: Locale = .current) -> String {
+        let number = Double(display).formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale))
+        return String(localized: "\(number)-fach")
     }
 
     /// Position on the dial, 0…1, logarithmic: every doubling is the same

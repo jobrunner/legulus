@@ -33,6 +33,11 @@ struct CameraView: View {
     @State private var pickedItems: [PhotosPickerItem] = []
     /// Where the last long press locked the focus, while its mark shows.
     @State private var focusMark: CGPoint?
+    /// The zoom dial shows while zooming and a moment after.
+    @State private var dialVisible = false
+    @State private var dialToken = UUID()
+    /// Dial position when a drag over the lens buttons began.
+    @State private var lensDragStart: CGFloat?
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorSchemeContrast) private var contrast
@@ -45,6 +50,12 @@ struct CameraView: View {
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 56
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
+    /// How long the zoom dial stays after the last touch.
+    private let dialDuration: Duration = .milliseconds(1500)
+    /// Points of dragging over the lens buttons for the whole dial.
+    private let lensDragWidth: CGFloat = 400
+    /// Factors closer than this count as the same lens.
+    private let lensTolerance: CGFloat = 0.01
     /// How long the mark of a long press stays on screen.
     private let focusMarkDuration: Duration = .milliseconds(1500)
     /// Width of the shutter's ring.
@@ -118,6 +129,7 @@ struct CameraView: View {
                     if camera.focusStage != .auto {
                         focusSlider
                     }
+                    zoomControl
                     bottomBar
                         .background(alignment: .bottom) { scrim(from: .bottom) }
                 }
@@ -140,22 +152,18 @@ struct CameraView: View {
             session: camera.session,
             onTap: { camera.tap(at: $0) },
             onLongPress: { devicePoint, viewPoint in lockFocus(at: devicePoint, mark: viewPoint) },
-            onPinchChanged: { camera.zoom(by: $0) },
-            onPinchEnded: { camera.zoomEnded() }
-        )
-        // Pinch and tap are gestures VoiceOver and Switch Control cannot
-        // perform; the picture itself is the element that zooms and
-        // focuses for them.
-        .accessibilityElement()
-        .accessibilityLabel("Kamerabild")
-        .accessibilityHint("Wische nach oben oder unten zum Zoomen.")
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: camera.zoomIn()
-            case .decrement: camera.zoomOut()
-            @unknown default: break
+            onPinchChanged: { magnification in
+                camera.zoom(by: magnification)
+                keepDial()
+            },
+            onPinchEnded: {
+                camera.zoomEnded()
+                keepDial()
             }
-        }
+        )
+        // The picture says nothing to VoiceOver; zoom and focus have
+        // their own controls (zoom control, flower button and slider).
+        .accessibilityHidden(true)
     }
 
     private var topBar: some View {
@@ -242,6 +250,94 @@ struct CameraView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, AppSpacing.xl)
         .padding(.vertical, AppSpacing.sm)
+    }
+
+    /// Lens buttons, or the dial while zooming. For VoiceOver one
+    /// adjustable element „Zoom“: swipe up and down to step.
+    private var zoomControl: some View {
+        Group {
+            if dialVisible {
+                ZoomDial(
+                    scale: camera.zoomScale,
+                    factor: camera.zoomFactor,
+                    onChange: { camera.setZoom($0) },
+                    onInteraction: { keepDial() }
+                )
+                .transition(.opacity)
+            } else {
+                lensButtons
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, AppSpacing.lg)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Zoom")
+        .accessibilityValue(ZoomScale.spokenText(camera.zoomScale.displayFactor(camera.zoomFactor)))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: camera.setZoom(camera.zoomScale.step(camera.zoomFactor, up: true))
+            case .decrement: camera.setZoom(camera.zoomScale.step(camera.zoomFactor, up: false))
+            @unknown default: break
+            }
+        }
+    }
+
+    /// One button per lens; the active one shows the current factor. In
+    /// the fixed stages there is one lens, so only the factor shows.
+    private var lensButtons: some View {
+        HStack(spacing: AppSpacing.sm) {
+            let scale = camera.zoomScale
+            let active = scale.lensStops.last { $0 <= camera.zoomFactor + lensTolerance }
+            if scale.lensStops.isEmpty {
+                lensLabel(ZoomScale.text(scale.displayFactor(camera.zoomFactor)), active: true)
+            }
+            ForEach(scale.lensStops, id: \.self) { stop in
+                Button {
+                    camera.setZoom(stop)
+                } label: {
+                    let isActive = stop == active
+                    lensLabel(
+                        ZoomScale.text(scale.displayFactor(isActive ? camera.zoomFactor : stop)),
+                        active: isActive
+                    )
+                }
+            }
+        }
+        // Dragging over the buttons zooms like the dial and brings it up.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: AppSpacing.sm)
+                .onChanged { value in
+                    let start = lensDragStart ?? camera.zoomScale.dialPosition(camera.zoomFactor)
+                    if lensDragStart == nil { lensDragStart = start }
+                    let position = start - value.translation.width / lensDragWidth
+                    camera.setZoom(camera.zoomScale.deviceFactor(dialPosition: position))
+                    keepDial()
+                }
+                .onEnded { _ in lensDragStart = nil }
+        )
+    }
+
+    private func lensLabel(_ text: String, active: Bool) -> some View {
+        Text(text)
+            .font(AppFont.footnote.monospacedDigit().weight(active ? .semibold : .regular))
+            .foregroundStyle(active ? AppColor.warning : .white)
+            .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+            .background(AppColor.cameraScrim, in: Circle())
+            .contentShape(Circle())
+    }
+
+    /// Shows the dial and hides it again after a pause without zooming.
+    private func keepDial() {
+        let token = UUID()
+        dialToken = token
+        if !dialVisible {
+            withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) { dialVisible = true }
+        }
+        Task {
+            try? await Task.sleep(for: dialDuration)
+            guard dialToken == token else { return }
+            withAnimation(AppMotion.respecting(AppMotion.base, reduceMotion: reduceMotion)) { dialVisible = false }
+        }
     }
 
     @ViewBuilder
