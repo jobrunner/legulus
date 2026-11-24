@@ -23,6 +23,8 @@ final class CameraSession: NSObject, ObservableObject {
         /// No camera (Simulator).
         case unavailable
         case running
+        /// The session swaps the lens; the picture is black for a moment.
+        case switching
         case failed(String)
     }
 
@@ -77,6 +79,10 @@ final class CameraSession: NSObject, ObservableObject {
             settings.metadata = [kCGImagePropertyGPSDictionary as String: PhotoGPSMetadata.dictionary(for: location)]
         }
         return settings
+    }
+
+    nonisolated static func canCapture(state: State, isCapturing: Bool) -> Bool {
+        state == .running && !isCapturing
     }
 
     /// Factor of one tap on the zoom buttons.
@@ -165,7 +171,7 @@ final class CameraSession: NSObject, ObservableObject {
     /// Takes one photo. Ignored while the previous one is still being
     /// captured, and never waits for a position.
     func capture() {
-        guard state == .running, !isCapturing else { return }
+        guard Self.canCapture(state: state, isCapturing: isCapturing) else { return }
         isCapturing = true
         let core = core
         let flash = light.captureFlashMode

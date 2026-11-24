@@ -100,4 +100,54 @@ final class CameraSessionLogicTests: XCTestCase {
         XCTAssertFalse(CameraLight.torchShouldBeOn(.torch, sceneActive: true, pickerOpen: false, running: false))
         XCTAssertFalse(CameraLight.torchShouldBeOn(.auto, sceneActive: true, pickerOpen: false, running: true))
     }
+
+    // MARK: - Fokus-Stufen
+
+    func testFocusCycle() {
+        XCTAssertEqual(FocusStage.auto.next(macroAvailable: true), .fixed)
+        XCTAssertEqual(FocusStage.fixed.next(macroAvailable: true), .macro)
+        XCTAssertEqual(FocusStage.macro.next(macroAvailable: true), .auto)
+        XCTAssertEqual(FocusStage.fixed.next(macroAvailable: false), .auto)
+    }
+
+    func testFocusStage_PhysicalLens() {
+        XCTAssertNil(FocusStage.auto.physicalLens)
+        XCTAssertEqual(FocusStage.fixed.physicalLens, .builtInWideAngleCamera)
+        XCTAssertEqual(FocusStage.macro.physicalLens, .builtInUltraWideCamera)
+    }
+
+    func testFocusStage_Labels() {
+        XCTAssertEqual(FocusStage.auto.label, "Fokus: automatisch")
+        XCTAssertEqual(FocusStage.fixed.label, "Fokus fest")
+        XCTAssertEqual(FocusStage.macro.label, "Makro")
+    }
+
+    func testSupportsMacro() {
+        XCTAssertTrue(FocusStage.supportsMacro(minimumFocusDistanceMM: 20, customLensPosition: true))
+        XCTAssertTrue(FocusStage.supportsMacro(minimumFocusDistanceMM: 50, customLensPosition: true))
+        XCTAssertFalse(FocusStage.supportsMacro(minimumFocusDistanceMM: 51, customLensPosition: true))
+        XCTAssertFalse(FocusStage.supportsMacro(minimumFocusDistanceMM: -1, customLensPosition: true), "-1 = unbekannt / Fixfokus")
+        XCTAssertFalse(FocusStage.supportsMacro(minimumFocusDistanceMM: 20, customLensPosition: false))
+    }
+
+    /// Ein versehentliches Tippen verstellt den eingestellten Halm nicht.
+    func testTapKeepsFocusInFixedStages() {
+        XCTAssertEqual(FocusStage.auto.tapAction, .focusAndExpose)
+        XCTAssertEqual(FocusStage.fixed.tapAction, .exposeOnly)
+        XCTAssertEqual(FocusStage.macro.tapAction, .exposeOnly)
+    }
+
+    func testNoCaptureWhileSwitching() {
+        XCTAssertTrue(CameraSession.canCapture(state: .running, isCapturing: false))
+        XCTAssertFalse(CameraSession.canCapture(state: .switching, isCapturing: false))
+        XCTAssertFalse(CameraSession.canCapture(state: .running, isCapturing: true))
+        XCTAssertFalse(CameraSession.canCapture(state: .idle, isCapturing: false))
+    }
+
+    func testFocusValueText() {
+        XCTAssertEqual(FocusStage.focusValueText(lensPosition: 0), "ganz nah")
+        XCTAssertEqual(FocusStage.focusValueText(lensPosition: 0.3), "nah")
+        XCTAssertEqual(FocusStage.focusValueText(lensPosition: 0.5), "mittel")
+        XCTAssertEqual(FocusStage.focusValueText(lensPosition: 1), "fern")
+    }
 }

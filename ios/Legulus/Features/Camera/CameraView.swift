@@ -99,7 +99,7 @@ struct CameraView: View {
     @ViewBuilder
     private var content: some View {
         switch camera.state {
-        case .idle, .running:
+        case .idle, .running, .switching:
             ZStack {
                 preview
                     .ignoresSafeArea()
@@ -259,7 +259,7 @@ struct CameraView: View {
             .opacity(camera.isCapturing ? 0.4 : 1)
             .contentShape(Circle())
         }
-        .disabled(camera.state != .running || camera.isCapturing)
+        .disabled(!CameraSession.canCapture(state: camera.state, isCapturing: camera.isCapturing))
         .accessibilityLabel("Foto aufnehmen")
         .accessibilityValue(countText)
     }
