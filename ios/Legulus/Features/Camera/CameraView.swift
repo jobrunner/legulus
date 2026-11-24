@@ -128,7 +128,7 @@ struct CameraView: View {
     private var preview: some View {
         CameraPreview(
             session: camera.session,
-            onTap: { camera.focus(at: $0) },
+            onTap: { camera.tap(at: $0) },
             onPinchChanged: { camera.zoom(by: $0) },
             onPinchEnded: { camera.zoomEnded() }
         )
