@@ -21,16 +21,17 @@ final class ZoomDialTests: XCTestCase {
         XCTAssertEqual(ticks[1], 1.0 / 3, accuracy: 1e-9)
     }
 
-    /// Unter dem Zeiger kein Strich, daneben kurz, nach außen wieder voll.
-    func testTickLength_DipsAtThePointer() {
+    /// Unter dem Zeiger kein Strich, die direkten Nachbarn kurz, alle
+    /// anderen voll.
+    func testTickLength_ShortOnlyBesideThePointer() {
         let step: CGFloat = 0.04
         XCTAssertEqual(ZoomDial.tickLengthScale(distance: 0, step: step), 0)
         XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 0.4, step: step), 0)
         let neighbour = ZoomDial.tickLengthScale(distance: step, step: step)
-        let next = ZoomDial.tickLengthScale(distance: step * 2, step: step)
         XCTAssertGreaterThan(neighbour, 0)
-        XCTAssertLessThan(neighbour, next)
-        XCTAssertLessThan(next, 1)
-        XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 4, step: step), 1)
+        XCTAssertLessThan(neighbour, 1)
+        XCTAssertEqual(ZoomDial.tickLengthScale(distance: -step * 1.2, step: step), neighbour)
+        XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 1.6, step: step), 1)
+        XCTAssertEqual(ZoomDial.tickLengthScale(distance: step * 2, step: step), 1)
     }
 }

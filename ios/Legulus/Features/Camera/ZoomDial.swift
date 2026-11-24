@@ -24,7 +24,7 @@ struct ZoomDial: View {
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 170
     /// Distance of the labels from the edge of the disc.
-    @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 35
 
     /// Turn per doubling of the factor; fixed, as in the system camera,
     /// so a short range takes only part of the arc.
@@ -59,16 +59,17 @@ struct ZoomDial: View {
     }
 
     /// Length of a tick by its distance from the pointer, as a share of
-    /// the full length: none right under the pointer, short beside it,
-    /// growing smoothly to full length a few ticks out.
+    /// the full length: none right under the pointer, short for the two
+    /// neighbours, full for all others.
     static func tickLengthScale(distance: CGFloat, step: CGFloat) -> CGFloat {
-        let gap = step * 0.5
         let distance = abs(distance)
-        guard distance >= gap else { return 0 }
-        let progress = min((distance - gap) / (step * 3), 1)
-        let smooth = progress * progress * (3 - 2 * progress)
-        return 0.25 + 0.75 * smooth
+        if distance < step * 0.5 { return 0 }
+        if distance < step * 1.5 { return neighbourLengthShare }
+        return 1
     }
+
+    /// Length of the ticks beside the pointer, as a share of a full tick.
+    static let neighbourLengthShare: CGFloat = 0.3
 
     var body: some View {
         Canvas { context, size in
