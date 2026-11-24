@@ -65,6 +65,19 @@ struct ConditionsDisplay: Equatable {
     var altitudinalBelt: String?
     /// nil when neither sun times nor twilight are known.
     var lightPhase: LightPhase?
+    /// Twilights, sunrise and sunset, moonrise and moonset for the light
+    /// band of the „Zeit“ card.
+    var skyEvents = SkyEvents()
+    /// Sun and moon at the sample's instant: above the horizon, and a
+    /// line for the card („Sonne 18° hoch, S“, „Mond unter dem Horizont ·
+    /// Aufgang 15:20“).
+    var sunIsUp = false
+    var moonIsUp = false
+    var sunFact: String?
+    var moonFact: String?
+    /// Lit part of the moon in percent and whether it waxes, for its shape.
+    var moonIllumination: Double?
+    var moonWaxing: Bool?
     /// „Keine Daten für diesen Zeitpunkt“ when a final answer of a
     /// sample with a time of day has no weather; „Keine Wetterdaten für
     /// diesen Tag“ when an all-day sample has no day values.
@@ -132,6 +145,7 @@ struct ConditionsDisplay: Equatable {
         lightPhase = sample.isAllDay
             ? (night ? .night : .day)
             : Self.lightPhase(at: request.instant, conditions: conditions, features: features)
+        fillSkyBand(conditions, features: features, zone: zone)
         // A final answer without what this kind of sample shows as
         // weather: its hourly values (the code's text counts), or the
         // day values of an all-day sample.
@@ -376,12 +390,72 @@ struct ConditionsDisplay: Equatable {
         return try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any]
     }
 
-    /// „civil.dawn“ … „nautical.dusk“ of the sun feature's properties.
+    /// The properties of the stored `tempus:moon` feature.
+    private static func moonProperties(in features: [LocalSampleFeature]) -> [String: Any]? {
+        guard let feature = features.first(where: { $0.sourceID == FeatureScope.tempusPrefix + "moon" }) else { return nil }
+        return try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any]
+    }
+
+    private static func isoTime(_ value: Any?) -> Date? {
+        guard let text = value as? String else { return nil }
+        return isoDate.date(from: text) ?? isoDateFractional.date(from: text)
+    }
+
+    private static func number(in props: [String: Any]?, _ key: String) -> Double? {
+        (props?[key] as? NSNumber)?.doubleValue
+    }
+
+    /// Events and facts for the light band. The positions are Tempus'
+    /// for exactly the queried instant.
+    private mutating func fillSkyBand(_ c: SampleConditions, features: [LocalSampleFeature], zone: TimeZone) {
+        let sun = Self.sunProperties(in: features)
+        let moon = Self.moonProperties(in: features)
+        let twilight = Self.twilightTimes(in: sun)
+        skyEvents = SkyEvents(
+            astronomicalDawn: twilight["astronomical.dawn"], nauticalDawn: twilight["nautical.dawn"],
+            civilDawn: twilight["civil.dawn"], sunrise: c.date("sunrise"), sunset: c.date("sunset"),
+            civilDusk: twilight["civil.dusk"], nauticalDusk: twilight["nautical.dusk"],
+            astronomicalDusk: twilight["astronomical.dusk"],
+            moonrise: Self.isoTime(moon?["moonrise"]), moonset: Self.isoTime(moon?["moonset"])
+        )
+        if let elevation = Self.number(in: sun, "elevationDeg") {
+            sunIsUp = elevation > 0
+            if sunIsUp, let azimuth = Self.number(in: sun, "azimuthDeg") {
+                sunFact = String(localized: "Sonne \(Self.number(elevation, digits: 0))° hoch, \(LightBand.compass(azimuth))")
+            } else {
+                sunFact = String(localized: "Sonne unter dem Horizont")
+            }
+        }
+        moonIllumination = Self.number(in: moon, "illuminationPct") ?? c.number("moon_illumination_pct")
+        moonWaxing = Self.waxing(phase: c.text("moon_phase"))
+        if let elevation = Self.number(in: moon, "elevationDeg") {
+            moonIsUp = elevation > 0
+            if moonIsUp, let azimuth = Self.number(in: moon, "azimuthDeg") {
+                let lit = moonIllumination.map { " · " + Self.number($0, digits: 0) + Self.nbsp + "%" } ?? ""
+                moonFact = String(localized: "Mond \(Self.number(elevation, digits: 0))° hoch, \(LightBand.compass(azimuth))") + lit
+            } else if let rise = skyEvents.moonrise {
+                moonFact = String(localized: "Mond unter dem Horizont · Aufgang \(Self.time(rise, zone: zone))")
+            } else {
+                moonFact = String(localized: "Mond unter dem Horizont")
+            }
+        }
+    }
+
+    /// Whether Tempus' phase name waxes (true), wanes (false) or neither.
+    static func waxing(phase: String?) -> Bool? {
+        switch phase?.lowercased() {
+        case "zunehmende sichel", "erstes viertel", "zunehmender mond": true
+        case "abnehmender mond", "letztes viertel", "abnehmende sichel": false
+        default: nil
+        }
+    }
+
+    /// „civil.dawn“ … „astronomical.dusk“ of the sun feature's properties.
     private static func twilightTimes(in sun: [String: Any]?) -> [String: Date] {
         guard let twilight = sun?["twilight"] as? [String: Any] else { return [:] }
         let iso = isoDate, isoFractional = isoDateFractional
         var times: [String: Date] = [:]
-        for kind in ["civil", "nautical"] {
+        for kind in ["civil", "nautical", "astronomical"] {
             guard let pair = twilight[kind] as? [String: Any] else { continue }
             for edge in ["dawn", "dusk"] {
                 guard let text = pair[edge] as? String,

@@ -358,6 +358,57 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertNil(try partial(withDay, allDay: true).note)
     }
 
+    // MARK: - light band data
+
+    private func skyJSON(sunElevation: Double, moonElevation: Double) -> String {
+        """
+        {"features": [
+          {"properties": {"kind": "sun", "elevationDeg": \(sunElevation), "azimuthDeg": 170.4,
+                          "sunrise": "2026-05-19T03:27:00Z", "sunset": "2026-05-19T19:02:00Z",
+                          "twilight": {"civil": {"dawn": "2026-05-19T02:50:00Z", "dusk": "2026-05-19T19:40:00Z"},
+                                       "nautical": {"dawn": "2026-05-19T02:00:00Z", "dusk": "2026-05-19T20:30:00Z"},
+                                       "astronomical": {"dawn": null, "dusk": null}}},
+           "license": {"name": "PD", "attribution": "NOAA"}},
+          {"properties": {"kind": "moon", "elevationDeg": \(moonElevation), "azimuthDeg": 134.6,
+                          "moonrise": "2026-05-19T13:20:00Z", "moonset": "2026-05-20T00:50:00Z",
+                          "illuminationPct": 78.2, "phase": {"de": "zunehmender Mond"}},
+           "license": {"name": "PD", "attribution": "Meeus"}}
+        ], "providers": []}
+        """
+    }
+
+    /// The events for the band come from the sun and moon features;
+    /// missing astronomical times stay nil (no night that day).
+    func testSkyEvents_FromSunAndMoonFeatures() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let iso = ISO8601DateFormatter()
+        XCTAssertEqual(d.skyEvents.nauticalDusk, iso.date(from: "2026-05-19T20:30:00Z"))
+        XCTAssertNil(d.skyEvents.astronomicalDusk)
+        XCTAssertEqual(d.skyEvents.sunrise, iso.date(from: "2026-05-19T03:27:00Z"))
+        XCTAssertEqual(d.skyEvents.moonset, iso.date(from: "2026-05-20T00:50:00Z"))
+    }
+
+    /// Sun up, moon down: where the sun stands, when the moon rises
+    /// (Berlin is UTC+2 in May).
+    func testSkyFacts_SunUpMoonDown() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.sunFact, "Sonne 18° hoch, S")
+        XCTAssertEqual(d.moonFact, "Mond unter dem Horizont · Aufgang 15:20")
+        XCTAssertTrue(d.sunIsUp)
+        XCTAssertFalse(d.moonIsUp)
+    }
+
+    func testSkyFacts_MoonUpSunDown() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: -38, moonElevation: 31.2))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.sunFact, "Sonne unter dem Horizont")
+        XCTAssertEqual(d.moonFact, "Mond 31° hoch, SO · 78\u{00A0}%")
+        XCTAssertEqual(d.moonIllumination ?? -1, 78.2, accuracy: 0.01)
+        XCTAssertEqual(d.moonWaxing, true)
+    }
+
     // MARK: - sun and moon by the date
 
     private func skyDisplay(_ phase: ConditionsDisplay.LightPhase?) -> ConditionsDisplay {
