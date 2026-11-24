@@ -64,8 +64,40 @@ final class CameraSessionLogicTests: XCTestCase {
         XCTAssertEqual(CameraSession.clampedZoom(1 / CameraSession.zoomStep, min: 1, max: 15), 1)
     }
 
-    func testFlashLabel() {
-        XCTAssertEqual(CameraSession.flashLabel(.auto), "Blitz: automatisch")
-        XCTAssertEqual(CameraSession.flashLabel(.off), "Blitz: aus")
+    // MARK: - Licht
+
+    func testLightCycle_AllAvailable() {
+        XCTAssertEqual(CameraLight.auto.next(hasFlash: true, hasTorch: true), .off)
+        XCTAssertEqual(CameraLight.off.next(hasFlash: true, hasTorch: true), .torch)
+        XCTAssertEqual(CameraLight.torch.next(hasFlash: true, hasTorch: true), .auto)
+    }
+
+    func testLightCycle_SkipsMissing() {
+        XCTAssertEqual(CameraLight.off.next(hasFlash: true, hasTorch: false), .auto)
+        XCTAssertEqual(CameraLight.auto.next(hasFlash: false, hasTorch: true), .off)
+        XCTAssertEqual(CameraLight.torch.next(hasFlash: false, hasTorch: true), .off)
+        XCTAssertEqual(CameraLight.off.next(hasFlash: false, hasTorch: false), .off)
+    }
+
+    func testLight_CaptureFlashMode() {
+        XCTAssertEqual(CameraLight.auto.captureFlashMode, .auto)
+        XCTAssertEqual(CameraLight.off.captureFlashMode, .off)
+        XCTAssertEqual(CameraLight.torch.captureFlashMode, .off, "LED leuchtet schon, kein Blitz dazu")
+    }
+
+    func testLight_Labels() {
+        XCTAssertEqual(CameraLight.auto.label, "Licht: automatischer Blitz")
+        XCTAssertEqual(CameraLight.off.label, "Licht: aus")
+        XCTAssertEqual(CameraLight.torch.label, "Licht: LED-Dauerlicht")
+    }
+
+    /// Die LED leuchtet nur, solange die Kamera sichtbar läuft: nicht im
+    /// Hintergrund, nicht hinter dem Galerie-Picker, nicht nach dem Schließen.
+    func testTorchOnlyWhileVisibleAndRunning() {
+        XCTAssertTrue(CameraLight.torchShouldBeOn(.torch, sceneActive: true, pickerOpen: false, running: true))
+        XCTAssertFalse(CameraLight.torchShouldBeOn(.torch, sceneActive: false, pickerOpen: false, running: true))
+        XCTAssertFalse(CameraLight.torchShouldBeOn(.torch, sceneActive: true, pickerOpen: true, running: true))
+        XCTAssertFalse(CameraLight.torchShouldBeOn(.torch, sceneActive: true, pickerOpen: false, running: false))
+        XCTAssertFalse(CameraLight.torchShouldBeOn(.auto, sceneActive: true, pickerOpen: false, running: true))
     }
 }
