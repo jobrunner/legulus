@@ -115,6 +115,12 @@ Fokus fest, Makro) sind gelb (`AppColor.cameraActive`). Das Zoomrad folgt
 der Kamera-App: dunkle Halbscheibe, Skala am Rand, Objektive als lange
 Striche mit Zahl, aktueller Wert gelb unter dem Zeiger.
 
+Zweiter Nachtrag (2026-11-24): Nur optischer Zoom, der Bereich endet am
+längsten Objektiv (14 Pro: 3×; in den festen Stufen am Hauptausschnitt).
+Der Zoom rastet bei 0,5 / 1 / 1,5 / 2,5 / 3 ein, der ganze Bereich passt
+in eine halbe Bildschirmbreite Daumenweg. Alle Bedienelemente geben
+haptisches Feedback.
+
 - `CameraPreview` füllt den Bildschirm inkl. Safe Area (Aspect Fill).
   Bedienelemente liegen in der Safe Area darüber, auf einem leichten
   Verlauf/Scrim, damit weiße Icons auf hellem Bild lesbar bleiben (bei

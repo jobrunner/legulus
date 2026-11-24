@@ -16,7 +16,7 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(triple.displayFactor(2), 1)
         XCTAssertEqual(triple.displayFactor(6), 3)
         XCTAssertEqual(triple.deviceFactor(display: 3), 6)
-        XCTAssertEqual(triple.maxFactor, 10, "nie über maxZoom")
+        XCTAssertEqual(triple.maxFactor, 6, "nur echter Zoom: bis zum Teleobjektiv")
     }
 
     func testText_German() {
@@ -28,21 +28,42 @@ final class ZoomScaleTests: XCTestCase {
     }
 
     func testDialRoundTrip() {
-        for factor: CGFloat in [1, 2, 3.7, 10] {
+        for factor: CGFloat in [1, 2, 3.7, 6] {
             XCTAssertEqual(triple.deviceFactor(dialPosition: triple.dialPosition(factor)), factor, accuracy: 0.001)
         }
         XCTAssertEqual(triple.dialPosition(1), 0)
-        XCTAssertEqual(triple.dialPosition(10), 1)
+        XCTAssertEqual(triple.dialPosition(6), 1)
         XCTAssertEqual(triple.deviceFactor(dialPosition: -1), 1)
-        XCTAssertEqual(triple.deviceFactor(dialPosition: 2), 10)
+        XCTAssertEqual(triple.deviceFactor(dialPosition: 2), 6)
     }
 
+    /// VoiceOver springt von Raststufe zu Raststufe.
     func testStep() {
         XCTAssertEqual(triple.step(1, up: true), 2)
-        XCTAssertEqual(triple.step(2, up: true), 3, accuracy: 0.001)
-        XCTAssertEqual(triple.step(6, up: false), 4, accuracy: 0.001)
+        XCTAssertEqual(triple.step(2, up: true), 3)
+        XCTAssertEqual(triple.step(2.4, up: true), 3)
+        XCTAssertEqual(triple.step(5, up: true), 6)
+        XCTAssertEqual(triple.step(6, up: true), 6)
+        XCTAssertEqual(triple.step(3, up: false), 2)
         XCTAssertEqual(triple.step(1, up: false), 1)
-        XCTAssertEqual(triple.step(9, up: true), 10, "geklemmt")
+    }
+
+    /// Raststufen 0,5 / 1 / 1,5 / 2,5 / 3 als Gerätefaktoren.
+    func testSnapStops_Triple() {
+        XCTAssertEqual(triple.snapStops, [1, 2, 3, 5, 6])
+    }
+
+    func testSnap() {
+        XCTAssertEqual(triple.snapped(2.05), 2, "nah an 1× rastet ein")
+        XCTAssertEqual(triple.snapped(2.5), 2.5, "zwischen den Stufen frei")
+        XCTAssertEqual(triple.snapped(5.9), 6)
+    }
+
+    /// Ohne Tele endet der Zoom am Hauptobjektiv.
+    func testOpticalMax_DualWide() {
+        let dualWide = ZoomScale(deviceType: .builtInDualWideCamera, switchOverFactors: [2], minFactor: 1, maxFactor: 12)
+        XCTAssertEqual(dualWide.maxFactor, 2)
+        XCTAssertEqual(dualWide.snapStops, [1, 2])
     }
 
     func testWideOnly() {
@@ -57,7 +78,8 @@ final class ZoomScaleTests: XCTestCase {
         let macro = ZoomScale(mainFactor: 2, minFactor: 1, maxFactor: 20)
         XCTAssertEqual(macro.displayFactor(2), 1)
         XCTAssertEqual(macro.lensStops, [])
-        XCTAssertEqual(macro.maxFactor, 10)
+        XCTAssertEqual(macro.maxFactor, 2, "Makro bis zum Hauptausschnitt, kein Digitalzoom darüber")
+        XCTAssertEqual(ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 5).maxFactor, 1, "Fokus fest: kein Zoom")
     }
 
     func testSpokenText_German() {

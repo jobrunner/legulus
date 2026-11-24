@@ -140,9 +140,6 @@ final class CameraSession: NSObject, ObservableObject {
         state == .running && !isCapturing
     }
 
-    /// Factor of one VoiceOver step between two lenses.
-    nonisolated static let zoomStep: CGFloat = 1.5
-
     /// The zoom factor the camera opens with. On the virtual devices
     /// that start with the ultra-wide lens, factor 1 is that lens; the
     /// first switch-over factor is the main lens.
@@ -329,7 +326,7 @@ final class CameraSession: NSObject, ObservableObject {
 
     /// Lens buttons, dial and VoiceOver: straight to a device factor.
     func setZoom(_ deviceFactor: CGFloat) {
-        zoomFactor = min(max(deviceFactor, zoomScale.minFactor), zoomScale.maxFactor)
+        zoomFactor = zoomScale.snapped(min(max(deviceFactor, zoomScale.minFactor), zoomScale.maxFactor))
         let core = core
         core.queue.async { core.setZoom(deviceFactor) }
     }
@@ -555,12 +552,8 @@ private final class CameraCore: @unchecked Sendable {
     }
 
     func setZoom(_ deviceFactor: CGFloat) {
-        guard let device, (try? device.lockForConfiguration()) != nil else { return }
-        device.videoZoomFactor = CameraSession.clampedZoom(
-            deviceFactor, min: device.minAvailableVideoZoomFactor, max: device.maxAvailableVideoZoomFactor
-        )
-        zoomAtGestureStart = device.videoZoomFactor
-        device.unlockForConfiguration()
+        applyZoom(deviceFactor)
+        zoomAtGestureStart = device?.videoZoomFactor ?? 1
     }
 
     /// Focus and exposure follow the picture by themselves.
@@ -709,12 +702,16 @@ private final class CameraCore: @unchecked Sendable {
     }
 
     func zoom(by factor: CGFloat) {
-        guard let device, (try? device.lockForConfiguration()) != nil else { return }
-        device.videoZoomFactor = CameraSession.clampedZoom(
-            zoomAtGestureStart * factor,
-            min: device.minAvailableVideoZoomFactor,
-            max: device.maxAvailableVideoZoomFactor
-        )
+        applyZoom(zoomAtGestureStart * factor)
+    }
+
+    /// Optical range only, snapping in at the snap stops.
+    private func applyZoom(_ deviceFactor: CGFloat) {
+        guard let device else { return }
+        let scale = zoomScale
+        let target = scale.snapped(min(max(deviceFactor, scale.minFactor), scale.maxFactor))
+        guard (try? device.lockForConfiguration()) != nil else { return }
+        device.videoZoomFactor = target
         device.unlockForConfiguration()
     }
 

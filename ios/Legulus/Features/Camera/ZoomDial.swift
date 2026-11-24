@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The zoom dial over the shutter, after the system camera: a dark
 /// half-disc across the screen, a fine scale along its edge that turns
-/// under a fixed yellow pointer, the lenses as long ticks with their
+/// under a fixed yellow pointer, the snap stops as long ticks with their
 /// factor, and the current factor in yellow under the pointer.
 ///
 /// Only the picture: dragging is handled by the zoom control in
@@ -73,7 +73,8 @@ struct ZoomDial: View {
         for index in 0 ... tickCount {
             tick(at: CGFloat(index) / CGFloat(tickCount), length: AppSpacing.sm, width: tickWidth, color: .white.opacity(0.55))
         }
-        let marked = scale.lensStops + [scale.maxFactor]
+        // The snap stops carry long ticks and their factor.
+        let marked = scale.snapStops.isEmpty ? scale.lensStops + [scale.maxFactor] : scale.snapStops
         for stop in marked {
             let position = scale.dialPosition(stop)
             tick(at: position, length: AppSpacing.md, width: lensTickWidth, color: .white)

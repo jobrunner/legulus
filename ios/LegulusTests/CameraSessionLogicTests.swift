@@ -58,10 +58,6 @@ final class CameraSessionLogicTests: XCTestCase {
         XCTAssertEqual(CameraSession.initialZoom(deviceType: .builtInTripleCamera, switchOverFactors: []), 1)
     }
 
-    func testZoomStep() {
-        XCTAssertEqual(CameraSession.zoomStep, 1.5)
-    }
-
     // MARK: - Licht
 
     func testLightCycle_AllAvailable() {

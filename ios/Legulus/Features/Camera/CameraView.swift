@@ -55,8 +55,9 @@ struct CameraView: View {
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
-    /// Part of the whole dial one width of the zoom control covers.
-    private let zoomDragSpan: CGFloat = 0.8
+    /// Part of the whole dial one width of the zoom control covers: the
+    /// whole optical range lies within half the width, one thumb stroke.
+    private let zoomDragSpan: CGFloat = 2
     /// Factors closer than this count as the same lens.
     private let lensTolerance: CGFloat = 0.01
     /// How long the mark of a long press stays on screen.
@@ -114,6 +115,16 @@ struct CameraView: View {
         }
         .onDisappear { camera.stop() }
         .accessibilityAddTraits(.isModal)
+        // Haptics for every control: modes and snap stops tick, the shutter
+        // and the gallery knock, a held focus and errors report.
+        .sensoryFeedback(.selection, trigger: camera.light)
+        .sensoryFeedback(.selection, trigger: camera.focusStage)
+        .sensoryFeedback(.selection, trigger: currentSnap) { _, snap in snap != nil }
+        .sensoryFeedback(.selection, trigger: focusValueBucket)
+        .sensoryFeedback(.impact(weight: .medium), trigger: camera.isCapturing) { _, capturing in capturing }
+        .sensoryFeedback(.impact(weight: .light), trigger: pickerOpen) { _, open in open }
+        .sensoryFeedback(.success, trigger: focusLocked) { _, locked in locked }
+        .sensoryFeedback(.error, trigger: errorMessage) { _, message in message != nil }
     }
 
     @ViewBuilder
@@ -438,7 +449,12 @@ struct CameraView: View {
     /// Ends the series: the photos are stored already, nothing is thrown
     /// away. A checkmark where „Fertig“ does not fit (large text).
     private var finishButton: some View {
-        Button(action: onDone) {
+        Button {
+            // The view goes away at once; a trigger-based feedback would
+            // not fire any more.
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onDone()
+        } label: {
             ViewThatFits(in: .horizontal) {
                 Text("Fertig")
                     .font(AppFont.bodyEmphasized)
@@ -584,6 +600,16 @@ struct CameraView: View {
                 AccessibilityNotification.Announcement("\(taken), \(countText)").post()
             }
         }
+    }
+
+    /// The snap stop the zoom sits on, nil between them.
+    private var currentSnap: CGFloat? {
+        camera.zoomScale.snapStops.first { abs($0 - camera.zoomFactor) < lensTolerance }
+    }
+
+    /// The focus slider in words; ticks when the words change.
+    private var focusValueBucket: String {
+        FocusStage.focusValueText(lensPosition: camera.lensPosition)
     }
 
     private func updateTorch() {
