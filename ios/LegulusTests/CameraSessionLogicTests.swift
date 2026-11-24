@@ -148,4 +148,76 @@ final class CameraSessionLogicTests: XCTestCase {
         XCTAssertEqual(FocusStage.focusValueText(lensPosition: 0.5), "mittel")
         XCTAssertEqual(FocusStage.focusValueText(lensPosition: 1), "fern")
     }
+
+    // MARK: - Korrekturen aus dem Review
+
+    /// Langer Druck: `isAdjustingFocus` wird erst einen Moment nach dem
+    /// Setzen von `.autoFocus` wahr. Vorher gilt der Fokus nicht als fertig.
+    func testFocusSettled_WaitsForTheLensToStart() {
+        XCTAssertFalse(CameraSession.focusSettled(sawAdjusting: false, isAdjusting: false, elapsed: 0.02))
+        XCTAssertFalse(CameraSession.focusSettled(sawAdjusting: true, isAdjusting: true, elapsed: 0.5))
+        XCTAssertTrue(CameraSession.focusSettled(sawAdjusting: true, isAdjusting: false, elapsed: 0.3))
+        XCTAssertTrue(CameraSession.focusSettled(sawAdjusting: false, isAdjusting: false, elapsed: 0.5), "Linse stand schon richtig")
+        XCTAssertTrue(CameraSession.focusSettled(sawAdjusting: true, isAdjusting: true, elapsed: 2.1), "Zeitlimit")
+    }
+
+    /// Auf Geräten mit nur einem Objektiv ist die Auto-Kamera schon das
+    /// Hauptobjektiv: Fokus fest geht ohne Tausch.
+    func testSwitchPlan() {
+        let both: Set<AVCaptureDevice.DeviceType> = [.builtInWideAngleCamera, .builtInUltraWideCamera]
+        XCTAssertEqual(
+            CameraSession.switchPlan(to: .fixed, autoDeviceType: .builtInTripleCamera, autoSupportsCustomLens: false, lenses: both),
+            .swap(.builtInWideAngleCamera)
+        )
+        XCTAssertEqual(
+            CameraSession.switchPlan(to: .auto, autoDeviceType: .builtInTripleCamera, autoSupportsCustomLens: false, lenses: both),
+            .swap(nil)
+        )
+        XCTAssertEqual(
+            CameraSession.switchPlan(
+                to: .fixed,
+                autoDeviceType: .builtInWideAngleCamera,
+                autoSupportsCustomLens: true,
+                lenses: [.builtInWideAngleCamera]
+            ),
+            .stay
+        )
+        XCTAssertEqual(
+            CameraSession.switchPlan(
+                to: .auto,
+                autoDeviceType: .builtInWideAngleCamera,
+                autoSupportsCustomLens: true,
+                lenses: [.builtInWideAngleCamera]
+            ),
+            .stay
+        )
+        XCTAssertEqual(
+            CameraSession.switchPlan(
+                to: .fixed,
+                autoDeviceType: .builtInWideAngleCamera,
+                autoSupportsCustomLens: false,
+                lenses: [.builtInWideAngleCamera]
+            ),
+            .impossible
+        )
+        XCTAssertEqual(
+            CameraSession.switchPlan(
+                to: .macro,
+                autoDeviceType: .builtInDualCamera,
+                autoSupportsCustomLens: false,
+                lenses: [.builtInWideAngleCamera]
+            ),
+            .impossible
+        )
+    }
+
+    /// Langer Druck aus Auto: der Bildausschnitt bleibt beim Tausch gleich.
+    func testCarriedZoom() {
+        // 3× auf der Dreifachkamera (Gerätefaktor 6, Haupt 2) → Weitwinkel 3.
+        XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 6, autoMain: 2, targetMain: 1, min: 1, max: 15), 3)
+        // 0,5× (Gerätefaktor 1) → Ultraweit mit Haupt bei 2: 1.
+        XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 1, autoMain: 2, targetMain: 2, min: 1, max: 15), 1)
+        XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 2, autoMain: 2, targetMain: 1, min: 1, max: 15), 1)
+        XCTAssertEqual(CameraSession.carriedZoom(autoZoom: 1, autoMain: 2, targetMain: 1, min: 1, max: 15), 1, "geklemmt")
+    }
 }

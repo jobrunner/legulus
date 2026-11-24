@@ -33,11 +33,14 @@ struct CameraView: View {
     @State private var pickedItems: [PhotosPickerItem] = []
     /// Where the last long press locked the focus, while its mark shows.
     @State private var focusMark: CGPoint?
+    /// The focus at the mark is held; until then the mark has no text.
+    @State private var focusLocked = false
     /// The zoom dial shows while zooming and a moment after.
     @State private var dialVisible = false
     @State private var dialToken = UUID()
-    /// Dial position when a drag over the lens buttons began.
-    @State private var lensDragStart: CGFloat?
+    /// Dial position when the current drag over the zoom control began.
+    @State private var zoomDragStart: CGFloat?
+    @State private var zoomControlWidth: CGFloat = 1
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorSchemeContrast) private var contrast
@@ -52,8 +55,8 @@ struct CameraView: View {
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
-    /// Points of dragging over the lens buttons for the whole dial.
-    private let lensDragWidth: CGFloat = 400
+    /// Part of the whole dial one width of the zoom control covers.
+    private let zoomDragSpan: CGFloat = 0.8
     /// Factors closer than this count as the same lens.
     private let lensTolerance: CGFloat = 0.01
     /// How long the mark of a long press stays on screen.
@@ -202,7 +205,8 @@ struct CameraView: View {
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
-        .disabled(camera.state != .running)
+        // Not mid-shot: the lens swap would cut the capture off.
+        .disabled(camera.state != .running || camera.isCapturing)
         .accessibilityLabel("Fokus")
         .accessibilityValue(camera.focusStage.label)
         .accessibilityHint("Wechselt zur nächsten Stufe")
@@ -257,19 +261,19 @@ struct CameraView: View {
     private var zoomControl: some View {
         Group {
             if dialVisible {
-                ZoomDial(
-                    scale: camera.zoomScale,
-                    factor: camera.zoomFactor,
-                    onChange: { camera.setZoom($0) },
-                    onInteraction: { keepDial() }
-                )
-                .transition(.opacity)
+                ZoomDial(scale: camera.zoomScale, factor: camera.zoomFactor)
+                    .transition(.opacity)
             } else {
                 lensButtons
                     .transition(.opacity)
             }
         }
         .padding(.horizontal, AppSpacing.lg)
+        .contentShape(Rectangle())
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { zoomControlWidth = max($0, 1) }
+        // On the container, which stays while buttons and dial swap: a
+        // drag that starts on the buttons goes on on the dial.
+        .simultaneousGesture(zoomDrag)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Zoom")
         .accessibilityValue(ZoomScale.spokenText(camera.zoomScale.displayFactor(camera.zoomFactor)))
@@ -303,18 +307,23 @@ struct CameraView: View {
                 }
             }
         }
-        // Dragging over the buttons zooms like the dial and brings it up.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: AppSpacing.sm)
-                .onChanged { value in
-                    let start = lensDragStart ?? camera.zoomScale.dialPosition(camera.zoomFactor)
-                    if lensDragStart == nil { lensDragStart = start }
-                    let position = start - value.translation.width / lensDragWidth
-                    camera.setZoom(camera.zoomScale.deviceFactor(dialPosition: position))
-                    keepDial()
-                }
-                .onEnded { _ in lensDragStart = nil }
-        )
+    }
+
+    /// Sideways drag turns the dial; to the left towards higher factors.
+    /// The minimum distance leaves taps to the lens buttons.
+    private var zoomDrag: some Gesture {
+        DragGesture(minimumDistance: AppSpacing.sm)
+            .onChanged { value in
+                let start = zoomDragStart ?? camera.zoomScale.dialPosition(camera.zoomFactor)
+                if zoomDragStart == nil { zoomDragStart = start }
+                let position = start - value.translation.width / zoomControlWidth * zoomDragSpan
+                camera.setZoom(camera.zoomScale.deviceFactor(dialPosition: position))
+                keepDial()
+            }
+            .onEnded { _ in
+                zoomDragStart = nil
+                keepDial()
+            }
     }
 
     private func lensLabel(_ text: String, active: Bool) -> some View {
@@ -350,6 +359,7 @@ struct CameraView: View {
                 Text("Fokus fest")
                     .font(AppFont.caption)
                     .foregroundStyle(AppColor.warning)
+                    .opacity(focusLocked ? 1 : 0)
             }
             .position(focusMark)
             .accessibilityHidden(true)
@@ -358,11 +368,14 @@ struct CameraView: View {
     }
 
     private func lockFocus(at devicePoint: CGPoint, mark: CGPoint) {
+        focusLocked = false
         withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) { focusMark = mark }
-        AccessibilityNotification.Announcement("Fokus fest").post()
         Task {
-            await camera.lockFocus(at: devicePoint)
-            try? await Task.sleep(for: focusMarkDuration)
+            if await camera.lockFocus(at: devicePoint) {
+                focusLocked = true
+                AccessibilityNotification.Announcement("Fokus fest").post()
+                try? await Task.sleep(for: focusMarkDuration)
+            }
             withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) {
                 if focusMark == mark { focusMark = nil }
             }
@@ -442,6 +455,7 @@ struct CameraView: View {
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
+        .disabled(camera.isCapturing)
         .accessibilityLabel("Foto aus der Galerie")
     }
 
@@ -555,10 +569,15 @@ struct CameraView: View {
                 errorMessage = nil
             }
             if result.failed > 0 {
-                errorMessage = String(localized: "\(result.failed) Fotos aus der Galerie nicht übernommen")
+                errorMessage = result.failed == 1
+                    ? String(localized: "1 Foto aus der Galerie nicht übernommen")
+                    : String(localized: "\(result.failed) Fotos aus der Galerie nicht übernommen")
                 AccessibilityNotification.Announcement("Fotos aus der Galerie nicht übernommen").post()
             } else if result.stored > 0 {
-                AccessibilityNotification.Announcement("\(result.stored) Fotos übernommen, \(countText)").post()
+                let taken = result.stored == 1
+                    ? String(localized: "1 Foto übernommen")
+                    : String(localized: "\(result.stored) Fotos übernommen")
+                AccessibilityNotification.Announcement("\(taken), \(countText)").post()
             }
         }
     }

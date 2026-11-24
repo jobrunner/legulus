@@ -2,25 +2,17 @@ import SwiftUI
 
 /// The zoom dial over the shutter, as in the system camera: an arc with
 /// a scale that turns under a fixed pointer, marks at the lenses and the
-/// current factor in the middle. Dragging sideways zooms.
+/// current factor in the middle.
 ///
-/// It is a visual aid for the pinch. VoiceOver zooms through the zoom
-/// control in `CameraView`, which wraps the dial and the lens buttons
-/// into one adjustable element.
+/// Only the picture: dragging is handled by the zoom control in
+/// `CameraView`, which stays while it swaps lens buttons and dial, so a
+/// drag that starts on the buttons goes on on the dial. VoiceOver zooms
+/// through that control as one adjustable element.
 struct ZoomDial: View {
     let scale: ZoomScale
     let factor: CGFloat
-    let onChange: (CGFloat) -> Void
-    /// Any touch, so the owner can keep the dial on screen.
-    let onInteraction: () -> Void
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 88
-    /// Dial position at the start of the current drag.
-    @State private var dragStart: CGFloat?
-    @State private var width: CGFloat = 1
-
-    /// Part of the whole dial (0…1) one screen width of dragging covers.
-    private let dragSpan: CGFloat = 0.8
     /// Angle from the pointer to the edge of the visible arc.
     private let visibleAngle: Angle = .degrees(42)
     /// Number of small ticks over the whole scale.
@@ -37,26 +29,7 @@ struct ZoomDial: View {
             }
             .frame(height: height)
         }
-        .contentShape(Rectangle())
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = max($0, 1) }
-        .gesture(drag)
         .accessibilityHidden(true)
-    }
-
-    private var drag: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                onInteraction()
-                let start = dragStart ?? scale.dialPosition(factor)
-                if dragStart == nil { dragStart = start }
-                // Dragging to the left turns the scale towards higher factors.
-                let position = start - value.translation.width / width * dragSpan
-                onChange(scale.deviceFactor(dialPosition: position))
-            }
-            .onEnded { _ in
-                dragStart = nil
-                onInteraction()
-            }
     }
 
     private func drawScale(in context: inout GraphicsContext, size: CGSize) {
@@ -104,14 +77,10 @@ struct ZoomDial: View {
 }
 
 private struct ZoomDialPreview: View {
-    @State private var factor: CGFloat = 2
-
     var body: some View {
         ZoomDial(
             scale: ZoomScale(deviceType: .builtInTripleCamera, switchOverFactors: [2, 6], minFactor: 1, maxFactor: 15),
-            factor: factor,
-            onChange: { factor = $0 },
-            onInteraction: {}
+            factor: 3.1
         )
         .padding()
         .background(.black)

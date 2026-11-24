@@ -89,6 +89,53 @@ final class CameraSession: NSObject, ObservableObject {
         return settings
     }
 
+    enum SwitchPlan: Equatable {
+        /// Swap the input for this physical lens, nil for the Auto device.
+        case swap(AVCaptureDevice.DeviceType?)
+        /// The Auto device already is the lens (single-lens devices).
+        case stay
+        case impossible
+    }
+
+    /// How to get to `stage`. On single-lens devices the Auto device is the
+    /// main lens itself; there the fixed stage needs no swap.
+    nonisolated static func switchPlan(
+        to stage: FocusStage,
+        autoDeviceType: AVCaptureDevice.DeviceType,
+        autoSupportsCustomLens: Bool,
+        lenses: Set<AVCaptureDevice.DeviceType>
+    ) -> SwitchPlan {
+        let autoIsTheLens = autoDeviceType == .builtInWideAngleCamera
+        switch stage {
+        case .auto:
+            return autoIsTheLens ? .stay : .swap(nil)
+        case .fixed, .macro:
+            guard let lens = stage.physicalLens else { return .impossible }
+            if lens == autoDeviceType { return autoSupportsCustomLens ? .stay : .impossible }
+            return lenses.contains(lens) ? .swap(lens) : .impossible
+        }
+    }
+
+    /// Shortest wait after a long press before a lens that never moved
+    /// counts as already in focus; `isAdjustingFocus` turns true only a
+    /// moment after `.autoFocus` is set.
+    nonisolated static let focusMinimumWait: TimeInterval = 0.15
+    nonisolated static let focusTimeout: TimeInterval = 2
+
+    nonisolated static func focusSettled(sawAdjusting: Bool, isAdjusting: Bool, elapsed: TimeInterval) -> Bool {
+        if elapsed >= focusTimeout { return true }
+        if isAdjusting { return false }
+        return sawAdjusting || elapsed >= focusMinimumWait
+    }
+
+    /// Zoom on the new lens that keeps the framing of Auto: factors
+    /// relative to each lens's main-lens factor.
+    nonisolated static func carriedZoom(
+        autoZoom: CGFloat, autoMain: CGFloat, targetMain: CGFloat, min minimum: CGFloat, max maximum: CGFloat
+    ) -> CGFloat {
+        clampedZoom(autoZoom / autoMain * targetMain, min: minimum, max: maximum)
+    }
+
     nonisolated static func canCapture(state: State, isCapturing: Bool) -> Bool {
         state == .running && !isCapturing
     }
@@ -199,11 +246,11 @@ final class CameraSession: NSObject, ObservableObject {
     /// them). In Auto it sets focus and exposure there; in the fixed
     /// stages only the exposure, so the focus set by hand stays.
     func tap(at devicePoint: CGPoint) {
+        guard state == .running else { return }
         let core = core
-        switch focusStage.tapAction {
-        case .focusAndExpose: core.queue.async { core.focus(at: devicePoint) }
-        case .exposeOnly: core.queue.async { core.expose(at: devicePoint) }
-        }
+        // The core decides from its own stage: during a lens swap the
+        // published stage is still the old one.
+        core.queue.async { core.tap(at: devicePoint) }
     }
 
     /// The next stage of the flower button. The picture is black while
@@ -215,15 +262,18 @@ final class CameraSession: NSObject, ObservableObject {
     /// Long press: focus once at the point and hold it there. From Auto
     /// the camera first moves to the physical lens that is active, so
     /// the slider can fine-tune afterwards.
-    func lockFocus(at devicePoint: CGPoint) async {
-        guard state == .running else { return }
+    /// Returns whether the focus is now held at the point.
+    @discardableResult
+    func lockFocus(at devicePoint: CGPoint) async -> Bool {
+        guard state == .running else { return false }
         if focusStage == .auto {
             let core = core
             let activeIsUltraWide = await withCheckedContinuation { continuation in
                 core.queue.async { continuation.resume(returning: core.activeLensIsUltraWide) }
             }
-            await switchStage(to: activeIsUltraWide && macroAvailable ? .macro : .fixed)
-            guard focusStage != .auto else { return }
+            // Keep the framing, so the pressed point still shows the same.
+            await switchStage(to: activeIsUltraWide && macroAvailable ? .macro : .fixed, keepFraming: true)
+            guard focusStage != .auto else { return false }
         }
         let core = core
         let position = await withCheckedContinuation { continuation in
@@ -231,24 +281,26 @@ final class CameraSession: NSObject, ObservableObject {
                 core.focusOnce(at: devicePoint) { continuation.resume(returning: $0) }
             }
         }
-        if let position { lensPosition = position }
+        guard let position else { return false }
+        lensPosition = position
+        return true
     }
 
     /// Moves the focus of a fixed stage; ignored in Auto.
     func setLensPosition(_ value: Float) {
-        guard focusStage != .auto else { return }
+        guard focusStage != .auto, state == .running else { return }
         let clamped = min(max(value, 0), 1)
         lensPosition = clamped
         let core = core
         core.queue.async { core.setLensPosition(clamped) }
     }
 
-    private func switchStage(to stage: FocusStage) async {
-        guard state == .running, stage != focusStage else { return }
+    private func switchStage(to stage: FocusStage, keepFraming: Bool = false) async {
+        guard state == .running, !isCapturing, stage != focusStage else { return }
         state = .switching
         let core = core
         let switched = await withCheckedContinuation { continuation in
-            core.queue.async { continuation.resume(returning: core.switchInput(to: stage)) }
+            core.queue.async { continuation.resume(returning: core.switchInput(to: stage, keepFraming: keepFraming)) }
         }
         if switched {
             focusStage = stage
@@ -258,7 +310,8 @@ final class CameraSession: NSObject, ObservableObject {
             Log.ui.error("camera: lens switch failed")
             onCaptureError?(String(localized: "Das Objektiv ließ sich nicht wechseln."))
         }
-        state = .running
+        // `stop()` may have come in meanwhile.
+        if state == .switching { state = .running }
     }
 
     /// Pinch: `factor` is the gesture's magnification since it began.
@@ -309,6 +362,8 @@ private final class CameraCore: @unchecked Sendable {
     /// Zoom of Auto before a fixed stage, restored on the way back.
     private var autoZoom: CGFloat = 1
     private var stage: FocusStage = .auto
+    /// Counts lens swaps; a focus wait from before a swap is dropped.
+    private var generation = 0
     private var subjectAreaObserver: NSObjectProtocol?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     /// Zoom factor when the current pinch began.
@@ -387,12 +442,47 @@ private final class CameraCore: @unchecked Sendable {
     /// Swaps the session's input for the lens of `stage` and sets zoom
     /// and focus for it. Torch state goes with the old device; the view
     /// switches it on again from its state change.
-    func switchInput(to stage: FocusStage) -> Bool {
-        guard let autoDevice, let current = input else { return false }
-        let target = stage.physicalLens.flatMap { lenses[$0] } ?? autoDevice
-        if stage != .auto, target == autoDevice { return false }
+    func switchInput(to stage: FocusStage, keepFraming: Bool) -> Bool {
+        guard let autoDevice, let current = input, let device else { return false }
+        let plan = CameraSession.switchPlan(
+            to: stage,
+            autoDeviceType: autoDevice.deviceType,
+            autoSupportsCustomLens: autoDevice.isLockingFocusWithCustomLensPositionSupported,
+            lenses: Set(lenses.keys)
+        )
+        let target: AVCaptureDevice
+        switch plan {
+        case .impossible:
+            return false
+        case .stay:
+            target = autoDevice
+        case let .swap(lens):
+            guard let lensDevice = lens.map({ lenses[$0] }) ?? autoDevice else { return false }
+            target = lensDevice
+        }
+        if self.stage == .auto { autoZoom = device.videoZoomFactor }
+        if target != device, !swapInput(current, for: target) { return false }
+        self.stage = stage
+        generation += 1
+        guard (try? target.lockForConfiguration()) != nil else { return true }
+        target.videoZoomFactor = CameraSession.clampedZoom(
+            zoom(for: stage, on: target, keepFraming: keepFraming),
+            min: target.minAvailableVideoZoomFactor,
+            max: target.maxAvailableVideoZoomFactor
+        )
+        zoomAtGestureStart = target.videoZoomFactor
+        target.unlockForConfiguration()
+        if stage == .auto {
+            applyAutoFocus(target)
+        } else {
+            setLensPosition(0)
+            expose(at: CGPoint(x: 0.5, y: 0.5))
+        }
+        return true
+    }
+
+    private func swapInput(_ current: AVCaptureDeviceInput, for target: AVCaptureDevice) -> Bool {
         guard let newInput = try? AVCaptureDeviceInput(device: target) else { return false }
-        if device == autoDevice { autoZoom = autoDevice.videoZoomFactor }
         setTorch(false)
         session.beginConfiguration()
         session.removeInput(current)
@@ -405,27 +495,37 @@ private final class CameraCore: @unchecked Sendable {
         session.commitConfiguration()
         input = newInput
         device = target
-        self.stage = stage
         rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: target, previewLayer: nil)
         observeSubjectArea(of: target)
-        guard (try? target.lockForConfiguration()) != nil else { return true }
-        let zoom: CGFloat = switch stage {
-        case .auto: autoZoom
-        case .macro: macroMainFactor
-        case .fixed: 1
-        }
-        target.videoZoomFactor = CameraSession.clampedZoom(
-            zoom, min: target.minAvailableVideoZoomFactor, max: target.maxAvailableVideoZoomFactor
-        )
-        zoomAtGestureStart = target.videoZoomFactor
-        target.unlockForConfiguration()
-        if stage == .auto {
-            applyAutoFocus(target)
-        } else {
-            setLensPosition(0)
-            expose(at: CGPoint(x: 0.5, y: 0.5))
-        }
         return true
+    }
+
+    /// Auto gets its old zoom back; a fixed stage opens on the main-lens
+    /// framing, or keeps the framing of Auto after a long press.
+    private func zoom(for stage: FocusStage, on target: AVCaptureDevice, keepFraming: Bool) -> CGFloat {
+        guard stage != .auto else { return autoZoom }
+        guard keepFraming else { return mainFactor(for: stage) }
+        return CameraSession.carriedZoom(
+            autoZoom: autoZoom,
+            autoMain: mainFactor(for: .auto),
+            targetMain: mainFactor(for: stage),
+            min: target.minAvailableVideoZoomFactor,
+            max: target.maxAvailableVideoZoomFactor
+        )
+    }
+
+    /// Device factor at which the stage's lens shows the main-lens framing.
+    private func mainFactor(for stage: FocusStage) -> CGFloat {
+        switch stage {
+        case .auto:
+            guard let autoDevice else { return 1 }
+            return CameraSession.initialZoom(
+                deviceType: autoDevice.deviceType,
+                switchOverFactors: autoDevice.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
+            )
+        case .fixed: return 1
+        case .macro: return macroMainFactor
+        }
     }
 
     /// The ultra-wide picture cropped to about the main lens: the first
@@ -450,8 +550,7 @@ private final class CameraCore: @unchecked Sendable {
                 minFactor: low,
                 maxFactor: high
             )
-        case .fixed: return ZoomScale(mainFactor: 1, minFactor: low, maxFactor: high)
-        case .macro: return ZoomScale(mainFactor: macroMainFactor, minFactor: low, maxFactor: high)
+        case .fixed, .macro: return ZoomScale(mainFactor: mainFactor(for: stage), minFactor: low, maxFactor: high)
         }
     }
 
@@ -483,14 +582,15 @@ private final class CameraCore: @unchecked Sendable {
         ) { [weak self] _ in
             guard let self else { return }
             queue.async {
-                guard self.device == self.autoDevice, let device = self.device else { return }
+                guard self.stage == .auto, let device = self.device else { return }
                 self.applyAutoFocus(device)
             }
         }
     }
 
+    /// Only in the fixed stages: in Auto the camera focuses by itself.
     func setLensPosition(_ value: Float) {
-        guard let device, device.isLockingFocusWithCustomLensPositionSupported,
+        guard stage != .auto, let device, device.isLockingFocusWithCustomLensPositionSupported,
               (try? device.lockForConfiguration()) != nil
         else { return }
         device.setFocusModeLocked(lensPosition: value)
@@ -506,11 +606,19 @@ private final class CameraCore: @unchecked Sendable {
         }
     }
 
-    /// Focuses once at the point, waits until the lens has settled (at
-    /// most `focusTimeout`) and locks it there. Hands out the lens
-    /// position, nil when the device cannot focus at a point.
+    func tap(at devicePoint: CGPoint) {
+        switch stage.tapAction {
+        case .focusAndExpose: focus(at: devicePoint)
+        case .exposeOnly: expose(at: devicePoint)
+        }
+    }
+
+    /// Focuses once at the point, waits until the lens has settled (see
+    /// `CameraSession.focusSettled`) and locks it there. Hands out the
+    /// lens position; nil when the device cannot focus at a point or the
+    /// lens was swapped meanwhile.
     func focusOnce(at devicePoint: CGPoint, completion: @escaping (Float?) -> Void) {
-        guard let device, device.isFocusPointOfInterestSupported, device.isFocusModeSupported(.autoFocus),
+        guard stage != .auto, let device, device.isFocusPointOfInterestSupported, device.isFocusModeSupported(.autoFocus),
               (try? device.lockForConfiguration()) != nil
         else {
             completion(nil)
@@ -523,18 +631,29 @@ private final class CameraCore: @unchecked Sendable {
             device.exposureMode = .continuousAutoExposure
         }
         device.unlockForConfiguration()
-        let deadline = DispatchTime.now() + Self.focusTimeout
-        waitForFocus(device, until: deadline, completion: completion)
+        waitForFocus(device, generation: generation, since: .now(), sawAdjusting: false, completion: completion)
     }
 
-    /// Longest wait for the lens after a long press.
-    private static let focusTimeout: DispatchTimeInterval = .seconds(2)
     private static let focusPollInterval: DispatchTimeInterval = .milliseconds(50)
 
-    private func waitForFocus(_ device: AVCaptureDevice, until deadline: DispatchTime, completion: @escaping (Float?) -> Void) {
-        if device.isAdjustingFocus, DispatchTime.now() < deadline {
+    private func waitForFocus(
+        _ device: AVCaptureDevice,
+        generation started: Int,
+        since start: DispatchTime,
+        sawAdjusting: Bool,
+        completion: @escaping (Float?) -> Void
+    ) {
+        guard generation == started, self.device === device else {
+            completion(nil)
+            return
+        }
+        let adjusting = device.isAdjustingFocus
+        let elapsed = TimeInterval(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000_000
+        guard CameraSession.focusSettled(sawAdjusting: sawAdjusting, isAdjusting: adjusting, elapsed: elapsed) else {
             queue.asyncAfter(deadline: .now() + Self.focusPollInterval) { [weak self] in
-                self?.waitForFocus(device, until: deadline, completion: completion)
+                self?.waitForFocus(
+                    device, generation: started, since: start, sawAdjusting: sawAdjusting || adjusting, completion: completion
+                )
             }
             return
         }
@@ -605,6 +724,12 @@ private final class CameraCore: @unchecked Sendable {
 }
 
 extension CameraSession: AVCapturePhotoCaptureDelegate {
+    /// Always called, also when no photo came (session stopped mid-shot):
+    /// the shutter must not stay dead.
+    nonisolated func photoOutput(_: AVCapturePhotoOutput, didFinishCaptureFor _: AVCaptureResolvedPhotoSettings, error _: Error?) {
+        Task { @MainActor in self.isCapturing = false }
+    }
+
     nonisolated func photoOutput(_: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         let data = error == nil ? photo.fileDataRepresentation() : nil
         let message = error?.localizedDescription
