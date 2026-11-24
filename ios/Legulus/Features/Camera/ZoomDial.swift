@@ -95,11 +95,15 @@ struct ZoomDial: View {
             let distance = radius - inset
             return CGPoint(x: centre.x + sin(angle) * distance, y: centre.y - cos(angle) * distance)
         }
+        // Every tick ends at the same inner line; a shortened one loses its
+        // outer part, where the pointer is wide, so the pointer lies over
+        // the scale without touching it.
+        let innerInset = AppSpacing.xs + tickLength
         func tick(at tickAngle: CGFloat, length: CGFloat, width: CGFloat, color: Color) {
             guard abs(tickAngle) < .pi / 2 else { return }
             var path = Path()
-            path.move(to: point(tickAngle, inset: AppSpacing.xs))
-            path.addLine(to: point(tickAngle, inset: AppSpacing.xs + length))
+            path.move(to: point(tickAngle, inset: innerInset - length))
+            path.addLine(to: point(tickAngle, inset: innerInset))
             context.stroke(path, with: .color(color), lineWidth: width)
         }
         func label(_ text: String, at labelAngle: CGFloat) {
