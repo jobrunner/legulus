@@ -21,6 +21,8 @@ Status-Legende: `pending` · `in progress` · `done` · `blocked`
 
 **Phase T (Wetter, Klima und Astronomie über Tempus, gestartet 2026-11-19): in progress.** Vier PRs (Backend, App, Backfill, Astro-Ablösung), siehe Abschnitt „Phase T“.
 
+**Phase K (Foto-View: Vollbild, Fokus fest/Makro, Blitz mit LED, Galerie, Zoomrad, gestartet 2026-11-24): in progress.** Design freigegeben, Plan in Arbeit, siehe Abschnitt „Phase K“.
+
 ---
 
 ## Phase 0 – Bootstrap
@@ -1291,3 +1293,15 @@ Aufgaben:
 - [x] Task 4: Code-Band, Karten-Layout, Daumenleiste
 - [x] Task 5: Phase V abschließen — Suite grün auf iOS 18.6 und 26.5, Snapshots neu, Review und Copilot-Review abgearbeitet, PR #55 gemerged
 - [ ] Datenschutzerklärung (`docs/datenschutz.md` und veröffentlichte Fassung) um OpenTopoMap ergänzen — Jo
+
+## Phase K – Foto-View
+
+**Status: in progress** (gestartet 2026-11-24; Design `docs/superpowers/specs/2026-11-24-foto-view-design.md`)
+
+Die Serienkamera aus Phase S wird zur allgemeinen Foto-View. Jetzt nur für das Sample; Pflanzenaufnahmen, Exkursion und Pflanzenbestimmung folgen später. Drei PRs:
+
+- [ ] PR 1 – Vollbild, neues Layout, Schließen oben links, Blitz mit LED-Dauerlicht, Galerie-Import
+- [ ] PR 2 – Blüten-Stufen Auto/Fokus fest/Makro mit Fokusregler und langem Druck
+- [ ] PR 3 – Objektivknöpfe und Zoomrad
+
+Gerätetest durch Jo auf iPhone 14 Pro. Beim ersten Gerätetest prüfen, ob die virtuelle Kamera eine feste Linsenposition erlaubt (sonst Objektivwechsel mit kurzem Schwarzbild, wie im Design).
