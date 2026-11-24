@@ -9,8 +9,8 @@ enum CameraLight: CaseIterable, Equatable {
 
     /// The mode after this one, skipping what the device lacks. `.off`
     /// is always there.
-    func next(hasFlash: Bool, hasTorch: Bool) -> CameraLight {
-        let available = CameraLight.allCases.filter { mode in
+    func next(hasFlash: Bool, hasTorch: Bool) -> Self {
+        let available = Self.allCases.filter { mode in
             switch mode {
             case .auto: hasFlash
             case .off: true
@@ -36,7 +36,7 @@ enum CameraLight: CaseIterable, Equatable {
 
     /// The LED shines only while the camera runs in sight: not in the
     /// background, not behind the photo picker, not after closing.
-    static func torchShouldBeOn(_ light: CameraLight, sceneActive: Bool, pickerOpen: Bool, running: Bool) -> Bool {
+    static func torchShouldBeOn(_ light: Self, sceneActive: Bool, pickerOpen: Bool, running: Bool) -> Bool {
         light == .torch && sceneActive && !pickerOpen && running
     }
 }

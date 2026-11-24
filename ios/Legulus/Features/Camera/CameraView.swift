@@ -3,9 +3,11 @@ import CoreLocation
 import SwiftUI
 import UIKit
 
-/// Full-screen camera for a series of voucher photos. It stays open
-/// after every shot: shutter, a counter of this session, the last
-/// picture, „Fertig“. There is no „use photo“ step.
+/// Full-screen camera for a series of voucher photos. The picture fills
+/// the screen, the controls lie on top of it. It stays open after every
+/// shot: shutter, the last picture with the count of this session, a
+/// close button out of the way at the top left. There is no „use photo“
+/// step.
 ///
 /// `onPhoto` receives the camera's JPEG file for each shot and stores
 /// it; when it throws (disk full, …) the camera shows the error and
@@ -25,6 +27,11 @@ struct CameraView: View {
     /// The last fix of this session; survives the provider going back
     /// to „locating“ for the next one.
     @State private var lastFix = FixBox()
+    /// The photo picker covers the camera; the LED goes off meanwhile.
+    @State private var pickerOpen = false
+
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorSchemeContrast) private var contrast
 
     /// How often the position is refreshed while the camera is open;
     /// below `LocationThreshold.staleness`.
@@ -36,6 +43,8 @@ struct CameraView: View {
     private let ringWidth: CGFloat = 4
     /// Mindestgröße eines Tap-Targets (Apple HIG).
     private let minTapTarget: CGFloat = 44
+    /// Line of the empty frame before the first photo.
+    private let placeholderLineWidth: CGFloat = 1.5
     /// Pixel size of the preview of the last photo.
     private let lastPhotoPixels: CGFloat = 240
 
@@ -68,6 +77,10 @@ struct CameraView: View {
         .onChange(of: location.status) { _, status in
             if case let .fixed(fix) = status { lastFix.location = fix }
         }
+        .onChange(of: camera.light) { _, _ in updateTorch() }
+        .onChange(of: camera.state) { _, _ in updateTorch() }
+        .onChange(of: scenePhase) { _, _ in updateTorch() }
+        .onChange(of: pickerOpen) { _, _ in updateTorch() }
         .onDisappear { camera.stop() }
         .accessibilityAddTraits(.isModal)
     }
@@ -76,16 +89,17 @@ struct CameraView: View {
     private var content: some View {
         switch camera.state {
         case .idle, .running:
-            VStack(spacing: 0) {
-                topBar
-                CameraPreview(
-                    session: camera.session,
-                    onTap: { camera.focus(at: $0) },
-                    onPinchChanged: { camera.zoom(by: $0) },
-                    onPinchEnded: { camera.zoomEnded() }
-                )
-                .overlay(alignment: .bottom) { errorBanner }
-                bottomBar
+            ZStack {
+                preview
+                    .ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topBar
+                        .background(alignment: .top) { scrim(from: .top) }
+                    Spacer(minLength: 0)
+                    errorBanner
+                    bottomBar
+                        .background(alignment: .bottom) { scrim(from: .bottom) }
+                }
             }
         case .unauthorized:
             notice(
@@ -100,30 +114,80 @@ struct CameraView: View {
         }
     }
 
+    private var preview: some View {
+        CameraPreview(
+            session: camera.session,
+            onTap: { camera.focus(at: $0) },
+            onPinchChanged: { camera.zoom(by: $0) },
+            onPinchEnded: { camera.zoomEnded() }
+        )
+        // Pinch and tap are gestures VoiceOver and Switch Control cannot
+        // perform; the picture itself is the element that zooms and
+        // focuses for them.
+        .accessibilityElement()
+        .accessibilityLabel("Kamerabild")
+        .accessibilityHint("Wische nach oben oder unten zum Zoomen.")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: camera.zoomIn()
+            case .decrement: camera.zoomOut()
+            @unknown default: break
+            }
+        }
+        .accessibilityAction(named: "In der Bildmitte scharfstellen") { camera.focusCenter() }
+    }
+
     private var topBar: some View {
         HStack(spacing: AppSpacing.md) {
-            Button {
-                camera.cycleLight()
-            } label: {
-                Image(systemName: lightSymbol)
-                    .font(AppFont.sectionTitle)
-                    .frame(minWidth: minTapTarget, minHeight: minTapTarget)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel(camera.light.label)
-            .accessibilityHint("Wechselt zum nächsten Modus")
-            // Zoom and focus by button as well: pinch and tap on the
-            // picture are gestures VoiceOver and Switch Control cannot
-            // perform.
-            iconButton("minus.magnifyingglass", label: "Herauszoomen") { camera.zoomOut() }
-            iconButton("plus.magnifyingglass", label: "Hineinzoomen") { camera.zoomIn() }
-            iconButton("scope", label: "In der Bildmitte scharfstellen") { camera.focusCenter() }
+            closeButton
             Spacer(minLength: AppSpacing.sm)
-            doneButton
+            if hasLightChoice {
+                lightButton
+            }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, AppSpacing.lg)
         .padding(.vertical, AppSpacing.sm)
+    }
+
+    private var closeButton: some View {
+        Button(action: onDone) {
+            Image(systemName: "xmark")
+                .font(AppFont.sectionTitle)
+                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Schließen")
+    }
+
+    private var lightButton: some View {
+        Button {
+            camera.cycleLight()
+        } label: {
+            Image(systemName: lightSymbol)
+                .font(AppFont.sectionTitle)
+                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(camera.light.label)
+        .accessibilityHint("Wechselt zum nächsten Modus")
+    }
+
+    /// Without flash and LED there is only „off“: nothing to choose.
+    private var hasLightChoice: Bool {
+        camera.hasFlash || camera.hasTorch
+    }
+
+    /// Shade from the edge towards the middle behind a bar of controls.
+    private func scrim(from edge: VerticalEdge) -> some View {
+        let shade = contrast == .increased ? AppColor.cameraScrimStrong : AppColor.cameraScrim
+        return LinearGradient(
+            colors: [shade, .clear],
+            startPoint: edge == .top ? .top : .bottom,
+            endPoint: edge == .top ? .bottom : .top
+        )
+        .ignoresSafeArea(edges: edge == .top ? .top : .bottom)
+        .accessibilityHidden(true)
     }
 
     private var lightSymbol: String {
@@ -134,16 +198,6 @@ struct CameraView: View {
         }
     }
 
-    private func iconButton(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(AppFont.sectionTitle)
-                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel(label)
-    }
-
     private var doneButton: some View {
         Button("Fertig", action: onDone)
             .font(AppFont.bodyEmphasized)
@@ -152,16 +206,16 @@ struct CameraView: View {
     }
 
     private var bottomBar: some View {
+        // Three equal columns keep the shutter in the middle.
         HStack(alignment: .center, spacing: AppSpacing.md) {
-            lastPhotoView
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .center, spacing: AppSpacing.md) {
+                lastPhotoBlock
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity)
             shutter
-            Text(countText)
-                .font(AppFont.body.monospacedDigit())
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.trailing)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                // The shutter carries the count as its value.
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: 0)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, AppSpacing.lg)
@@ -185,6 +239,19 @@ struct CameraView: View {
         .accessibilityValue(countText)
     }
 
+    /// The last picture with the count of this session below it.
+    private var lastPhotoBlock: some View {
+        VStack(spacing: AppSpacing.xxs) {
+            lastPhotoView
+            Text(countText)
+                .font(AppFont.footnote.monospacedDigit())
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                // The shutter carries the count as its value.
+                .accessibilityHidden(true)
+        }
+    }
+
     @ViewBuilder
     private var lastPhotoView: some View {
         if let lastPhoto {
@@ -195,7 +262,8 @@ struct CameraView: View {
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
                 .accessibilityLabel("Zuletzt aufgenommenes Foto")
         } else {
-            Color.clear
+            RoundedRectangle(cornerRadius: AppRadius.md)
+                .strokeBorder(.white.opacity(0.6), lineWidth: placeholderLineWidth)
                 .frame(width: lastPhotoSize, height: lastPhotoSize)
                 .accessibilityHidden(true)
         }
@@ -243,7 +311,11 @@ struct CameraView: View {
     }
 
     private var countText: String {
-        count == 1 ? "1 Foto" : "\(count) Fotos"
+        count == 1 ? String(localized: "1 Foto") : String(localized: "\(count) Fotos")
+    }
+
+    private func updateTorch() {
+        camera.updateTorch(sceneActive: scenePhase == .active, pickerOpen: pickerOpen)
     }
 
     /// Hands the photo to `onPhoto`; counts and shows it only when it

@@ -2,7 +2,8 @@ import AVFoundation
 import SwiftUI
 import UIKit
 
-/// The live picture of a capture session, filling its frame. Reports
+/// The live picture of a capture session, filling its frame edge to
+/// edge (the sides of the 4:3 photo reach beyond the screen). Reports
 /// taps as device points (for focus) and pinches as magnification.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
@@ -17,11 +18,11 @@ struct CameraPreview: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
         view.previewLayer.session = session
-        view.previewLayer.videoGravity = .resizeAspect
+        view.previewLayer.videoGravity = .resizeAspectFill
         view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped)))
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pinched)))
-        // The picture itself says nothing to VoiceOver; the controls
-        // around it carry the labels.
+        // VoiceOver sees the SwiftUI element around it (`CameraView`),
+        // which carries label and actions.
         view.isAccessibilityElement = false
         return view
     }

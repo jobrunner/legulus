@@ -91,6 +91,12 @@ enum AppColor {
     /// faintly visible in Light and Dark.
     static let scrim = Color(uiColor: .systemGroupedBackground).opacity(0.6)
 
+    /// Shade behind the controls laid over the camera picture, so white
+    /// icons stay readable on a bright scene. The strong variant is for
+    /// Increase Contrast.
+    static let cameraScrim = Color.black.opacity(0.45)
+    static let cameraScrimStrong = Color.black.opacity(0.75)
+
     // MARK: - Text
 
     /// Default body text colour. Black/white per scheme.

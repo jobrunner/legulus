@@ -149,6 +149,8 @@
                 .init(name: "surfaceCard", color: AppColor.surfaceCard),
                 .init(name: "brandTint", color: AppColor.brandTint),
                 .init(name: "scrim", color: AppColor.scrim),
+                .init(name: "cameraScrim", color: AppColor.cameraScrim),
+                .init(name: "cameraScrimStrong", color: AppColor.cameraScrimStrong),
                 .init(name: "separator", color: AppColor.separator),
                 .init(name: "outlineSubtle", color: AppColor.outlineSubtle)
             ]
