@@ -103,15 +103,15 @@ struct CameraView: View {
     private var topBar: some View {
         HStack(spacing: AppSpacing.md) {
             Button {
-                camera.toggleFlash()
+                camera.cycleLight()
             } label: {
-                Image(systemName: camera.flashMode == .off ? "bolt.slash.fill" : "bolt.badge.automatic.fill")
+                Image(systemName: lightSymbol)
                     .font(AppFont.sectionTitle)
                     .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                     .contentShape(Rectangle())
             }
-            .accessibilityLabel(CameraSession.flashLabel(camera.flashMode))
-            .accessibilityHint("Schaltet zwischen automatischem Blitz und ohne Blitz um.")
+            .accessibilityLabel(camera.light.label)
+            .accessibilityHint("Wechselt zum nächsten Modus")
             // Zoom and focus by button as well: pinch and tap on the
             // picture are gestures VoiceOver and Switch Control cannot
             // perform.
@@ -124,6 +124,14 @@ struct CameraView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, AppSpacing.lg)
         .padding(.vertical, AppSpacing.sm)
+    }
+
+    private var lightSymbol: String {
+        switch camera.light {
+        case .auto: "bolt.badge.automatic.fill"
+        case .off: "bolt.slash.fill"
+        case .torch: "flashlight.on.fill"
+        }
     }
 
     private func iconButton(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {

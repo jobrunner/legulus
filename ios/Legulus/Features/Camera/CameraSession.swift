@@ -28,7 +28,10 @@ final class CameraSession: NSObject, ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var isCapturing = false
-    @Published var flashMode: AVCaptureDevice.FlashMode = .auto
+    @Published private(set) var light: CameraLight = .auto
+    /// What the device offers; known once the session runs.
+    @Published private(set) var hasFlash = false
+    @Published private(set) var hasTorch = false
 
     /// Called on the main actor with the file data of each photo.
     var onPhoto: ((Data) -> Void)?
@@ -89,10 +92,6 @@ final class CameraSession: NSObject, ObservableObject {
         return main
     }
 
-    nonisolated static func flashLabel(_ mode: AVCaptureDevice.FlashMode) -> String {
-        mode == .off ? "Blitz: aus" : "Blitz: automatisch"
-    }
-
     // MARK: - lifecycle
 
     /// Asks for camera access if needed, configures the session once and
@@ -111,17 +110,54 @@ final class CameraSession: NSObject, ObservableObject {
             return
         }
         let core = core
-        state = await withCheckedContinuation { continuation in
+        let (newState, flash, torch) = await withCheckedContinuation { continuation in
             core.queue.async {
-                continuation.resume(returning: core.configureAndRun())
+                let state = core.configureAndRun()
+                continuation.resume(returning: (state, core.hasFlash, core.hasTorch))
             }
         }
+        hasFlash = flash
+        hasTorch = torch
+        if !flash, light == .auto { light = .off }
+        state = newState
     }
 
     func stop() {
         let core = core
-        core.queue.async { core.stop() }
+        core.queue.async {
+            core.setTorch(false)
+            core.stop()
+        }
         if state == .running { state = .idle }
+    }
+
+    /// Holds the picture while something covers the camera (photo
+    /// picker); `state` stays as it is.
+    func pause() {
+        let core = core
+        core.queue.async {
+            core.setTorch(false)
+            core.stop()
+        }
+    }
+
+    func resume() {
+        guard state == .running else { return }
+        let core = core
+        core.queue.async { core.resume() }
+    }
+
+    // MARK: - light
+
+    func cycleLight() {
+        light = light.next(hasFlash: hasFlash, hasTorch: hasTorch)
+    }
+
+    /// Switches the LED on or off for the current light and situation.
+    func updateTorch(sceneActive: Bool, pickerOpen: Bool) {
+        let on = CameraLight.torchShouldBeOn(light, sceneActive: sceneActive, pickerOpen: pickerOpen, running: state == .running)
+        let core = core
+        core.queue.async { core.setTorch(on) }
     }
 
     // MARK: - capture
@@ -132,16 +168,12 @@ final class CameraSession: NSObject, ObservableObject {
         guard state == .running, !isCapturing else { return }
         isCapturing = true
         let core = core
-        let flash = flashMode
+        let flash = light.captureFlashMode
         let location = locationProvider?()
         core.queue.async { [weak self] in
             guard let self else { return }
             core.capture(flash: flash, location: location, delegate: self)
         }
-    }
-
-    func toggleFlash() {
-        flashMode = flashMode == .off ? .auto : .off
     }
 
     // MARK: - focus and zoom
@@ -243,6 +275,26 @@ private final class CameraCore: @unchecked Sendable {
 
     func stop() {
         if session.isRunning { session.stopRunning() }
+    }
+
+    func resume() {
+        if !session.isRunning { session.startRunning() }
+    }
+
+    var hasFlash: Bool {
+        output.supportedFlashModes.contains(.auto)
+    }
+
+    var hasTorch: Bool {
+        device.map { $0.hasTorch && $0.isTorchModeSupported(.on) } ?? false
+    }
+
+    func setTorch(_ on: Bool) {
+        guard hasTorch, let device, device.torchMode != (on ? .on : .off),
+              (try? device.lockForConfiguration()) != nil
+        else { return }
+        device.torchMode = on ? .on : .off
+        device.unlockForConfiguration()
     }
 
     func capture(flash: AVCaptureDevice.FlashMode, location: CLLocation?, delegate: AVCapturePhotoCaptureDelegate) {
