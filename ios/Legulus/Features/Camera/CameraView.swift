@@ -69,6 +69,8 @@ struct CameraView: View {
     private let ringWidth: CGFloat = 4
     /// Mindestgröße eines Tap-Targets (Apple HIG).
     private let minTapTarget: CGFloat = 44
+    /// Fine ring around the „Fertig“ button.
+    private let hairline: CGFloat = 1
     /// Line of the empty frame before the first photo.
     private let placeholderLineWidth: CGFloat = 1.5
     /// Pixel size of the preview of the last photo.
@@ -481,9 +483,9 @@ struct CameraView: View {
     }
 
     /// Ends the series: the photos are stored already, nothing is thrown
-    /// away. A checkmark in a ringed circle: it turns with the phone like
-    /// the other controls, and the ring gives it weight next to the
-    /// thumbnail and gallery on the other side.
+    /// away. A yellow checkmark in a translucent circle like the lens
+    /// buttons, with a fine ring as anchor; it turns with the phone like
+    /// the other controls.
     private var finishButton: some View {
         Button {
             // The view goes away at once; a trigger-based feedback would
@@ -493,17 +495,17 @@ struct CameraView: View {
         } label: {
             finishCheckmark
                 .modifier(upright)
-                .foregroundStyle(.white)
+                .foregroundStyle(AppColor.cameraActive)
                 .frame(width: finishSize, height: finishSize)
-                .background(AppColor.cameraScrimStrong, in: Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: placeholderLineWidth))
+                .background(AppColor.cameraScrim, in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: hairline))
                 .contentShape(Circle())
         }
     }
 
     private var finishCheckmark: some View {
         Image(systemName: "checkmark")
-            .font(AppFont.headline)
+            .font(AppFont.headline.weight(.bold))
             .accessibilityLabel("Fertig")
     }
 
@@ -553,10 +555,10 @@ struct CameraView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: lastPhotoSize, height: lastPhotoSize)
-                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.sm))
+                    .clipShape(Circle())
                     .accessibilityLabel("Zuletzt aufgenommenes Foto")
             } else {
-                RoundedRectangle(cornerRadius: AppRadius.sm)
+                Circle()
                     .strokeBorder(.white.opacity(0.6), lineWidth: placeholderLineWidth)
                     .frame(width: lastPhotoSize, height: lastPhotoSize)
                     .accessibilityHidden(true)
@@ -566,7 +568,8 @@ struct CameraView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, AppSpacing.xs)
                 .background(AppColor.cameraScrimStrong, in: Capsule())
-                .padding(AppSpacing.xxs)
+                // On the rim of the round thumbnail, like a badge.
+                .offset(x: AppSpacing.xs, y: AppSpacing.xxs)
                 // The shutter carries the count as its value.
                 .accessibilityHidden(true)
         }
