@@ -65,7 +65,22 @@ provisorische Exkursionszuordnung.
 - Domänen-Begriffe (auch im Code-Kontext) sind: `Sample`, `Excursion`,
   `Locality`, `Determination`. Wir benutzen NICHT „Collection" als Modell,
   weil PocketBase „collections" für Tabellen verwendet (Namens-Konflikt).
-- Datumsformate: ISO 8601 für Speicherung, `dd.MM.yyyy` für UI-Darstellung.
+- **Texte sind übersetzbar**, Ausgangssprache Deutsch: jeder UI-Text
+  geht über den String-Katalog (`Localizable.xcstrings`,
+  `sourceLanguage` `de`), also SwiftUI-Literale, `LocalizedStringKey`
+  oder `String(localized:)` — kein fest verdrahteter Text in einer
+  `String`-Variablen, die ungeprüft in `Text(_:)` landet. Vom Parser
+  nicht erkannte Schlüssel als manuelle Einträge pflegen.
+- **Datum und Uhrzeit kommen aus der Locale des Geräts.** Gespeichert
+  wird ISO 8601. Angezeigt wird nie ein festes Muster (`dd.MM.yyyy`,
+  `HH:mm`), sondern eine Vorlage mit den gewünschten Feldern
+  (`setLocalizedDateFormatFromTemplate`, `DateIntervalFormatter`,
+  `Date.FormatStyle`); Reihenfolge, Trennzeichen und 12/24-Stunden-Uhr
+  wählt die Locale. Welche Felder und wie lang (lang, kurz, eigenes
+  Format) wird im Einzelfall entschieden. Vorbild:
+  `ios/Legulus/Features/SampleEditor/SampleDateTexts.swift`.
+  Ausnahme sind Formate, die kein Anzeigetext sind (Sample-Code
+  `YYMMDD/N`, Etiketten, Exporte).
 - Koordinaten: Dezimalgrad, 6 Nachkommastellen für Speicherung.
 - Sync-Idempotenz: jedes synchronisierte Record hat `client_uuid` +
   `client_updated_at`. Konfliktauflösung: Last-Write-Wins über
@@ -145,6 +160,14 @@ wird erst, wenn die Probe eine hat (`elevation` mit `elevation_source`,
 GPS oder Ortus-DEM); bis dahin bleibt der Status `pending`. Frische Werte sind vorläufig; ein
 stündlicher Job fragt sie erneut ab. Details:
 `docs/superpowers/specs/2026-11-19-tempus-wetter-klima-design.md`.
+
+- **OpenTopoMap** (Kartenkacheln für den Kopf der Sample-Ansicht):
+  Kachel-URL in `AppConfig.topoTileURLTemplate`, Renderer in
+  `ios/Legulus/Core/Maps/TopoMapRenderer.swift` (Cache, Fallback auf
+  die Apple-Karte, Sperre nach Fehlschlag). Die Kachelabrufe verraten
+  den Probenort auf etwa einen Kilometer und die IP-Adresse an einen
+  Dritten; das gehört in die Datenschutzerklärung. Quellenangabe
+  (CC-BY-SA, OSM) steht hinter dem ⓘ-Knopf der Karte.
 
 ## Was der Agent NICHT von sich aus tun soll
 
