@@ -51,7 +51,7 @@ struct CameraView: View {
     private let fixRefreshInterval: Duration = .seconds(10)
 
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
-    @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
@@ -171,7 +171,6 @@ struct CameraView: View {
 
     private var topBar: some View {
         HStack(spacing: AppSpacing.md) {
-            closeButton
             Spacer(minLength: AppSpacing.sm)
             focusButton
             if hasLightChoice {
@@ -183,16 +182,6 @@ struct CameraView: View {
         .padding(.vertical, AppSpacing.sm)
     }
 
-    private var closeButton: some View {
-        Button(action: onDone) {
-            Image(systemName: "xmark")
-                .font(AppFont.sectionTitle)
-                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Schließen")
-    }
-
     private var focusButton: some View {
         Button {
             Task {
@@ -202,6 +191,7 @@ struct CameraView: View {
         } label: {
             focusSymbol
                 .font(AppFont.sectionTitle)
+                .foregroundStyle(camera.focusStage == .auto ? Color.white : AppColor.cameraActive)
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
@@ -265,10 +255,10 @@ struct CameraView: View {
                     .transition(.opacity)
             } else {
                 lensButtons
+                    .padding(.horizontal, AppSpacing.lg)
                     .transition(.opacity)
             }
         }
-        .padding(.horizontal, AppSpacing.lg)
         .contentShape(Rectangle())
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { zoomControlWidth = max($0, 1) }
         // On the container, which stays while buttons and dial swap: a
@@ -329,7 +319,7 @@ struct CameraView: View {
     private func lensLabel(_ text: String, active: Bool) -> some View {
         Text(text)
             .font(AppFont.footnote.monospacedDigit().weight(active ? .semibold : .regular))
-            .foregroundStyle(active ? AppColor.warning : .white)
+            .foregroundStyle(active ? AppColor.cameraActive : .white)
             .frame(minWidth: minTapTarget, minHeight: minTapTarget)
             .background(AppColor.cameraScrim, in: Circle())
             .contentShape(Circle())
@@ -354,11 +344,11 @@ struct CameraView: View {
         if let focusMark {
             VStack(spacing: AppSpacing.xxs) {
                 RoundedRectangle(cornerRadius: AppRadius.sm)
-                    .strokeBorder(AppColor.warning, lineWidth: placeholderLineWidth)
+                    .strokeBorder(AppColor.cameraActive, lineWidth: placeholderLineWidth)
                     .frame(width: focusMarkSize, height: focusMarkSize)
                 Text("Fokus fest")
                     .font(AppFont.caption)
-                    .foregroundStyle(AppColor.warning)
+                    .foregroundStyle(AppColor.cameraActive)
                     .opacity(focusLocked ? 1 : 0)
             }
             .position(focusMark)
@@ -388,6 +378,7 @@ struct CameraView: View {
         } label: {
             Image(systemName: lightSymbol)
                 .font(AppFont.sectionTitle)
+                .foregroundStyle(camera.light == .off ? Color.white : AppColor.cameraActive)
                 .frame(minWidth: minTapTarget, minHeight: minTapTarget)
                 .contentShape(Rectangle())
         }
@@ -427,22 +418,38 @@ struct CameraView: View {
             .contentShape(Rectangle())
     }
 
+    /// Last photo and gallery on the left, the shutter in the middle of
+    /// the screen, „Fertig“ on the right, where the thumb ends a series.
     private var bottomBar: some View {
-        // Three equal columns keep the shutter in the middle.
-        HStack(alignment: .center, spacing: AppSpacing.md) {
+        ZStack {
             HStack(alignment: .center, spacing: AppSpacing.md) {
-                lastPhotoBlock
-                Spacer(minLength: 0)
+                lastPhotoView
                 galleryButton
+                // Keeps the sides off the shutter.
+                Spacer(minLength: shutterSize + AppSpacing.md * 2)
+                finishButton
             }
-            .frame(maxWidth: .infinity)
             shutter
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: 0)
-                .accessibilityHidden(true)
         }
         .padding(.horizontal, AppSpacing.lg)
         .padding(.vertical, AppSpacing.lg)
+    }
+
+    /// Ends the series: the photos are stored already, nothing is thrown
+    /// away. A checkmark where „Fertig“ does not fit (large text).
+    private var finishButton: some View {
+        Button(action: onDone) {
+            ViewThatFits(in: .horizontal) {
+                Text("Fertig")
+                    .font(AppFont.bodyEmphasized)
+                Image(systemName: "checkmark")
+                    .font(AppFont.sectionTitle)
+                    .accessibilityLabel("Fertig")
+            }
+            .foregroundStyle(.white)
+            .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+            .contentShape(Rectangle())
+        }
     }
 
     private var galleryButton: some View {
@@ -476,32 +483,29 @@ struct CameraView: View {
         .accessibilityValue(countText)
     }
 
-    /// The last picture with the count of this session below it.
-    private var lastPhotoBlock: some View {
-        VStack(spacing: AppSpacing.xxs) {
-            lastPhotoView
-            Text(countText)
-                .font(AppFont.footnote.monospacedDigit())
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                // The shutter carries the count as its value.
-                .accessibilityHidden(true)
-        }
-    }
-
-    @ViewBuilder
+    /// The last picture with the count of this session inside it.
     private var lastPhotoView: some View {
-        if let lastPhoto {
-            Image(uiImage: lastPhoto)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: lastPhotoSize, height: lastPhotoSize)
-                .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
-                .accessibilityLabel("Zuletzt aufgenommenes Foto")
-        } else {
-            RoundedRectangle(cornerRadius: AppRadius.md)
-                .strokeBorder(.white.opacity(0.6), lineWidth: placeholderLineWidth)
-                .frame(width: lastPhotoSize, height: lastPhotoSize)
+        ZStack(alignment: .bottomTrailing) {
+            if let lastPhoto {
+                Image(uiImage: lastPhoto)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: lastPhotoSize, height: lastPhotoSize)
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.sm))
+                    .accessibilityLabel("Zuletzt aufgenommenes Foto")
+            } else {
+                RoundedRectangle(cornerRadius: AppRadius.sm)
+                    .strokeBorder(.white.opacity(0.6), lineWidth: placeholderLineWidth)
+                    .frame(width: lastPhotoSize, height: lastPhotoSize)
+                    .accessibilityHidden(true)
+            }
+            Text(count, format: .number)
+                .font(AppFont.caption2.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, AppSpacing.xs)
+                .background(AppColor.cameraScrimStrong, in: Capsule())
+                .padding(AppSpacing.xxs)
+                // The shutter carries the count as its value.
                 .accessibilityHidden(true)
         }
     }

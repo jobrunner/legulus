@@ -42,14 +42,18 @@ struct ZoomScale: Equatable {
     /// „0,5“ below the main lens, „1×“, „1,4×“ from there on; one decimal
     /// at most, none for whole numbers.
     static func text(_ display: CGFloat, locale: Locale = .current) -> String {
-        let number = Double(display).formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale))
-        return display < 1 ? number : "\(number)×"
+        let value = number(display, locale: locale)
+        return display < 1 ? value : "\(value)×"
+    }
+
+    /// The bare number, one decimal at most: the lens labels on the dial.
+    static func number(_ display: CGFloat, locale: Locale = .current) -> String {
+        Double(display).formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale))
     }
 
     /// The factor for VoiceOver: „1,4-fach“.
     static func spokenText(_ display: CGFloat, locale: Locale = .current) -> String {
-        let number = Double(display).formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale))
-        return String(localized: "\(number)-fach")
+        String(localized: "\(number(display, locale: locale))-fach")
     }
 
     /// Position on the dial, 0…1, logarithmic: every doubling is the same

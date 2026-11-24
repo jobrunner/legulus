@@ -96,6 +96,10 @@ enum AppColor {
     /// Increase Contrast.
     static let cameraScrim = Color.black.opacity(0.45)
     static let cameraScrimStrong = Color.black.opacity(0.75)
+    /// A camera mode that is switched on (LED, flash, fixed focus, macro)
+    /// and the current value on the zoom dial; yellow as in the system
+    /// camera. The icons differ in shape as well, never by colour alone.
+    static let cameraActive = Color(uiColor: .systemYellow)
 
     // MARK: - Text
 

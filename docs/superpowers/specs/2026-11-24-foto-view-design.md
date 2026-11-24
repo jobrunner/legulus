@@ -98,15 +98,22 @@ Diskutiert mit Jo am 2026-11-24:
 ### Layout
 
 ```
- [X]                               [Blüte] [Blitz]
+                                   [Blüte] [Blitz]
 
                 (Kamerabild, Vollbild)
 
                  [Fokusregler, nur in Fokus fest/Makro]
                    ( 0,5   1×   2   5 )  <- Objektivknöpfe / Zoomrad
- [letztes Foto]      [Galerie]        ( O )
- [ 3 Fotos ]
+ [letztes Foto (3)] [Galerie]   ( O )        [Fertig]
 ```
+
+Nachtrag nach Jos Gerätetest (2026-11-24): Das X oben links klang nach
+Abbruch und entfällt. „Fertig“ steht unten rechts (bei sehr großer Schrift
+ein Haken). Das Vorschaubild ist kleiner und trägt die Anzahl innen; der
+Auslöser steht in der Bildschirmmitte. Aktive Modi (Blitz-Automatik, LED,
+Fokus fest, Makro) sind gelb (`AppColor.cameraActive`). Das Zoomrad folgt
+der Kamera-App: dunkle Halbscheibe, Skala am Rand, Objektive als lange
+Striche mit Zahl, aktueller Wert gelb unter dem Zeiger.
 
 - `CameraPreview` füllt den Bildschirm inkl. Safe Area (Aspect Fill).
   Bedienelemente liegen in der Safe Area darüber, auf einem leichten

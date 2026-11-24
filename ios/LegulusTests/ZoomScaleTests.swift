@@ -65,4 +65,12 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(ZoomScale.spokenText(1.4, locale: german), "1,4-fach")
         XCTAssertEqual(ZoomScale.spokenText(0.5, locale: german), "0,5-fach")
     }
+
+    /// Am Rad tragen die Objektive nur die Zahl, das „×“ hat der aktuelle Wert.
+    func testNumber_German() {
+        let german = Locale(identifier: "de_DE")
+        XCTAssertEqual(ZoomScale.number(0.5, locale: german), "0,5")
+        XCTAssertEqual(ZoomScale.number(3, locale: german), "3")
+        XCTAssertEqual(ZoomScale.number(1.44, locale: german), "1,4")
+    }
 }
