@@ -53,6 +53,9 @@ struct CameraView: View {
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
+    /// Where the dark backdrop starts below the top of the open dial:
+    /// about the middle of its disc (dial height 170, scaled alike).
+    @ScaledMetric(relativeTo: .body) private var dialBackdropTop: CGFloat = 90
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
     /// Part of the whole dial one width of the zoom control covers: the
@@ -143,9 +146,17 @@ struct CameraView: View {
                     if camera.focusStage != .auto {
                         focusSlider
                     }
-                    zoomControl
-                    bottomBar
-                        .background(alignment: .bottom) { scrim(from: .bottom) }
+                    VStack(spacing: 0) {
+                        zoomControl
+                        bottomBar
+                    }
+                    .background(alignment: .bottom) {
+                        if dialVisible {
+                            dialBackdrop
+                        } else {
+                            scrim(from: .bottom)
+                        }
+                    }
                 }
             }
         case .unauthorized:
@@ -334,6 +345,23 @@ struct CameraView: View {
             .frame(minWidth: minTapTarget, minHeight: minTapTarget)
             .background(AppColor.cameraScrim, in: Circle())
             .contentShape(Circle())
+    }
+
+    /// While the dial is open, the picture under the lower half of the
+    /// disc goes dark down to the screen edge, so disc and shutter sit on
+    /// black as in the system camera.
+    private var dialBackdrop: some View {
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(height: dialBackdropTop)
+                AppColor.cameraBackdrop
+            }
+            .frame(height: proxy.size.height, alignment: .top)
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .transition(.opacity)
+        .accessibilityHidden(true)
     }
 
     /// Shows the dial and hides it again after a pause without zooming.

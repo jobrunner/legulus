@@ -42,20 +42,22 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(triple.step(1, up: true), 2)
         XCTAssertEqual(triple.step(2, up: true), 3)
         XCTAssertEqual(triple.step(2.4, up: true), 3)
-        XCTAssertEqual(triple.step(5, up: true), 6)
+        XCTAssertEqual(triple.step(4, up: true), 6)
+        XCTAssertEqual(triple.step(3, up: true), 4)
         XCTAssertEqual(triple.step(6, up: true), 6)
         XCTAssertEqual(triple.step(3, up: false), 2)
         XCTAssertEqual(triple.step(1, up: false), 1)
     }
 
-    /// Raststufen 0,5 / 1 / 1,5 / 2,5 / 3 als Gerätefaktoren.
+    /// Raststufen 0,5 / 1 / 1,5 / 2 / 3 als Gerätefaktoren.
     func testSnapStops_Triple() {
-        XCTAssertEqual(triple.snapStops, [1, 2, 3, 5, 6])
+        XCTAssertEqual(triple.snapStops, [1, 2, 3, 4, 6])
     }
 
     func testSnap() {
         XCTAssertEqual(triple.snapped(2.05), 2, "nah an 1× rastet ein")
-        XCTAssertEqual(triple.snapped(2.5), 2.5, "zwischen den Stufen frei")
+        XCTAssertEqual(triple.snapped(5), 5, "zwischen 2× und 3× frei")
+        XCTAssertEqual(triple.snapped(4.1), 4, "2× rastet ein")
         XCTAssertEqual(triple.snapped(5.9), 6)
     }
 

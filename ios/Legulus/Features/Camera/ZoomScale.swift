@@ -11,7 +11,7 @@ import Foundation
 /// `snapDisplayFactors`.
 struct ZoomScale: Equatable {
     /// Factors (relative to the main lens) the zoom snaps in at.
-    static let snapDisplayFactors: [CGFloat] = [0.5, 1, 1.5, 2.5, 3]
+    static let snapDisplayFactors: [CGFloat] = [0.5, 1, 1.5, 2, 3]
     /// How close (in dial position, 0…1) a factor must come to snap in.
     static let snapDistance: CGFloat = 0.035
 
