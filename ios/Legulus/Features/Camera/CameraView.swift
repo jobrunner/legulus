@@ -31,9 +31,12 @@ struct CameraView: View {
     /// The photo picker covers the camera; the LED goes off meanwhile.
     @State private var pickerOpen = false
     @State private var pickedItems: [PhotosPickerItem] = []
+    /// Where the last long press locked the focus, while its mark shows.
+    @State private var focusMark: CGPoint?
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// How often the position is refreshed while the camera is open;
     /// below `LocationThreshold.staleness`.
@@ -41,6 +44,9 @@ struct CameraView: View {
 
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
+    /// How long the mark of a long press stays on screen.
+    private let focusMarkDuration: Duration = .milliseconds(1500)
     /// Width of the shutter's ring.
     private let ringWidth: CGFloat = 4
     /// Mindestgröße eines Tap-Targets (Apple HIG).
@@ -102,12 +108,16 @@ struct CameraView: View {
         case .idle, .running, .switching:
             ZStack {
                 preview
+                    .overlay(alignment: .topLeading) { focusMarkView }
                     .ignoresSafeArea()
                 VStack(spacing: 0) {
                     topBar
                         .background(alignment: .top) { scrim(from: .top) }
                     Spacer(minLength: 0)
                     errorBanner
+                    if camera.focusStage != .auto {
+                        focusSlider
+                    }
                     bottomBar
                         .background(alignment: .bottom) { scrim(from: .bottom) }
                 }
@@ -129,6 +139,7 @@ struct CameraView: View {
         CameraPreview(
             session: camera.session,
             onTap: { camera.tap(at: $0) },
+            onLongPress: { devicePoint, viewPoint in lockFocus(at: devicePoint, mark: viewPoint) },
             onPinchChanged: { camera.zoom(by: $0) },
             onPinchEnded: { camera.zoomEnded() }
         )
@@ -145,13 +156,13 @@ struct CameraView: View {
             @unknown default: break
             }
         }
-        .accessibilityAction(named: "In der Bildmitte scharfstellen") { camera.focusCenter() }
     }
 
     private var topBar: some View {
         HStack(spacing: AppSpacing.md) {
             closeButton
             Spacer(minLength: AppSpacing.sm)
+            focusButton
             if hasLightChoice {
                 lightButton
             }
@@ -169,6 +180,97 @@ struct CameraView: View {
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Schließen")
+    }
+
+    private var focusButton: some View {
+        Button {
+            Task {
+                await camera.cycleFocusStage()
+                AccessibilityNotification.Announcement(camera.focusStage.label).post()
+            }
+        } label: {
+            focusSymbol
+                .font(AppFont.sectionTitle)
+                .frame(minWidth: minTapTarget, minHeight: minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .disabled(camera.state != .running)
+        .accessibilityLabel("Fokus")
+        .accessibilityValue(camera.focusStage.label)
+        .accessibilityHint("Wechselt zur nächsten Stufe")
+    }
+
+    /// The flower in three shapes, so the stage reads without colour:
+    /// plain, with a lock, filled in a circle. The button carries label
+    /// and value.
+    @ViewBuilder
+    private var focusSymbol: some View {
+        switch camera.focusStage {
+        case .auto:
+            Image(systemName: "camera.macro")
+                .accessibilityHidden(true)
+        case .fixed:
+            Image(systemName: "camera.macro")
+                .accessibilityHidden(true)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "lock.fill")
+                        .font(AppFont.caption2)
+                        .accessibilityHidden(true)
+                }
+        case .macro:
+            Image(systemName: "camera.macro.circle.fill")
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Distance of the locked focus, near to far, in the fixed stages.
+    private var focusSlider: some View {
+        HStack(spacing: AppSpacing.sm) {
+            Text("Nah")
+                .accessibilityHidden(true)
+            Slider(
+                value: Binding(get: { camera.lensPosition }, set: { camera.setLensPosition($0) }),
+                in: 0 ... 1
+            )
+            .tint(.white)
+            .accessibilityLabel("Schärfe-Entfernung")
+            .accessibilityValue(FocusStage.focusValueText(lensPosition: camera.lensPosition))
+            Text("Fern")
+                .accessibilityHidden(true)
+        }
+        .font(AppFont.footnote)
+        .foregroundStyle(.white)
+        .padding(.horizontal, AppSpacing.xl)
+        .padding(.vertical, AppSpacing.sm)
+    }
+
+    @ViewBuilder
+    private var focusMarkView: some View {
+        if let focusMark {
+            VStack(spacing: AppSpacing.xxs) {
+                RoundedRectangle(cornerRadius: AppRadius.sm)
+                    .strokeBorder(AppColor.warning, lineWidth: placeholderLineWidth)
+                    .frame(width: focusMarkSize, height: focusMarkSize)
+                Text("Fokus fest")
+                    .font(AppFont.caption)
+                    .foregroundStyle(AppColor.warning)
+            }
+            .position(focusMark)
+            .accessibilityHidden(true)
+            .transition(.opacity)
+        }
+    }
+
+    private func lockFocus(at devicePoint: CGPoint, mark: CGPoint) {
+        withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) { focusMark = mark }
+        AccessibilityNotification.Announcement("Fokus fest").post()
+        Task {
+            await camera.lockFocus(at: devicePoint)
+            try? await Task.sleep(for: focusMarkDuration)
+            withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) {
+                if focusMark == mark { focusMark = nil }
+            }
+        }
     }
 
     private var lightButton: some View {

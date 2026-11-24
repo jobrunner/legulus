@@ -284,12 +284,6 @@ final class CameraSession: NSObject, ObservableObject {
             core.zoomEnded()
         }
     }
-
-    /// Focus and expose for the centre of the picture — the button path
-    /// next to tap-to-focus.
-    func focusCenter() {
-        tap(at: CGPoint(x: 0.5, y: 0.5))
-    }
 }
 
 /// The AVFoundation objects of `CameraSession`. Everything except
