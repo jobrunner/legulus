@@ -176,7 +176,15 @@
                 .init(name: "syncPending", color: AppColor.syncPending),
                 .init(name: "syncInFlight", color: AppColor.syncInFlight),
                 .init(name: "syncSynced", color: AppColor.syncSynced),
-                .init(name: "syncFailed", color: AppColor.syncFailed)
+                .init(name: "syncFailed", color: AppColor.syncFailed),
+                .init(name: "skyDay", color: AppColor.skyDay),
+                .init(name: "skyCivil", color: AppColor.skyCivil),
+                .init(name: "skyNautical", color: AppColor.skyNautical),
+                .init(name: "skyAstronomical", color: AppColor.skyAstronomical),
+                .init(name: "skyNight", color: AppColor.skyNight),
+                .init(name: "skySun", color: AppColor.skySun),
+                .init(name: "skyMoonLit", color: AppColor.skyMoonLit),
+                .init(name: "skyMoonDark", color: AppColor.skyMoonDark)
             ]
         }
     }
@@ -280,6 +288,7 @@
             .init(name: "subhead", font: AppFont.subhead),
             .init(name: "footnote", font: AppFont.footnote),
             .init(name: "caption", font: AppFont.caption),
+            .init(name: "caption2", font: AppFont.caption2),
             .init(name: "captionEmphasized", font: AppFont.captionEmphasized),
             .init(name: "code", font: AppFont.code),
             .init(name: "codeEmphasized", font: AppFont.codeEmphasized),

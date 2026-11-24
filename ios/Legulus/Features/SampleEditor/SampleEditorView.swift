@@ -449,7 +449,7 @@ private struct SampleEditorContent: View {
     }
 
     private var timeCard: some View {
-        SampleTimeCard(texts: dateTexts, skyItems: skyItems, zoneLabel: timezoneLabelText)
+        SampleTimeCard(texts: dateTexts, sky: timeCardSky, zoneLabel: timezoneLabelText)
     }
 
     // MARK: - action bar
@@ -854,11 +854,12 @@ private struct SampleEditorContent: View {
         return display.altitudinalBelt
     }
 
-    /// Sun and moon of the sample's instant, by light phase (see
-    /// `ConditionsDisplay.skyItems`); empty without weather values.
-    private var skyItems: [ConditionsDisplay.SkyItem] {
-        guard let display = viewModel.conditionsDisplay, display.state == .values else { return [] }
-        return display.skyItems
+    /// The light band of the „Zeit“ card; nil without Tempus values or
+    /// for a new, unsaved sample.
+    private var timeCardSky: TimeCardSky? {
+        guard viewModel.isExistingSample, let display = viewModel.conditionsDisplay else { return nil }
+        return TimeCardSky(display: display, begin: viewModel.beginDate, end: viewModel.endDate,
+                           isAllDay: viewModel.isAllDay, zone: viewModel.timeZone)
     }
 
     /// „Exposition: SSW (203°)“ with a secondary label, or a bare „eben“.

@@ -35,6 +35,8 @@ enum AppFont {
     static let subhead = Font.subheadline
     static let footnote = Font.footnote
     static let caption = Font.caption
+    /// The smallest role: axis labels of a chart (hours of the light band).
+    static let caption2 = Font.caption2
     static let captionEmphasized = Font.caption.weight(.semibold)
 
     // MARK: - Monospaced (sample codes, coordinates)

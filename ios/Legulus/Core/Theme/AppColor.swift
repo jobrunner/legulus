@@ -134,4 +134,26 @@ enum AppColor {
     static let syncSynced = success
     /// Last push failed; retry pending.
     static let syncFailed = warning
+
+    // MARK: - Sky (light band of the „Zeit“ card)
+
+    // Fixed in both schemes: the band shows the sky, which is bright by
+    // day and dark at night whatever the phone's appearance. The steps
+    // differ in lightness, not hue alone.
+
+    /// Sun above the horizon.
+    static let skyDay = Color(red: 0.98, green: 0.89, blue: 0.63)
+    /// Civil twilight (sun 0° to -6°).
+    static let skyCivil = Color(red: 0.62, green: 0.71, blue: 0.85)
+    /// Nautical twilight (-6° to -12°).
+    static let skyNautical = Color(red: 0.34, green: 0.44, blue: 0.62)
+    /// Astronomical twilight (-12° to -18°).
+    static let skyAstronomical = Color(red: 0.20, green: 0.27, blue: 0.42)
+    /// Night (below -18°).
+    static let skyNight = Color(red: 0.12, green: 0.16, blue: 0.27)
+    /// The sun's disk.
+    static let skySun = Color(red: 0.96, green: 0.71, blue: 0.0)
+    /// The moon's lit and dark part.
+    static let skyMoonLit = Color(red: 0.93, green: 0.92, blue: 0.89)
+    static let skyMoonDark = Color(red: 0.29, green: 0.31, blue: 0.38)
 }
