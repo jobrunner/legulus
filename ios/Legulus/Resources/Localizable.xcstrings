@@ -44,6 +44,9 @@
     "%@ Prozent beleuchtet" : {
 
     },
+    "%@-fach" : {
+
+    },
     "%@, %lld Probe%@" : {
       "localizations" : {
         "de" : {
@@ -73,6 +76,15 @@
     "%lld Einträge" : {
 
     },
+    "%lld Fotos" : {
+
+    },
+    "%lld Fotos aus der Galerie nicht übernommen" : {
+
+    },
+    "%lld Fotos übernommen" : {
+
+    },
     "%lld Fundort%@ · %lld Proben" : {
       "localizations" : {
         "de" : {
@@ -97,6 +109,15 @@
       }
     },
     "%lld:00" : {
+
+    },
+    "1 Foto" : {
+
+    },
+    "1 Foto aus der Galerie nicht übernommen" : {
+
+    },
+    "1 Foto übernommen" : {
 
     },
     "72%@h" : {
@@ -471,6 +492,9 @@
     "Das Foto wird vom Gerät und, falls schon hochgeladen, vom Server entfernt." : {
 
     },
+    "Das Objektiv ließ sich nicht wechseln." : {
+
+    },
     "Daten" : {
 
     },
@@ -638,6 +662,12 @@
     "Felderfassung für entomologische Aufsammlungen" : {
 
     },
+    "fern" : {
+
+    },
+    "Fern" : {
+
+    },
     "Fertig" : {
 
     },
@@ -661,6 +691,15 @@
     "Filter aufheben" : {
 
     },
+    "Fokus" : {
+
+    },
+    "Fokus fest" : {
+
+    },
+    "Fokus: automatisch" : {
+
+    },
     "Format" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -673,6 +712,9 @@
       }
     },
     "Foto aufnehmen" : {
+
+    },
+    "Foto aus der Galerie" : {
 
     },
     "Foto löschen?" : {
@@ -717,6 +759,9 @@
 
     },
     "Fundorte (Karte)" : {
+
+    },
+    "ganz nah" : {
 
     },
     "Ganztägig" : {
@@ -1013,6 +1058,15 @@
         }
       }
     },
+    "Licht: aus" : {
+
+    },
+    "Licht: automatischer Blitz" : {
+
+    },
+    "Licht: LED-Dauerlicht" : {
+
+    },
     "Locality" : {
 
     },
@@ -1023,6 +1077,9 @@
 
     },
     "Luftfeuchte %@" : {
+
+    },
+    "Makro" : {
 
     },
     "manuell" : {
@@ -1085,6 +1142,9 @@
     "Mit Koordinate oder aus einem Foto." : {
 
     },
+    "mittel" : {
+
+    },
     "Modus" : {
 
     },
@@ -1135,6 +1195,12 @@
 
     },
     "Nachtexkursion" : {
+
+    },
+    "nah" : {
+
+    },
+    "Nah" : {
 
     },
     "Name" : {
@@ -1560,7 +1626,7 @@
         }
       }
     },
-    "Schaltet zwischen automatischem Blitz und ohne Blitz um." : {
+    "Schärfe-Entfernung" : {
 
     },
     "Schließen" : {
@@ -1860,6 +1926,12 @@
     "Was gelöscht wird" : {
 
     },
+    "Wechselt zum nächsten Modus" : {
+
+    },
+    "Wechselt zur nächsten Stufe" : {
+
+    },
     "Weiter bearbeiten" : {
 
     },
@@ -1951,6 +2023,9 @@
           }
         }
       }
+    },
+    "Zoom" : {
+
     },
     "Zuletzt aufgenommenes Foto" : {
 
