@@ -12,14 +12,20 @@ import SwiftUI
 struct ZoomDial: View {
     let scale: ZoomScale
     let factor: CGFloat
+    /// The camera draws the disc itself, as one arch down to the screen
+    /// edge (`DialArch`), so it is not darkened twice.
+    var drawsDisc = true
+
+    /// Radius of the disc relative to its width: the arc of the video
+    /// mode, which reaches both screen edges a short way down.
+    static let radiusRatio: CGFloat = 0.55
+    /// Gap between the top of the view and the top of the disc.
+    static let discTop = AppSpacing.sm
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 170
     /// Distance of the labels from the edge of the disc.
     @ScaledMetric(relativeTo: .body) private var labelInset: CGFloat = 44
 
-    /// Radius of the disc relative to its width: the arc of the video
-    /// mode, which reaches both screen edges a short way down.
-    private let radiusRatio: CGFloat = 0.55
     /// Turn per doubling of the factor; fixed, as in the system camera,
     /// so a short range takes only part of the arc.
     private let anglePerDoubling: Angle = .degrees(40)
@@ -39,11 +45,13 @@ struct ZoomDial: View {
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize) {
-        let radius = size.width * radiusRatio
-        let centre = CGPoint(x: size.width / 2, y: AppSpacing.sm + radius)
+        let radius = size.width * Self.radiusRatio
+        let centre = CGPoint(x: size.width / 2, y: Self.discTop + radius)
 
-        let disc = Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2))
-        context.fill(disc, with: .color(AppColor.cameraScrim))
+        if drawsDisc {
+            let disc = Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2))
+            context.fill(disc, with: .color(AppColor.cameraScrim))
+        }
 
         // Angle of a factor from the pointer, logarithmic.
         func angle(_ deviceFactor: CGFloat) -> CGFloat {
@@ -98,6 +106,22 @@ struct ZoomDial: View {
                 .foregroundStyle(AppColor.cameraActive),
             at: point(0, inset: labelInset)
         )
+    }
+}
+
+/// The shade behind the open zoom dial in the camera: the dial's disc on
+/// top, running straight down to the bottom edge like an upside-down U,
+/// so the controls under the dial sit on the same shade as the dial.
+struct DialArch: Shape {
+    func path(in rect: CGRect) -> Path {
+        let radius = rect.width * ZoomDial.radiusRatio
+        let centre = CGPoint(x: rect.midX, y: rect.minY + ZoomDial.discTop + radius)
+        var path = Path()
+        path.addArc(center: centre, radius: radius, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: false)
+        path.addLine(to: CGPoint(x: centre.x + radius, y: rect.maxY))
+        path.addLine(to: CGPoint(x: centre.x - radius, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

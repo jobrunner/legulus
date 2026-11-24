@@ -53,9 +53,6 @@ struct CameraView: View {
     @ScaledMetric(relativeTo: .body) private var shutterSize: CGFloat = 76
     @ScaledMetric(relativeTo: .body) private var lastPhotoSize: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var focusMarkSize: CGFloat = 72
-    /// Where the dark backdrop starts below the top of the open dial:
-    /// about the middle of its disc (dial height 170, scaled alike).
-    @ScaledMetric(relativeTo: .body) private var dialBackdropTop: CGFloat = 90
     /// How long the zoom dial stays after the last touch.
     private let dialDuration: Duration = .milliseconds(1500)
     /// Part of the whole dial one width of the zoom control covers: the
@@ -273,7 +270,7 @@ struct CameraView: View {
     private var zoomControl: some View {
         Group {
             if dialVisible {
-                ZoomDial(scale: camera.zoomScale, factor: camera.zoomFactor)
+                ZoomDial(scale: camera.zoomScale, factor: camera.zoomFactor, drawsDisc: false)
                     .transition(.opacity)
             } else {
                 lensButtons
@@ -347,21 +344,14 @@ struct CameraView: View {
             .contentShape(Circle())
     }
 
-    /// While the dial is open, the picture under the lower half of the
-    /// disc goes dark down to the screen edge, so disc and shutter sit on
-    /// black as in the system camera.
+    /// While the dial is open, its disc runs down to the screen edge as
+    /// one shape, so the controls below sit on the same shade as the dial.
     private var dialBackdrop: some View {
-        GeometryReader { proxy in
-            VStack(spacing: 0) {
-                Color.clear
-                    .frame(height: dialBackdropTop)
-                AppColor.cameraBackdrop
-            }
-            .frame(height: proxy.size.height, alignment: .top)
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .transition(.opacity)
-        .accessibilityHidden(true)
+        DialArch()
+            .fill(AppColor.cameraScrim)
+            .ignoresSafeArea(edges: .bottom)
+            .transition(.opacity)
+            .accessibilityHidden(true)
     }
 
     /// Shows the dial and hides it again after a pause without zooming.

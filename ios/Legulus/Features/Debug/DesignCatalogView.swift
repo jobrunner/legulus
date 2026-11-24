@@ -152,7 +152,6 @@
                 .init(name: "cameraScrim", color: AppColor.cameraScrim),
                 .init(name: "cameraScrimStrong", color: AppColor.cameraScrimStrong),
                 .init(name: "cameraActive", color: AppColor.cameraActive),
-                .init(name: "cameraBackdrop", color: AppColor.cameraBackdrop),
                 .init(name: "separator", color: AppColor.separator),
                 .init(name: "outlineSubtle", color: AppColor.outlineSubtle)
             ]

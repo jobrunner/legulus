@@ -100,9 +100,6 @@ enum AppColor {
     /// and the current value on the zoom dial; yellow as in the system
     /// camera. The icons differ in shape as well, never by colour alone.
     static let cameraActive = Color(uiColor: .systemYellow)
-    /// Backdrop under the open zoom dial and the shutter: near black, as
-    /// the bar under the system camera's dial.
-    static let cameraBackdrop = Color.black.opacity(0.85)
 
     // MARK: - Text
 
