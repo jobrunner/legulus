@@ -530,10 +530,11 @@ private final class CameraCore: @unchecked Sendable {
     private func makeRotationCoordinator(for camera: AVCaptureDevice) {
         let coordinator = AVCaptureDevice.RotationCoordinator(device: camera, previewLayer: nil)
         rotationCoordinator = coordinator
-        horizonObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.initial, .new]) {
-            [weak self] coordinator, _ in
-            self?.onHorizonAngle?(coordinator.videoRotationAngleForHorizonLevelCapture)
-        }
+        let options: NSKeyValueObservingOptions = [.initial, .new]
+        horizonObservation = coordinator
+            .observe(\.videoRotationAngleForHorizonLevelCapture, options: options) { [weak self] coordinator, _ in
+                self?.onHorizonAngle?(coordinator.videoRotationAngleForHorizonLevelCapture)
+            }
     }
 
     /// Auto gets its old zoom back; a fixed stage opens on the main-lens
