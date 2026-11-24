@@ -40,18 +40,17 @@ final class ZoomScaleTests: XCTestCase {
     /// VoiceOver springt von Raststufe zu Raststufe.
     func testStep() {
         XCTAssertEqual(triple.step(1, up: true), 2)
-        XCTAssertEqual(triple.step(2, up: true), 3)
-        XCTAssertEqual(triple.step(2.4, up: true), 3)
+        XCTAssertEqual(triple.step(2, up: true), 4)
+        XCTAssertEqual(triple.step(2.4, up: true), 4)
         XCTAssertEqual(triple.step(4, up: true), 6)
-        XCTAssertEqual(triple.step(3, up: true), 4)
         XCTAssertEqual(triple.step(6, up: true), 6)
         XCTAssertEqual(triple.step(3, up: false), 2)
         XCTAssertEqual(triple.step(1, up: false), 1)
     }
 
-    /// Raststufen 0,5 / 1 / 1,5 / 2 / 3 als Gerätefaktoren.
+    /// Raststufen 0,5 / 1 / 2 / 3 als Gerätefaktoren.
     func testSnapStops_Triple() {
-        XCTAssertEqual(triple.snapStops, [1, 2, 3, 4, 6])
+        XCTAssertEqual(triple.snapStops, [1, 2, 4, 6])
     }
 
     func testSnap() {

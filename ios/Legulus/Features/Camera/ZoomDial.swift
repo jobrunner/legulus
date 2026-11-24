@@ -29,12 +29,46 @@ struct ZoomDial: View {
     /// Turn per doubling of the factor; fixed, as in the system camera,
     /// so a short range takes only part of the arc.
     private let anglePerDoubling: Angle = .degrees(40)
-    /// Angle between two fine ticks.
+    /// Angle between two fine ticks, roughly; each section between two
+    /// snap stops is divided evenly, so every stop sits on a tick.
     private let tickStep: Angle = .degrees(2.4)
+    /// All ticks are equally long; the snap stops are wider and white.
+    private let tickLength = AppSpacing.md
     private let tickWidth: CGFloat = 1
     private let markWidth: CGFloat = 2
+    /// The pointer: narrow, its length the tick length times the golden ratio.
+    private let pointerWidth: CGFloat = 6
+    private let goldenRatio: CGFloat = 1.618
     /// Snap labels this close to the pointer give way to the current value.
     private let labelGap: Angle = .degrees(10)
+
+    /// Tick angles from the first to the last mark: each section between
+    /// two marks divided into equal parts of about `step`, so every mark
+    /// is a tick.
+    static func tickAngles(marks: [CGFloat], step: CGFloat) -> [CGFloat] {
+        let sorted = Array(Set(marks)).sorted()
+        guard let first = sorted.first, step > 0 else { return [] }
+        var angles = [first]
+        for (start, end) in zip(sorted, sorted.dropFirst()) {
+            let parts = max(1, Int(((end - start) / step).rounded()))
+            for part in 1 ... parts {
+                angles.append(start + (end - start) * CGFloat(part) / CGFloat(parts))
+            }
+        }
+        return angles
+    }
+
+    /// Length of a tick by its distance from the pointer, as a share of
+    /// the full length: none right under the pointer, short beside it,
+    /// growing smoothly to full length a few ticks out.
+    static func tickLengthScale(distance: CGFloat, step: CGFloat) -> CGFloat {
+        let gap = step * 0.5
+        let distance = abs(distance)
+        guard distance >= gap else { return 0 }
+        let progress = min((distance - gap) / (step * 3), 1)
+        let smooth = progress * progress * (3 - 2 * progress)
+        return 0.25 + 0.75 * smooth
+    }
 
     var body: some View {
         Canvas { context, size in
@@ -77,27 +111,35 @@ struct ZoomDial: View {
             layer.draw(Text(text).font(AppFont.headline).foregroundStyle(.white), at: .zero)
         }
 
-        // Fine ticks over the optical range only.
-        let first = angle(scale.minFactor)
-        let last = angle(scale.maxFactor)
-        var tickAngle = first
-        while tickAngle <= last + 0.001 {
-            tick(at: tickAngle, length: AppSpacing.sm, width: tickWidth, color: .white.opacity(0.5))
-            tickAngle += tickStep.radians
+        // The scale over the optical range only; the snap stops (white,
+        // wider, with their factor) sit on ticks of the even division.
+        let stops = scale.snapStops.isEmpty ? scale.lensStops + [scale.maxFactor] : scale.snapStops
+        let stopAngles = stops.map(angle)
+        let ticks = Self.tickAngles(
+            marks: [angle(scale.minFactor), angle(scale.maxFactor)] + stopAngles,
+            step: tickStep.radians
+        )
+        for tickAngle in ticks {
+            let isStop = stopAngles.contains { abs($0 - tickAngle) < 1e-6 }
+            let length = tickLength * Self.tickLengthScale(distance: tickAngle, step: tickStep.radians)
+            guard length > 0 else { continue }
+            tick(
+                at: tickAngle,
+                length: length,
+                width: isStop ? markWidth : tickWidth,
+                color: isStop ? .white : .white.opacity(0.5)
+            )
         }
-        // The snap stops carry long ticks and their factor.
-        let marked = scale.snapStops.isEmpty ? scale.lensStops + [scale.maxFactor] : scale.snapStops
-        for stop in marked {
-            tick(at: angle(stop), length: AppSpacing.lg, width: markWidth, color: .white)
-            label(ZoomScale.number(scale.displayFactor(stop)), at: angle(stop))
+        for (stop, stopAngle) in zip(stops, stopAngles) {
+            label(ZoomScale.number(scale.displayFactor(stop)), at: stopAngle)
         }
 
-        // Fixed pointer at the top edge and the current value under it.
+        // Fixed pointer from the top edge, where the tick under it is left out.
         let top = CGPoint(x: centre.x, y: centre.y - radius + AppSpacing.xs)
         var pointer = Path()
-        pointer.move(to: CGPoint(x: top.x - AppSpacing.xs, y: top.y))
-        pointer.addLine(to: CGPoint(x: top.x + AppSpacing.xs, y: top.y))
-        pointer.addLine(to: CGPoint(x: top.x, y: top.y + AppSpacing.md))
+        pointer.move(to: CGPoint(x: top.x - pointerWidth / 2, y: top.y))
+        pointer.addLine(to: CGPoint(x: top.x + pointerWidth / 2, y: top.y))
+        pointer.addLine(to: CGPoint(x: top.x, y: top.y + tickLength * goldenRatio))
         pointer.closeSubpath()
         context.fill(pointer, with: .color(AppColor.cameraActive))
         context.draw(
