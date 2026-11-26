@@ -485,7 +485,8 @@ struct CameraView: View {
     /// Ends the series: the photos are stored already, nothing is thrown
     /// away. A yellow checkmark in a translucent circle like the lens
     /// buttons, with a fine ring as anchor; it turns with the phone like
-    /// the other controls.
+    /// the other controls. Before the first photo there is nothing to
+    /// finish: a white cross cancels instead.
     private var finishButton: some View {
         Button {
             // The view goes away at once; a trigger-based feedback would
@@ -493,9 +494,9 @@ struct CameraView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             onDone()
         } label: {
-            finishCheckmark
+            finishSymbol
                 .modifier(upright)
-                .foregroundStyle(AppColor.cameraActive)
+                .foregroundStyle(count == 0 ? .white : AppColor.cameraActive)
                 .frame(width: finishSize, height: finishSize)
                 .background(AppColor.cameraScrim, in: Circle())
                 .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: hairline))
@@ -503,10 +504,10 @@ struct CameraView: View {
         }
     }
 
-    private var finishCheckmark: some View {
-        Image(systemName: "checkmark")
+    private var finishSymbol: some View {
+        Image(systemName: count == 0 ? "xmark" : "checkmark")
             .font(AppFont.headline.weight(.bold))
-            .accessibilityLabel("Fertig")
+            .accessibilityLabel(count == 0 ? Text("Abbrechen") : Text("Fertig"))
     }
 
     /// Turns numbers and icons upright to the horizon in landscape; the
