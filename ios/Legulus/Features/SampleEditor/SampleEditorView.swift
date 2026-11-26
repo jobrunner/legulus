@@ -593,14 +593,16 @@ private struct SampleEditorContent: View {
 
     // MARK: - place and time
 
-    /// „Würzburg“, below it the broader units and the bearing:
-    /// „Unterfranken, Bayern · 2,3 km SW Randersacker“. The full
-    /// hierarchy stays in the form under „Bearbeiten“.
+    /// „Würzburg“, below it the broader units, the bearing and island,
+    /// mountain range, mountain: „Unterfranken, Bayern, DE · 2,3km SW
+    /// Randersacker · Insel La Palma“. The full hierarchy stays in the
+    /// form under „Bearbeiten“.
     @ViewBuilder
     private var placeHeading: some View {
         let heading = viewModel.placeHeading
         let context = heading?.context.joined(separator: ", ") ?? ""
-        let subline = [context, viewModel.placeBearing ?? ""]
+        let landscape = viewModel.placeLandscape.map { "\($0.displayTerm) \($0.value)" }
+        let subline = ([context, viewModel.placeBearing ?? ""] + landscape)
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         if heading != nil || !subline.isEmpty {
@@ -632,9 +634,7 @@ private struct SampleEditorContent: View {
             }
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
                 coordinateChip
-                // Lines the mountain up with the pin inside the chip.
                 altitudeChip
-                    .padding(.leading, AppSpacing.sm)
             }
         }
     }
@@ -855,7 +855,7 @@ private struct SampleEditorContent: View {
         }
     }
 
-    /// Altitudinal belt, MTB, then island, mountain range, mountain.
+    /// Altitudinal belt and MTB.
     private var placeDetails: [LabeledValue] {
         var items: [LabeledValue] = []
         if let belt = altitudinalBelt {
@@ -865,10 +865,6 @@ private struct SampleEditorContent: View {
         if let mtb = viewModel.mtbValue {
             let spoken = String(localized: "Messtischblatt \(mtb)")
             items.append(LabeledValue(id: "mtb", label: String(localized: "MTB"), value: mtb, spoken: spoken))
-        }
-        for field in viewModel.placeLandscape {
-            items.append(LabeledValue(id: field.id, label: field.displayTerm, value: field.value,
-                                      spoken: "\(field.displayTerm) \(field.value)"))
         }
         return items
     }
