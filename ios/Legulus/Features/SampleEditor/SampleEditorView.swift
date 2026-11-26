@@ -595,13 +595,13 @@ private struct SampleEditorContent: View {
 
     /// „Würzburg“, below it the broader units, the bearing and island,
     /// mountain range, mountain: „Unterfranken, Bayern, DE · 2,3km SW
-    /// Randersacker · Insel La Palma“. The full hierarchy stays in the
+    /// Randersacker · La Palma“, names only. The full hierarchy stays in the
     /// form under „Bearbeiten“.
     @ViewBuilder
     private var placeHeading: some View {
         let heading = viewModel.placeHeading
         let context = heading?.context.joined(separator: ", ") ?? ""
-        let landscape = viewModel.placeLandscape.map { "\($0.displayTerm) \($0.value)" }
+        let landscape = viewModel.placeLandscape.map(\.value)
         let subline = ([context, viewModel.placeBearing ?? ""] + landscape)
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
