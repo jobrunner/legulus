@@ -9,17 +9,22 @@ public enum CoordinateConverter {
 
     // MARK: Formatieren
 
-    public static func format(lat: Double, lon: Double, as format: CoordinateDisplayFormat) -> String? {
+    /// `locale` sets the decimal separator of the degree formats; the
+    /// default keeps the point (stable for tests and exports). UTM and
+    /// MGRS have no decimals.
+    public static func format(lat: Double, lon: Double, as format: CoordinateDisplayFormat,
+                              locale: Locale = Locale(identifier: "en_US_POSIX")) -> String?
+    {
         guard lat.isFinite, lon.isFinite, abs(lat) <= 90, abs(lon) <= 180 else { return nil }
         switch format {
-        case .decimalSign: return geographic(lat, lon, .decimal, direction: false)
-        case .decimalDirection: return geographic(lat, lon, .decimal, direction: true)
-        case .degreesSign: return geographic(lat, lon, .degrees, direction: false)
-        case .degreesDirection: return geographic(lat, lon, .degrees, direction: true)
-        case .degreesMinutesSign: return geographic(lat, lon, .minutes, direction: false)
-        case .degreesMinutesDirection: return geographic(lat, lon, .minutes, direction: true)
-        case .dmsSign: return geographic(lat, lon, .seconds, direction: false)
-        case .dmsDirection: return geographic(lat, lon, .seconds, direction: true)
+        case .decimalSign: return geographic(lat, lon, .decimal, direction: false, locale: locale)
+        case .decimalDirection: return geographic(lat, lon, .decimal, direction: true, locale: locale)
+        case .degreesSign: return geographic(lat, lon, .degrees, direction: false, locale: locale)
+        case .degreesDirection: return geographic(lat, lon, .degrees, direction: true, locale: locale)
+        case .degreesMinutesSign: return geographic(lat, lon, .minutes, direction: false, locale: locale)
+        case .degreesMinutesDirection: return geographic(lat, lon, .minutes, direction: true, locale: locale)
+        case .dmsSign: return geographic(lat, lon, .seconds, direction: false, locale: locale)
+        case .dmsDirection: return geographic(lat, lon, .seconds, direction: true, locale: locale)
         case .utm: return toUTMString(lat: lat, lon: lon)
         case .mgrs: return toMGRS(lat: lat, lon: lon, precision: 5)
         }
@@ -27,13 +32,17 @@ public enum CoordinateConverter {
 
     private enum Style { case decimal, degrees, minutes, seconds }
 
-    private static func geographic(_ lat: Double, _ lon: Double, _ style: Style, direction: Bool) -> String {
-        let la = component(lat, isLatitude: true, style, direction: direction)
-        let lo = component(lon, isLatitude: false, style, direction: direction)
+    private static func geographic(_ lat: Double, _ lon: Double, _ style: Style, direction: Bool,
+                                   locale: Locale) -> String
+    {
+        let la = component(lat, isLatitude: true, style, direction: direction, locale: locale)
+        let lo = component(lon, isLatitude: false, style, direction: direction, locale: locale)
         return la + " " + lo
     }
 
-    private static func component(_ value: Double, isLatitude: Bool, _ style: Style, direction: Bool) -> String {
+    private static func component(_ value: Double, isLatitude: Bool, _ style: Style, direction: Bool,
+                                  locale: Locale) -> String
+    {
         let negative = value < 0
         let a = abs(value)
         let hemi = isLatitude ? (negative ? "S" : "N") : (negative ? "W" : "E")
@@ -57,7 +66,10 @@ public enum CoordinateConverter {
             let sec = Double(tenths % 600) / 10
             body = String(format: "%0\(degWidth)d°%02d'%04.1f\"", deg, min, sec)
         }
-        return prefix + body
+        // Swap the separator afterwards: `String(format:locale:)` pads
+        // `%010.6f` with spaces instead of zeros.
+        let separator = locale.decimalSeparator ?? "."
+        return prefix + (separator == "." ? body : body.replacingOccurrences(of: ".", with: separator))
     }
 
     private static func toUTMString(lat: Double, lon: Double) -> String? {

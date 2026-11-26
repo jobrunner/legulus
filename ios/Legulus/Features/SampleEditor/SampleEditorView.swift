@@ -622,69 +622,71 @@ private struct SampleEditorContent: View {
     /// the field; the chips say „fixed, ready to copy“.
     private var locationRow: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: AppSpacing.sm) {
+            HStack(spacing: AppSpacing.md) {
                 coordinateChip
                 altitudeChip
             }
             VStack(alignment: .leading, spacing: AppSpacing.xs) {
                 coordinateChip
+                // Lines the mountain up with the pin inside the chip.
                 altitudeChip
+                    .padding(.leading, AppSpacing.sm)
             }
         }
     }
 
-    /// The coordinate with the horizontal accuracy after it. A tap
-    /// copies it (see `ClipboardText`). Without coordinate the chip
-    /// shows the GPS state instead (locating, denied, failed).
+    /// A map pin, the coordinate (grid systems with their name in
+    /// front: „MGRS 32U NA …“) and the horizontal accuracy. A tap copies
+    /// it (see `ClipboardText`). Without coordinate the chip shows the
+    /// GPS state instead (locating, denied, failed).
     @ViewBuilder
     private var coordinateChip: some View {
-        let symbol = GPSStatusIcon(status: locationIconStatus, font: AppFont.caption)
         if let display = coordinateDisplay, let clipboard = coordinateClipboardText {
             CopyableValueChip(
                 clipboardText: clipboard,
                 accessibilityLabel: coordinateA11yLabel(display),
                 announcement: "Koordinate kopiert"
             ) {
-                EmptyView()
+                Image(systemName: "mappin")
+                    .foregroundStyle(AppColor.brandPrimaryText)
+                    .accessibilityHidden(true)
             } content: {
-                withAccuracy(Text(display.text), viewModel.accuracyM)
+                withAccuracy(gridLabel + Text(display.text), viewModel.accuracyM)
             }
         } else {
+            // Nothing to copy yet: no chip, only the state.
             HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                symbol
+                GPSStatusIcon(status: locationIconStatus, font: AppFont.caption)
                 Text(coordinateText)
                     .foregroundStyle(AppColor.textSecondary)
             }
-            .valueChipStyle()
+            .font(AppFont.caption.monospacedDigit())
             .accessibilityElement(children: .combine)
         }
     }
 
-    @ViewBuilder
+    /// „MGRS “ in the secondary color, empty for degree formats.
+    private var gridLabel: Text {
+        guard let name = PlaceDisplay.gridSystemLabel(config.coordinateDisplayFormat) else { return Text(verbatim: "") }
+        return Text(verbatim: name + " ").foregroundStyle(AppColor.textSecondary)
+    }
+
+    /// Altitude with its accuracy, shown only (nobody pastes it), so no
+    /// chip: the tinted surface marks what can be tapped.
     private var altitudeChip: some View {
-        let symbol = Image(systemName: "mountain.2")
-            .foregroundStyle(AppColor.textSecondary)
-            .accessibilityHidden(true)
-        if let alt = viewModel.altitudeM {
-            CopyableValueChip(
-                clipboardText: ClipboardText.altitude(meters: alt),
-                accessibilityLabel: altitudeA11yLabel(alt),
-                announcement: "Höhe kopiert"
-            ) {
-                symbol
-            } content: {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+            Image(systemName: "mountain.2")
+                .foregroundStyle(AppColor.textSecondary)
+            if viewModel.altitudeM != nil {
                 withAccuracy(Text(altitudeText), viewModel.savedSample?.verticalAccuracy)
-            }
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                symbol
+            } else {
                 Text(altitudeText)
                     .foregroundStyle(AppColor.textSecondary)
             }
-            .valueChipStyle()
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Höhe unbekannt")
         }
+        .font(AppFont.caption.monospacedDigit())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(viewModel.altitudeM.map(altitudeA11yLabel) ?? "Höhe unbekannt")
     }
 
     /// „276 m ±3 m“ with the accuracy in the secondary color.
@@ -888,7 +890,7 @@ private struct SampleEditorContent: View {
             default: return "Suche Position …"
             }
         }
-        return coordinateDisplay?.text ?? String(format: "%.6f, %.6f", c.latitude, c.longitude)
+        return coordinateDisplay?.text ?? String(format: "%.6f %.6f", locale: .current, c.latitude, c.longitude)
     }
 
     /// The coordinate in the format chosen in the settings, with the

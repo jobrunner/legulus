@@ -176,21 +176,30 @@ enum PlaceDisplay {
         }
     }
 
-    /// Coordinate in the chosen display format plus the coordinate
-    /// system's name for the caption above („MGRS“, „UTM“,
-    /// „Geographische Koordinaten“). Falls back to signed decimal
-    /// degrees when the format can't express the point (e.g. UTM near
-    /// the poles).
-    static func coordinate(latitude: Double, longitude: Double,
-                           format: CoordinateDisplayFormat) -> (text: String, caption: String)
+    /// Coordinate in the chosen display format, decimals per `locale`
+    /// („+49,791234 +9,953456“), plus the coordinate system's name
+    /// („MGRS“, „UTM“, „Geographische Koordinaten“). Falls back to
+    /// signed decimal degrees when the format can't express the point
+    /// (e.g. UTM near the poles).
+    static func coordinate(latitude: Double, longitude: Double, format: CoordinateDisplayFormat,
+                           locale: Locale = .current) -> (text: String, caption: String)
     {
-        if let text = CoordinateConverter.format(lat: latitude, lon: longitude, as: format) {
+        if let text = CoordinateConverter.format(lat: latitude, lon: longitude, as: format, locale: locale) {
             return (text, format.systemName)
         }
         let fallback = CoordinateDisplayFormat.decimalSign
-        let text = CoordinateConverter.format(lat: latitude, lon: longitude, as: fallback)
-            ?? String(format: "%.6f, %.6f", latitude, longitude)
+        let text = CoordinateConverter.format(lat: latitude, lon: longitude, as: fallback, locale: locale)
+            ?? String(format: "%.6f %.6f", locale: locale, latitude, longitude)
         return (text, fallback.systemName)
+    }
+
+    /// The system name in front of a grid coordinate („MGRS“, „UTM“),
+    /// nil for degrees: those read as coordinates without a label.
+    static func gridSystemLabel(_ format: CoordinateDisplayFormat) -> String? {
+        switch format {
+        case .utm, .mgrs: format.systemName
+        default: nil
+        }
     }
 
     /// Name for list rows: the municipality, else the next higher

@@ -214,13 +214,21 @@ final class PlaceDisplayTests: XCTestCase {
     }
 
     func testCoordinate_FollowsDisplayFormat() {
-        let decimal = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .decimalSign)
-        XCTAssertEqual(decimal.text, "+49.681230 +10.031340")
+        let decimal = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .decimalSign,
+                                              locale: Locale(identifier: "de_DE"))
+        XCTAssertEqual(decimal.text, "+49,681230 +10,031340", "decimal comma, parts apart by a space")
         XCTAssertEqual(decimal.caption, "Geographische Koordinaten")
 
         let mgrs = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .mgrs)
         XCTAssertTrue(mgrs.text.hasPrefix("32U NA 744"), mgrs.text)
         XCTAssertEqual(mgrs.caption, "MGRS")
+    }
+
+    func testGridSystemLabel_OnlyForGridFormats() {
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.mgrs), "MGRS")
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.utm), "UTM")
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.decimalSign))
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.dmsDirection))
     }
 
     func testCountryName_German() {

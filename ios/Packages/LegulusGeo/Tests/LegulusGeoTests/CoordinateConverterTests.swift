@@ -35,6 +35,17 @@ final class CoordinateConverterTests: XCTestCase {
         XCTAssertEqual(f(ne, .dmsDirection), "N49°40'52.4\" E010°01'52.8\"")
     }
 
+    /// The display passes the device locale; German gets the decimal
+    /// comma, the parts stay apart by a space.
+    func testFormatsWithLocaleDecimalSeparator() {
+        let de = Locale(identifier: "de_DE")
+        let g = { CoordinateConverter.format(lat: self.ne.0, lon: self.ne.1, as: $0, locale: de) }
+        XCTAssertEqual(g(.decimalSign), "+49,681230 +10,031340")
+        XCTAssertEqual(g(.degreesMinutesDirection), "N49°40,87' E010°01,88'")
+        XCTAssertEqual(g(.dmsSign), "+49°40'52,4\" +010°01'52,8\"")
+        XCTAssertEqual(g(.mgrs), CoordinateConverter.format(lat: ne.0, lon: ne.1, as: .mgrs))
+    }
+
     func testFormatsSouthWest() {
         XCTAssertEqual(f(sw, .decimalSign), "-33.856784 -70.512345")
         XCTAssertEqual(f(sw, .decimalDirection), "S33.856784 W70.512345")

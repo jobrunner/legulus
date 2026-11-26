@@ -223,7 +223,8 @@ struct SettingsScreen: View {
     }
 
     private var coordinateFormatExample: String {
-        CoordinateConverter.format(lat: 49.681230, lon: 10.031340, as: config.coordinateDisplayFormat) ?? "–"
+        CoordinateConverter.format(lat: 49.681230, lon: 10.031340, as: config.coordinateDisplayFormat,
+                                   locale: .current) ?? "–"
     }
 
     private var currentTemplate: SampleIDTemplate {

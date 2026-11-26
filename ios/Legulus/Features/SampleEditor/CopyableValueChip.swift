@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Ein Messwert als kleiner Chip, der sich per Tap in die
-/// Zwischenablage kopieren lässt (Koordinate und Höhe in der
+/// Zwischenablage kopieren lässt (die Koordinate in der
 /// Sample-Ansicht). Gelesen wird der Wert selten; der Chip zeigt vor
 /// allem, dass er feststeht und dass man damit arbeiten kann. Nach dem
 /// Tap wird das Kopier-Symbol kurz zum Haken, VoiceOver bekommt eine
@@ -32,7 +32,7 @@ struct CopyableValueChip<Leading: View, Content: View>: View {
                 content()
                 copySymbol
             }
-            .valueChipStyle()
+            .modifier(ValueChipStyle())
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.success, trigger: copyCount)
@@ -102,14 +102,6 @@ private struct ValueChipStyle: ViewModifier {
     }
 }
 
-extension View {
-    /// Siehe `CopyableValueChip`; auch für einen Chip ohne Wert
-    /// („Suche Position …“), damit die Zeile gleich aussieht.
-    func valueChipStyle() -> some View {
-        modifier(ValueChipStyle())
-    }
-}
-
 #Preview("Default") {
     CopyableValueChipPreview()
 }
@@ -132,21 +124,23 @@ private struct CopyableValueChipPreview: View {
                 accessibilityLabel: "Koordinate 32U NA 69380 14686, MGRS",
                 announcement: "Koordinate kopiert"
             ) {
-                Image(systemName: "location.fill")
+                Image(systemName: "mappin")
                     .foregroundStyle(AppColor.brandPrimaryText)
             } content: {
-                Text(verbatim: "32U NA 69380 14686")
+                Text(verbatim: "MGRS ").foregroundStyle(AppColor.textSecondary)
+                    + Text(verbatim: "32U NA 69380 14686")
                     + Text(verbatim: " ±5 m").foregroundStyle(AppColor.textSecondary)
             }
             CopyableValueChip(
-                clipboardText: "276m",
-                accessibilityLabel: "Höhe 276 Meter",
-                announcement: "Höhe kopiert"
+                clipboardText: "49.791234,9.953456",
+                accessibilityLabel: "Koordinate 49,791234 9,953456",
+                announcement: "Koordinate kopiert"
             ) {
-                Image(systemName: "mountain.2")
-                    .foregroundStyle(AppColor.textSecondary)
+                Image(systemName: "mappin")
+                    .foregroundStyle(AppColor.brandPrimaryText)
             } content: {
-                Text(verbatim: "276 m")
+                Text(verbatim: "+49,791234 +9,953456")
+                    + Text(verbatim: " ±5 m").foregroundStyle(AppColor.textSecondary)
             }
         }
         .padding()
