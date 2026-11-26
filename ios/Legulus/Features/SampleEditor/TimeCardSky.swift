@@ -28,9 +28,13 @@ struct TimeCardSky: Equatable {
                              zone: zone, nightCentered: nightCentered)
         guard !band.segments.isEmpty else { return nil }
         self.band = band
-        markers = SkyMarkers(sunIsUp: display.sunIsUp, moonIsUp: display.moonIsUp,
-                             moonIllumination: display.moonIllumination, moonWaxing: display.moonWaxing)
-        facts = [display.sunFact, display.moonFact].compactMap { $0 }
+        // By day the moon is left out, at night the sun; twilight
+        // shows both.
+        markers = SkyMarkers(sunIsUp: display.sunIsUp && display.showsSun,
+                             moonIsUp: display.moonIsUp && display.showsMoon,
+                             showsMoon: display.showsMoon)
+        facts = [display.showsSun ? display.sunFact : nil, display.showsMoon ? display.moonFact : nil]
+            .compactMap { $0 }
 
         // Sunrise and sunset are the edges of the day stretches inside
         // the band.

@@ -1,15 +1,13 @@
 import SwiftUI
 
 /// Sun and moon of a sample for the light band: what is above the
-/// horizon at the sample's begin and how the moon looks.
+/// horizon at the sample's begin, and whether the moon belongs to the
+/// picture at all (not by day).
 struct SkyMarkers: Equatable {
     var sunIsUp = false
     var moonIsUp = false
-    /// Lit part of the moon in percent; nil hides its shape.
-    var moonIllumination: Double?
-    /// The lit side: right while waxing, left while waning (northern
-    /// view); nil for full and new moon.
-    var moonWaxing: Bool?
+    /// Draws the line of the moon's hours above the band.
+    var showsMoon = true
 }
 
 /// The 24-hour light band (variant T2): night, twilights and day as
@@ -43,7 +41,9 @@ struct LightBandView: View {
             GeometryReader { geo in
                 let w = geo.size.width
                 ZStack(alignment: .topLeading) {
-                    moonLine(width: w)
+                    if markers.showsMoon {
+                        moonLine(width: w)
+                    }
                     // Leading: the stack is only as wide as its widest
                     // stretch, the offsets count from the band's start.
                     stretches(width: w)
@@ -115,7 +115,7 @@ struct LightBandView: View {
                     SunGlyph().frame(width: glyph, height: glyph)
                 }
                 if markers.moonIsUp {
-                    MoonGlyph(illumination: markers.moonIllumination ?? 100, waxing: markers.moonWaxing)
+                    MoonGlyph()
                         .frame(width: glyph, height: glyph)
                 }
             }
@@ -208,32 +208,14 @@ struct SunGlyph: View {
     }
 }
 
-/// The moon as it looks: the lit part (`illumination` percent) on the
-/// right while waxing, on the left while waning.
+/// The moon as a stylised crescent. Its phase is in the line under the
+/// band („· 78 %“); a phase disk on the moon line looked like a slider.
 struct MoonGlyph: View {
-    let illumination: Double
-    let waxing: Bool?
-
     var body: some View {
-        Canvas { context, size in
-            let r = min(size.width, size.height) / 2
-            let centre = CGPoint(x: size.width / 2, y: size.height / 2)
-            let disk = CGRect(x: centre.x - r, y: centre.y - r, width: 2 * r, height: 2 * r)
-            let k = min(max(illumination / 100, 0), 1)
-            context.fill(Path(ellipseIn: disk), with: .color(AppColor.skyMoonDark))
-            // Lit half on the lit side, then the terminator ellipse adds
-            // (gibbous) or takes away (crescent).
-            let litRight = waxing ?? true
-            var half = Path()
-            half.addArc(center: centre, radius: r, startAngle: .degrees(-90), endAngle: .degrees(90),
-                        clockwise: !litRight)
-            half.closeSubpath()
-            context.fill(half, with: .color(AppColor.skyMoonLit))
-            let rx = abs(2 * k - 1) * r
-            let terminator = Path(ellipseIn: CGRect(x: centre.x - rx, y: centre.y - r, width: 2 * rx, height: 2 * r))
-            context.fill(terminator, with: .color(k > 0.5 ? AppColor.skyMoonLit : AppColor.skyMoonDark))
-            context.stroke(Path(ellipseIn: disk), with: .color(AppColor.skyMoonDark), lineWidth: 0.75)
-        }
-        .accessibilityHidden(true)
+        Image(systemName: "moon.fill")
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(AppColor.skyMoonCrescent)
+            .accessibilityHidden(true)
     }
 }

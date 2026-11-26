@@ -187,7 +187,8 @@
                 .init(name: "skyNight", color: AppColor.skyNight),
                 .init(name: "skySun", color: AppColor.skySun),
                 .init(name: "skyMoonLit", color: AppColor.skyMoonLit),
-                .init(name: "skyMoonDark", color: AppColor.skyMoonDark)
+                .init(name: "skyMoonDark", color: AppColor.skyMoonDark),
+                .init(name: "skyMoonCrescent", color: AppColor.skyMoonCrescent)
             ]
         }
     }

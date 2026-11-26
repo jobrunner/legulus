@@ -34,8 +34,9 @@ final class TimeCardSkyTests: XCTestCase {
         XCTAssertFalse(sky.band.nightCentered)
         XCTAssertEqual(sky.sunrise?.text, "↑ 07:43")
         XCTAssertEqual(sky.sunset?.text, "↓ 16:29")
-        XCTAssertEqual(sky.facts, ["Sonne 18° hoch, S", "Mond unter dem Horizont · Aufgang 13:20"])
+        XCTAssertEqual(sky.facts, ["Sonne 18° hoch, S"], "by day the moon is left out")
         XCTAssertTrue(sky.markers.sunIsUp)
+        XCTAssertFalse(sky.markers.showsMoon)
         XCTAssertEqual(sky.accessibilityText, "Probe am Tag, Sonnenaufgang 07:43, Sonnenuntergang 16:29")
     }
 
@@ -46,6 +47,17 @@ final class TimeCardSkyTests: XCTestCase {
         XCTAssertTrue(sky.band.nightCentered)
         XCTAssertLessThan(sky.sunset?.at ?? 1, sky.sunrise?.at ?? 0)
         XCTAssertEqual(sky.accessibilityText, "Probe in der Nacht, Sonnenaufgang 07:43, Sonnenuntergang 16:29")
+        XCTAssertEqual(sky.facts, ["Mond unter dem Horizont · Aufgang 13:20"], "at night the sun is left out")
+        XCTAssertFalse(sky.markers.sunIsUp)
+        XCTAssertTrue(sky.markers.showsMoon)
+    }
+
+    /// Twilight shows both.
+    func testTwilight_SunAndMoon() throws {
+        let sky = try XCTUnwrap(TimeCardSky(display: display(phase: .twilight), begin: t("16:50"), end: t("17:20"),
+                                            isAllDay: false, zone: zone, locale: german))
+        XCTAssertEqual(sky.facts, ["Sonne 18° hoch, S", "Mond unter dem Horizont · Aufgang 13:20"])
+        XCTAssertTrue(sky.markers.showsMoon)
     }
 
     /// Without values or without sun times there is no band.

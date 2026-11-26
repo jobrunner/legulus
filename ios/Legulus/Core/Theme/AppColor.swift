@@ -166,4 +166,11 @@ enum AppColor {
     /// The moon's lit and dark part.
     static let skyMoonLit = Color(red: 0.93, green: 0.92, blue: 0.89)
     static let skyMoonDark = Color(red: 0.29, green: 0.31, blue: 0.38)
+    /// The moon marker above the band: dark grey on the light card,
+    /// light grey on the dark one (it sits on the card, not on the sky).
+    static let skyMoonCrescent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.72, green: 0.74, blue: 0.79, alpha: 1)
+            : UIColor(red: 0.29, green: 0.31, blue: 0.38, alpha: 1)
+    })
 }
