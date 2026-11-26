@@ -137,29 +137,80 @@ final class PlaceDisplayTests: XCTestCase {
         XCTAssertNil(PlaceDisplay.gazetteerLine(Place(countryISO: "")))
     }
 
-    func testTerrainItems_AspectAndSlope_OnlyPresent() {
-        let items = PlaceDisplay.terrainItems(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 8.4, terrainFlat: false)
-        XCTAssertEqual(items.map(\.label), ["Exposition", "Hangneigung"])
-        XCTAssertEqual(items.map(\.value), ["SSW (203°)", "8°"])
+    // MARK: - „Ort“ card
 
-        XCTAssertEqual(PlaceDisplay.terrainItems(aspectCompass: "N", aspectDeg: nil, slopeDeg: nil, terrainFlat: false),
-                       [PlaceDisplay.DetailLine(label: "Exposition", value: "N")])
-        XCTAssertTrue(PlaceDisplay.terrainItems(aspectCompass: " ", aspectDeg: nil, slopeDeg: nil, terrainFlat: false).isEmpty)
+    func testHeading_MunicipalityOverTwoBroaderLevels_CountryOnlyAbroad() {
+        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture, homeRegion: "DE"),
+                       PlaceDisplay.Heading(title: "Ochsenfurt", context: ["Landkreis Würzburg", "Unterfranken"]))
+        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture, homeRegion: "AT")?.context,
+                       ["Landkreis Würzburg", "Unterfranken", "Deutschland"])
     }
 
-    func testTerrainItems_FlatTerrainShowsEbenInsteadOfAspectAndSlope() {
-        XCTAssertEqual(PlaceDisplay.terrainItems(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 0.4, terrainFlat: true),
-                       [PlaceDisplay.DetailLine(label: nil, value: "eben")])
+    /// A district-free town is municipality and county at once; the
+    /// duplicate is skipped.
+    func testHeading_SkipsLevelsNamedLikeTheTitle() {
+        let wuerzburg = Place(countryISO: "DE", admin: [
+            .country: AdminValue(name: "Deutschland", level: 2),
+            .state: AdminValue(name: "Bayern", level: 4),
+            .region: AdminValue(name: "Unterfranken", level: 5),
+            .county: AdminValue(name: "Würzburg", level: 6),
+            .municipality: AdminValue(name: "Würzburg", level: 8),
+            .submunicipality: AdminValue(name: "Heidingsfeld", level: 10)
+        ])
+        XCTAssertEqual(PlaceDisplay.heading(wuerzburg, homeRegion: "DE"),
+                       PlaceDisplay.Heading(title: "Würzburg", context: ["Unterfranken", "Bayern"]))
     }
 
-    func testBearing_OnlyWhenItAddsInformation() {
-        XCTAssertEqual(PlaceDisplay.meaningfulBearing("2 km WNW Ochsenfurt", distanceKm: 2.3, inside: false),
+    func testHeading_NilWithoutData() {
+        XCTAssertNil(PlaceDisplay.heading(nil))
+        XCTAssertNil(PlaceDisplay.heading(Place(countryISO: "DE")))
+    }
+
+    func testBearing_LeftOutWhenTheHeadingSaysIt() {
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("2 km WNW Ochsenfurt", reference: "Ochsenfurt", distanceKm: 2.3,
+                                                      inside: false, placeName: "Frickenhausen"),
                        "2 km WNW Ochsenfurt")
-        XCTAssertEqual(PlaceDisplay.meaningfulBearing("Ochsenfurt", distanceKm: nil, inside: false), "Ochsenfurt")
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Ochsenfurt", distanceKm: 0, inside: true))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Ochsenfurt", distanceKm: nil, inside: false))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("0 km N Ochsenfurt", distanceKm: 0.3, inside: false))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing(" ", distanceKm: nil, inside: false))
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 1.6,
+                                                    inside: true, placeName: "Würzburg"))
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: nil, distanceKm: nil,
+                                                    inside: false, placeName: "wurzburg"))
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("in Heidingsfeld", reference: "Heidingsfeld", distanceKm: 0.4,
+                                                      inside: true, placeName: "Würzburg"),
+                       "in Heidingsfeld")
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 0,
+                                                      inside: true, placeName: nil),
+                       "in Würzburg", "without a heading the bearing is all there is")
+    }
+
+    func testBearing_NeverZeroKilometresOrBlank() {
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("0 km N Ochsenfurt", reference: "Ochsenfurt", distanceKm: 0.3,
+                                                    inside: false, placeName: "Ochsenfurt"))
+        XCTAssertNil(PlaceDisplay.meaningfulBearing(" ", reference: nil, distanceKm: nil, inside: false, placeName: nil))
+    }
+
+    private let german = Locale(identifier: "de_DE")
+
+    func testExposure_WordedLikeOrtus() {
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "SW", aspectDeg: 233.6, slopeDeg: 6.54,
+                                             terrainFlat: false, locale: german),
+                       "SW (234°)-Exposition, 6,5° Neigung")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "N", aspectDeg: nil, slopeDeg: nil,
+                                             terrainFlat: false, locale: german),
+                       "N-Exposition")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: " ", aspectDeg: nil, slopeDeg: 3,
+                                             terrainFlat: false, locale: german),
+                       "3,0° Neigung")
+        XCTAssertNil(PlaceDisplay.exposure(aspectCompass: nil, aspectDeg: nil, slopeDeg: nil,
+                                           terrainFlat: false, locale: german))
+    }
+
+    func testExposure_FlatTerrainShowsEbenWithSlope() {
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 0.44,
+                                             terrainFlat: true, locale: german),
+                       "eben (Neigung 0,4°)")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: nil, aspectDeg: nil, slopeDeg: nil,
+                                             terrainFlat: true, locale: german),
+                       "eben")
     }
 
     func testCoordinate_FollowsDisplayFormat() {

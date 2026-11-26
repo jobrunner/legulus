@@ -572,19 +572,19 @@ final class SampleEditorViewModel: ObservableObject {
 
     // MARK: - place data (Phase O2, Task 17)
 
-    /// „Deutschland, Bayern, Unterfranken, …“ of the current placemark.
-    var gazetteerLine: String? {
-        PlaceDisplay.gazetteerLine(currentPlacemark?.place)
+    /// „Würzburg“ over „Unterfranken, Bayern“ of the current placemark.
+    var placeHeading: PlaceDisplay.Heading? {
+        PlaceDisplay.heading(currentPlacemark?.place)
     }
 
-    /// „2 km WNW Ochsenfurt“, nil inside the reference place.
+    /// „2 km WNW Ochsenfurt“, nil when the heading already says it.
     var placeBearing: String? {
-        savedSample.flatMap(PlaceDisplay.bearing)
+        savedSample.flatMap { PlaceDisplay.bearing($0, placeName: placeHeading?.title) }
     }
 
-    /// Aspect and slope (or „eben“) of the saved sample.
-    var placeTerrainItems: [PlaceDisplay.DetailLine] {
-        savedSample.map(PlaceDisplay.terrainItems) ?? []
+    /// „SW (234°)-Exposition, 6,5° Neigung“ of the saved sample.
+    var placeExposure: String? {
+        savedSample.flatMap(PlaceDisplay.exposure)
     }
 
     /// „MTB 6326/1 Ochsenfurt“ (DE only), nil otherwise.

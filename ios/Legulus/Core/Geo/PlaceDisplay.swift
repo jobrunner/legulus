@@ -86,58 +86,94 @@ enum PlaceDisplay {
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
-    /// One terrain item of the sample view: „Exposition“,
-    /// „Hangneigung“, or a label-less „eben“.
-    struct DetailLine: Identifiable, Equatable {
-        let label: String?
-        let value: String
-        var id: String {
-            label ?? value
-        }
+    /// Heading of the „Ort“ card: the name (see `shortName`) and up to
+    /// two broader admin levels, narrow to broad („Unterfranken,
+    /// Bayern“). The country follows only when it isn't `homeRegion`.
+    struct Heading: Equatable {
+        let title: String
+        let context: [String]
     }
 
-    /// The bearing line of a sample, nil when it adds nothing.
-    static func bearing(_ sample: LocalSample) -> String? {
-        meaningfulBearing(sample.bearingLabel, distanceKm: sample.bearingDistanceKm, inside: sample.bearingInside)
-    }
-
-    /// Aspect and slope of a sample, only the present ones. Flat
-    /// terrain shows „eben“ instead of aspect and slope.
-    static func terrainItems(_ sample: LocalSample) -> [DetailLine] {
-        terrainItems(aspectCompass: sample.aspectCompass, aspectDeg: sample.aspectDeg,
-                     slopeDeg: sample.slopeDeg, terrainFlat: sample.terrainFlat)
-    }
-
-    static func terrainItems(aspectCompass: String?, aspectDeg: Double?,
-                             slopeDeg: Double?, terrainFlat: Bool) -> [DetailLine]
+    static func heading(_ place: Place?, homeRegion: String? = Locale.current.region?.identifier,
+                        table: AdminLabelTable = .shared) -> Heading?
     {
-        if terrainFlat {
-            return [DetailLine(label: nil, value: "eben")]
+        guard let place, let title = shortName(place) else { return nil }
+        let tiers = AdminTier.allCases
+        let titleIndex = tiers.firstIndex { tier in
+            place.admin[tier].map(displayValue) == title
+        } ?? tiers.count
+        var context = tiers[..<titleIndex].reversed()
+            .filter { $0 != .country }
+            .compactMap { place.admin[$0].map(displayValue) }
+            .filter { !$0.isEmpty && $0 != title }
+            .prefix(2)
+            .map { $0 }
+        if !place.countryISO.isEmpty, place.countryISO != homeRegion {
+            let country = countryName(place.countryISO, table: table)
+            if country != title { context.append(country) }
         }
-        var lines: [DetailLine] = []
-        let compass = aspectCompass?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let degrees = aspectDeg.map { "\(Int($0.rounded()))°" }
-        switch (compass.isEmpty ? nil : compass, degrees) {
-        case let (compass?, degrees?): lines.append(DetailLine(label: "Exposition", value: "\(compass) (\(degrees))"))
-        case let (compass?, nil): lines.append(DetailLine(label: "Exposition", value: compass))
-        case let (nil, degrees?): lines.append(DetailLine(label: "Exposition", value: degrees))
-        case (nil, nil): break
-        }
-        if let slope = slopeDeg {
-            lines.append(DetailLine(label: "Hangneigung", value: "\(Int(slope.rounded()))°"))
-        }
-        return lines
+        return Heading(title: title, context: context)
     }
 
-    /// The bearing only when it says more than the gazetteer line: not
-    /// inside the reference place („in Ochsenfurt“) and at least half a
-    /// kilometre away, so the label never reads „0 km …“.
-    static func meaningfulBearing(_ label: String?, distanceKm: Double?, inside: Bool) -> String? {
-        guard !inside, let text = label?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !text.isEmpty, !text.lowercased().hasPrefix("in ")
-        else { return nil }
+    /// The bearing line of a sample, nil when it adds nothing to
+    /// `placeName` (the heading of the card).
+    static func bearing(_ sample: LocalSample, placeName: String?) -> String? {
+        meaningfulBearing(sample.bearingLabel, reference: sample.bearingReference,
+                          distanceKm: sample.bearingDistanceKm, inside: sample.bearingInside,
+                          placeName: placeName)
+    }
+
+    /// The bearing only when it says more than the heading: „in
+    /// Würzburg“ under the heading „Würzburg“ is left out, „in
+    /// Heidingsfeld“ stays. Outside the reference place it needs at
+    /// least half a kilometre, so the label never reads „0 km …“.
+    static func meaningfulBearing(_ label: String?, reference: String?, distanceKm: Double?,
+                                  inside: Bool, placeName: String?) -> String?
+    {
+        guard let text = label?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        if inside || text.lowercased().hasPrefix("in ") {
+            guard let placeName else { return text }
+            let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+            let ref = reference?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let sameAsHeading = ref.isEmpty
+                ? text.compare("in \(placeName)", options: options) == .orderedSame
+                : ref.compare(placeName, options: options) == .orderedSame
+            return sameAsHeading ? nil : text
+        }
         if let distanceKm, distanceKm < 0.5 { return nil }
         return text
+    }
+
+    /// Aspect and slope of a sample as Ortus words them: „SW (234°)-
+    /// Exposition, 6,5° Neigung“, „eben (Neigung 0,4°)“. nil without
+    /// terrain data.
+    static func exposure(_ sample: LocalSample) -> String? {
+        exposure(aspectCompass: sample.aspectCompass, aspectDeg: sample.aspectDeg,
+                 slopeDeg: sample.slopeDeg, terrainFlat: sample.terrainFlat)
+    }
+
+    static func exposure(aspectCompass: String?, aspectDeg: Double?, slopeDeg: Double?,
+                         terrainFlat: Bool, locale: Locale = .current) -> String?
+    {
+        let slope = slopeDeg.map { $0.formatted(.number.precision(.fractionLength(1)).locale(locale)) }
+        if terrainFlat {
+            guard let slope else { return String(localized: "eben", locale: locale) }
+            return String(localized: "eben (Neigung \(slope)°)", locale: locale)
+        }
+        let compass = aspectCompass?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let degrees = aspectDeg.map { "\(Int($0.rounded()))°" }
+        let direction: String? = switch (compass.isEmpty ? nil : compass, degrees) {
+        case let (compass?, degrees?): "\(compass) (\(degrees))"
+        case let (compass?, nil): compass
+        case let (nil, degrees?): degrees
+        case (nil, nil): nil
+        }
+        switch (direction, slope) {
+        case let (direction?, slope?): return String(localized: "\(direction)-Exposition, \(slope)° Neigung", locale: locale)
+        case let (direction?, nil): return String(localized: "\(direction)-Exposition", locale: locale)
+        case let (nil, slope?): return String(localized: "\(slope)° Neigung", locale: locale)
+        case (nil, nil): return nil
+        }
     }
 
     /// Coordinate in the chosen display format plus the coordinate

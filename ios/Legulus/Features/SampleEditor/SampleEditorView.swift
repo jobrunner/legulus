@@ -438,6 +438,9 @@ private struct SampleEditorContent: View {
     private var placeCard: some View {
         VStack(alignment: .leading, spacing: AppSpacing.xs) {
             SectionHeader(title: "Ort")
+            if viewModel.isExistingSample {
+                placeHeading
+            }
             locationRow
             if viewModel.isExistingSample {
                 // The leading inset aligns the divider with the right
@@ -593,6 +596,33 @@ private struct SampleEditorContent: View {
 
     // MARK: - place and time
 
+    /// „Würzburg“, below it the broader units and the bearing:
+    /// „Unterfranken, Bayern · 2,3 km SW Randersacker“. The full
+    /// hierarchy stays in the form under „Bearbeiten“.
+    @ViewBuilder
+    private var placeHeading: some View {
+        let heading = viewModel.placeHeading
+        let context = heading?.context.joined(separator: ", ") ?? ""
+        let subline = [context, viewModel.placeBearing ?? ""]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        if heading != nil || !subline.isEmpty {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                if let heading {
+                    Text(heading.title)
+                        .font(AppFont.headline)
+                }
+                if !subline.isEmpty {
+                    Text(subline)
+                        .font(AppFont.subhead)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
     private var locationRow: some View {
         HStack(alignment: .top, spacing: AppSpacing.sm) {
             GPSStatusIcon(status: locationIconStatus)
@@ -684,8 +714,8 @@ private struct SampleEditorContent: View {
         }
     }
 
-    /// Place data of a saved sample: status hints, the gazetteer line,
-    /// bearing/aspect/slope, MTB, and the actions that
+    /// Place data of a saved sample: status hints, exposure, MTB and
+    /// altitudinal belt, and the actions that
     /// stay here (accept/dismiss a suggestion, resend a failed push).
     /// Editing goes through „Bearbeiten“.
     private var placeSection: some View {
@@ -721,7 +751,7 @@ private struct SampleEditorContent: View {
                       systemImage: "mappin.slash")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            } else if viewModel.gazetteerLine == nil {
+            } else if viewModel.placeHeading == nil {
                 switch sample.locationStatus {
                 case .pending:
                     Label("Ortsangaben werden ermittelt – spätestens nach dem nächsten Sync.",
@@ -811,41 +841,30 @@ private struct SampleEditorContent: View {
         .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppRadius.md))
     }
 
-    /// Gazetteer line, bearing, MTB, then aspect and slope on one line,
-    /// then the altitudinal belt.
+    /// Aspect and slope as one line, then MTB and altitudinal belt.
     @ViewBuilder
     private var placeSummary: some View {
-        if let line = viewModel.gazetteerLine {
-            Text(line)
-                .font(.body)
+        if let exposure = viewModel.placeExposure {
+            Text(exposure)
+                .font(AppFont.subhead)
         }
-        if let bearing = viewModel.placeBearing {
-            Text(bearing)
-                .font(.footnote)
+        let details = placeDetails
+        if !details.isEmpty {
+            ValuePairGrid(details)
         }
+    }
+
+    private var placeDetails: [LabeledValue] {
+        var items: [LabeledValue] = []
         if let mtb = viewModel.mtbValue {
-            terrainText(PlaceDisplay.DetailLine(label: "MTB", value: mtb))
-                .font(.footnote)
-        }
-        let terrain = viewModel.placeTerrainItems
-        if !terrain.isEmpty {
-            // „Exposition: SSW (203°)   Hangneigung: 8°“ side by side;
-            // one item per line when that doesn't fit (AX sizes).
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.lg) {
-                    ForEach(terrain) { terrainText($0) }
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    ForEach(terrain) { terrainText($0) }
-                }
-            }
-            .font(.footnote)
-            .accessibilityElement(children: .combine)
+            let spoken = String(localized: "Messtischblatt \(mtb)")
+            items.append(LabeledValue(id: "mtb", label: String(localized: "MTB"), value: mtb, spoken: spoken))
         }
         if let belt = altitudinalBelt {
-            terrainText(PlaceDisplay.DetailLine(label: "Höhenstufe", value: belt))
-                .font(.footnote)
+            let label = String(localized: "Höhenstufe")
+            items.append(LabeledValue(id: "belt", label: label, value: belt, spoken: "\(label) \(belt)"))
         }
+        return items
     }
 
     /// From the conditions; only while they fit the sample.
@@ -860,12 +879,6 @@ private struct SampleEditorContent: View {
         guard viewModel.isExistingSample, let display = viewModel.conditionsDisplay else { return nil }
         return TimeCardSky(display: display, begin: viewModel.beginDate, end: viewModel.endDate,
                            isAllDay: viewModel.isAllDay, zone: viewModel.timeZone)
-    }
-
-    /// „Exposition: SSW (203°)“ with a secondary label, or a bare „eben“.
-    private func terrainText(_ item: PlaceDisplay.DetailLine) -> Text {
-        guard let label = item.label else { return Text(item.value) }
-        return Text("\(label):").foregroundStyle(.secondary) + Text(" " + item.value)
     }
 
     // MARK: - derived view state

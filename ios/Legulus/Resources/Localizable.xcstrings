@@ -4,6 +4,94 @@
     "" : {
 
     },
+    "%@-Exposition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-Exposition"
+          }
+        }
+      }
+    },
+    "%@-Exposition, %@° Neigung" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@-Exposition, %2$@° Neigung"
+          }
+        }
+      }
+    },
+    "%@° Neigung" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@° Neigung"
+          }
+        }
+      }
+    },
+    "eben" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben"
+          }
+        }
+      }
+    },
+    "eben (Neigung %@°)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben (Neigung %@°)"
+          }
+        }
+      }
+    },
+    "Höhenstufe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Höhenstufe"
+          }
+        }
+      }
+    },
+    "Messtischblatt %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messtischblatt %@"
+          }
+        }
+      }
+    },
+    "MTB" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTB"
+          }
+        }
+      }
+    },
     "– (leer lassen)" : {
       "extractionState" : "manual",
       "localizations" : {
