@@ -4,90 +4,24 @@
     "" : {
 
     },
-    "%@-Exposition" : {
+    "Koordinate eingeben" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@-Exposition"
+            "value" : "Koordinate eingeben"
           }
         }
       }
     },
-    "%@-Exposition, %@° Neigung" : {
+    "Ortsangaben eingeben" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@-Exposition, %2$@° Neigung"
-          }
-        }
-      }
-    },
-    "%@° Neigung" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@° Neigung"
-          }
-        }
-      }
-    },
-    "eben" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "eben"
-          }
-        }
-      }
-    },
-    "eben (Neigung %@°)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "eben (Neigung %@°)"
-          }
-        }
-      }
-    },
-    "Höhenstufe" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Höhenstufe"
-          }
-        }
-      }
-    },
-    "Messtischblatt %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Messtischblatt %@"
-          }
-        }
-      }
-    },
-    "MTB" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MTB"
+            "value" : "Ortsangaben eingeben"
           }
         }
       }
@@ -132,6 +66,28 @@
     "%@ Prozent beleuchtet" : {
 
     },
+    "%@-Exposition" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@-Exposition"
+          }
+        }
+      }
+    },
+    "%@-Exposition, %@° Neigung" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@-Exposition, %2$@° Neigung"
+          }
+        }
+      }
+    },
     "%@-fach" : {
 
     },
@@ -151,6 +107,17 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@° Neigung" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@° Neigung"
           }
         }
       }
@@ -642,6 +609,28 @@
     "E-Mail (optional)" : {
 
     },
+    "eben" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben"
+          }
+        }
+      }
+    },
+    "eben (Neigung %@°)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben (Neigung %@°)"
+          }
+        }
+      }
+    },
     "Eigenschaften" : {
 
     },
@@ -855,9 +844,6 @@
     "Ganztägig: gespeichert wird nur das Datum, ohne Uhrzeit und Ende." : {
 
     },
-    "Genauigkeit" : {
-
-    },
     "Genehmigung" : {
 
     },
@@ -921,8 +907,16 @@
     "Höhe oder Genauigkeit enthält einen ungültigen Wert." : {
 
     },
-    "Höhe unbekannt" : {
-
+    "Höhenstufe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Höhenstufe"
+          }
+        }
+      }
     },
     "https://tabularius.legulus.app" : {
 
@@ -1041,9 +1035,6 @@
 
     },
     "Koordinatensystem" : {
-
-    },
-    "Kopiert" : {
 
     },
     "Kopiert in die Zwischenablage" : {
@@ -1215,6 +1206,17 @@
         }
       }
     },
+    "Messtischblatt %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messtischblatt %@"
+          }
+        }
+      }
+    },
     "Mit + einen Fundort anlegen — typisch beim Auswerten zuhause, nicht im Feld." : {
 
     },
@@ -1272,6 +1274,17 @@
     },
     "Mond: %@ Prozent beleuchtet" : {
 
+    },
+    "MTB" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTB"
+          }
+        }
+      }
     },
     "Nach der Registrierung schickt das Backend eine Verifikations-E-Mail. Du kannst die App in der Zwischenzeit voll nutzen." : {
 

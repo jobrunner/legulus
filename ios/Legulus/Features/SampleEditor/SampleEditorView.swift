@@ -434,9 +434,12 @@ private struct SampleEditorContent: View {
 
     private var placeCard: some View {
         VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            SectionHeader(title: "Ort")
-            if viewModel.isExistingSample {
+            // The place name heads the card once there is one; until then
+            // the generic title does.
+            if viewModel.isExistingSample, viewModel.placeHeading != nil {
                 placeHeading
+            } else {
+                SectionHeader(title: "Ort")
             }
             locationRow
             if viewModel.isExistingSample {
@@ -605,6 +608,7 @@ private struct SampleEditorContent: View {
                 if let heading {
                     Text(heading.title)
                         .font(AppFont.headline)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 if !subline.isEmpty {
                     Text(subline)
@@ -692,7 +696,7 @@ private struct SampleEditorContent: View {
     /// „276 m ±3 m“ with the accuracy in the secondary color.
     private func withAccuracy(_ value: Text, _ accuracy: Double?) -> Text {
         guard let accuracy else { return value }
-        return value + Text(String(format: " ±%.0f m", accuracy)).foregroundStyle(AppColor.textSecondary)
+        return value + Text(String(format: " ±%.0fm", accuracy)).foregroundStyle(AppColor.textSecondary)
     }
 
     /// Place data of a saved sample: status hints, exposure, MTB and
@@ -727,6 +731,7 @@ private struct SampleEditorContent: View {
                       systemImage: "mappin.slash")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                enterPlaceButton("Koordinate eingeben")
             } else if viewModel.placeHeading == nil {
                 switch sample.locationStatus {
                 case .pending:
@@ -739,6 +744,7 @@ private struct SampleEditorContent: View {
                           systemImage: "water.waves")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    enterPlaceButton("Ortsangaben eingeben")
                 case .inherited, .manual:
                     EmptyView()
                 }
@@ -753,6 +759,17 @@ private struct SampleEditorContent: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Opens the edit form where coordinate and place data are set by
+    /// hand; `.large` reaches the 44 pt tap target.
+    private func enterPlaceButton(_ title: LocalizedStringKey) -> some View {
+        Button(action: openForm) {
+            Label(title, systemImage: "square.and.pencil")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .tint(AppColor.brandPrimary)
     }
 
     private var suggestionBanner: some View {
@@ -820,27 +837,38 @@ private struct SampleEditorContent: View {
     /// Aspect and slope as one line, then MTB and altitudinal belt.
     @ViewBuilder
     private var placeSummary: some View {
-        if let exposure = viewModel.placeExposure {
-            Text(exposure)
-                .font(AppFont.subhead)
-        }
-        // One line each: „6225/2 Würzburg Süd“ breaks in half a column.
-        ForEach(placeDetails) { item in
-            (Text(item.label + " ").foregroundStyle(AppColor.textSecondary) + Text(item.value))
-                .font(AppFont.subhead)
-                .accessibilityLabel(item.spoken)
+        let details = placeDetails
+        if viewModel.placeExposure != nil || !details.isEmpty {
+            // Looked at rarely: the small type of the coordinate, set
+            // tight. One line each: „6225/2 Würzburg Süd“ breaks in half
+            // a column.
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                if let exposure = viewModel.placeExposure {
+                    Text(exposure)
+                }
+                ForEach(details) { item in
+                    (Text(item.label + " ").foregroundStyle(AppColor.textSecondary) + Text(item.value))
+                        .accessibilityLabel(item.spoken)
+                }
+            }
+            .font(AppFont.caption.monospacedDigit())
         }
     }
 
+    /// Altitudinal belt, MTB, then island, mountain range, mountain.
     private var placeDetails: [LabeledValue] {
         var items: [LabeledValue] = []
+        if let belt = altitudinalBelt {
+            let label = String(localized: "Höhenstufe")
+            items.append(LabeledValue(id: "belt", label: label, value: belt, spoken: "\(label) \(belt)"))
+        }
         if let mtb = viewModel.mtbValue {
             let spoken = String(localized: "Messtischblatt \(mtb)")
             items.append(LabeledValue(id: "mtb", label: String(localized: "MTB"), value: mtb, spoken: spoken))
         }
-        if let belt = altitudinalBelt {
-            let label = String(localized: "Höhenstufe")
-            items.append(LabeledValue(id: "belt", label: label, value: belt, spoken: "\(label) \(belt)"))
+        for field in viewModel.placeLandscape {
+            items.append(LabeledValue(id: field.id, label: field.displayTerm, value: field.value,
+                                      spoken: "\(field.displayTerm) \(field.value)"))
         }
         return items
     }
@@ -909,7 +937,7 @@ private struct SampleEditorContent: View {
     }
 
     private var altitudeText: String {
-        if let alt = viewModel.altitudeM { return String(format: "%.0f m", alt) }
+        if let alt = viewModel.altitudeM { return String(format: "%.0fm", alt) }
         return "—"
     }
 

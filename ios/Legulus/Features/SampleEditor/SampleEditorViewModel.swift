@@ -577,6 +577,11 @@ final class SampleEditorViewModel: ObservableObject {
         PlaceDisplay.heading(currentPlacemark?.place)
     }
 
+    /// Island, mountain range, mountain of the current placemark.
+    var placeLandscape: [PlaceFieldItem] {
+        PlaceDisplay.landscape(currentPlacemark?.place)
+    }
+
     /// „2 km WNW Ochsenfurt“, nil when the heading already says it.
     var placeBearing: String? {
         savedSample.flatMap { PlaceDisplay.bearing($0, placeName: placeHeading?.title) }

@@ -86,17 +86,15 @@ enum PlaceDisplay {
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
-    /// Heading of the „Ort“ card: the name (see `shortName`) and up to
-    /// two broader admin levels, narrow to broad („Unterfranken,
-    /// Bayern“). The country follows only when it isn't `homeRegion`.
+    /// Heading of the „Ort“ card: the name (see `shortName`), then up
+    /// to two broader admin levels, narrow to broad, and the country's
+    /// ISO code („Unterfranken, Bayern, DE“).
     struct Heading: Equatable {
         let title: String
         let context: [String]
     }
 
-    static func heading(_ place: Place?, homeRegion: String? = Locale.current.region?.identifier,
-                        table: AdminLabelTable = .shared) -> Heading?
-    {
+    static func heading(_ place: Place?) -> Heading? {
         guard let place, let title = shortName(place) else { return nil }
         let tiers = AdminTier.allCases
         let titleIndex = tiers.firstIndex { tier in
@@ -108,11 +106,20 @@ enum PlaceDisplay {
             .filter { !$0.isEmpty && $0 != title }
             .prefix(2)
             .map { $0 }
-        if !place.countryISO.isEmpty, place.countryISO != homeRegion {
-            let country = countryName(place.countryISO, table: table)
-            if country != title { context.append(country) }
+        if !place.countryISO.isEmpty {
+            context.append(place.countryISO)
         }
         return Heading(title: title, context: context)
+    }
+
+    /// Island, mountain range and mountain of a place, the filled ones.
+    static func landscape(_ place: Place?) -> [PlaceFieldItem] {
+        guard let place else { return [] }
+        var only = Place(countryISO: place.countryISO)
+        only.island = place.island
+        only.mountainRange = place.mountainRange
+        only.mountain = place.mountain
+        return fields(only)
     }
 
     /// The bearing line of a sample, nil when it adds nothing to
@@ -138,10 +145,16 @@ enum PlaceDisplay {
             let sameAsHeading = ref.isEmpty
                 ? text.compare("in \(placeName)", options: options) == .orderedSame
                 : ref.compare(placeName, options: options) == .orderedSame
-            return sameAsHeading ? nil : text
+            return sameAsHeading ? nil : compactUnits(text)
         }
         if let distanceKm, distanceKm < 0.5 { return nil }
-        return text
+        return compactUnits(text)
+    }
+
+    /// „2.3 km SW Randersacker“ → „2.3km SW Randersacker“: the unit
+    /// sticks to its number, as everywhere in the place card.
+    static func compactUnits(_ text: String) -> String {
+        text.replacingOccurrences(of: #"(\d) (k?m)\b"#, with: "$1$2", options: .regularExpression)
     }
 
     /// Aspect and slope of a sample as Ortus words them: „SW (234°)-

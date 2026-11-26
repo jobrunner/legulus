@@ -139,11 +139,9 @@ final class PlaceDisplayTests: XCTestCase {
 
     // MARK: - „Ort“ card
 
-    func testHeading_MunicipalityOverTwoBroaderLevels_CountryOnlyAbroad() {
-        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture, homeRegion: "DE"),
-                       PlaceDisplay.Heading(title: "Ochsenfurt", context: ["Landkreis Würzburg", "Unterfranken"]))
-        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture, homeRegion: "AT")?.context,
-                       ["Landkreis Würzburg", "Unterfranken", "Deutschland"])
+    func testHeading_MunicipalityOverTwoBroaderLevelsAndISOCode() {
+        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture),
+                       PlaceDisplay.Heading(title: "Ochsenfurt", context: ["Landkreis Würzburg", "Unterfranken", "DE"]))
     }
 
     /// A district-free town is municipality and county at once; the
@@ -157,8 +155,8 @@ final class PlaceDisplayTests: XCTestCase {
             .municipality: AdminValue(name: "Würzburg", level: 8),
             .submunicipality: AdminValue(name: "Heidingsfeld", level: 10)
         ])
-        XCTAssertEqual(PlaceDisplay.heading(wuerzburg, homeRegion: "DE"),
-                       PlaceDisplay.Heading(title: "Würzburg", context: ["Unterfranken", "Bayern"]))
+        XCTAssertEqual(PlaceDisplay.heading(wuerzburg),
+                       PlaceDisplay.Heading(title: "Würzburg", context: ["Unterfranken", "Bayern", "DE"]))
     }
 
     func testHeading_NilWithoutData() {
@@ -169,7 +167,7 @@ final class PlaceDisplayTests: XCTestCase {
     func testBearing_LeftOutWhenTheHeadingSaysIt() {
         XCTAssertEqual(PlaceDisplay.meaningfulBearing("2 km WNW Ochsenfurt", reference: "Ochsenfurt", distanceKm: 2.3,
                                                       inside: false, placeName: "Frickenhausen"),
-                       "2 km WNW Ochsenfurt")
+                       "2km WNW Ochsenfurt", "unit at the number")
         XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 1.6,
                                                     inside: true, placeName: "Würzburg"))
         XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: nil, distanceKm: nil,
@@ -180,6 +178,23 @@ final class PlaceDisplayTests: XCTestCase {
         XCTAssertEqual(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 0,
                                                       inside: true, placeName: nil),
                        "in Würzburg", "without a heading the bearing is all there is")
+    }
+
+    func testCompactUnits() {
+        XCTAssertEqual(PlaceDisplay.compactUnits("2.3 km SW Randersacker"), "2.3km SW Randersacker")
+        XCTAssertEqual(PlaceDisplay.compactUnits("800 m N Kist"), "800m N Kist")
+        XCTAssertEqual(PlaceDisplay.compactUnits("in Ochsenfurt"), "in Ochsenfurt")
+        XCTAssertEqual(PlaceDisplay.compactUnits("3 Mühlen"), "3 Mühlen", "only km and m")
+    }
+
+    func testLandscape_OnlyFilledFieldsInOrder() {
+        var place = Place(countryISO: "ES", admin: [.municipality: AdminValue(name: "Garafía", level: 8)])
+        place.island = "La Palma"
+        place.mountain = "Roque de los Muchachos"
+        XCTAssertEqual(PlaceDisplay.landscape(place).map(\.value), ["La Palma", "Roque de los Muchachos"])
+        XCTAssertEqual(PlaceDisplay.landscape(place).map(\.displayTerm), ["Insel", "Berg"])
+        XCTAssertTrue(PlaceDisplay.landscape(ochsenfurt).isEmpty)
+        XCTAssertTrue(PlaceDisplay.landscape(nil).isEmpty)
     }
 
     func testBearing_NeverZeroKilometresOrBlank() {
