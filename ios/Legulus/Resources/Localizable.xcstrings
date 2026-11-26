@@ -15,6 +15,17 @@
         }
       }
     },
+    "Bitte eine gültige Koordinate eingeben." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte eine gültige Koordinate eingeben."
+          }
+        }
+      }
+    },
     "Das Foto konnte nicht aufgenommen werden." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -70,6 +81,17 @@
         }
       }
     },
+    "Die Probe konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Probe konnte nicht gespeichert werden."
+          }
+        }
+      }
+    },
     "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -114,6 +136,17 @@
         }
       }
     },
+    "Keine Verbindung zu Ortus. Bitte später erneut versuchen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Verbindung zu Ortus. Bitte später erneut versuchen."
+          }
+        }
+      }
+    },
     "Koordinate eingeben" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -121,6 +154,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Koordinate eingeben"
+          }
+        }
+      }
+    },
+    "Koordinate konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koordinate konnte nicht gespeichert werden."
           }
         }
       }
@@ -154,6 +198,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ortsangaben eingeben"
+          }
+        }
+      }
+    },
+    "Ortus antwortete mit HTTP %lld." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus antwortete mit HTTP %lld."
+          }
+        }
+      }
+    },
+    "Ortus konnte die Koordinate nicht umrechnen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus konnte die Koordinate nicht umrechnen."
+          }
+        }
+      }
+    },
+    "Ortus konnte die Koordinate nicht umrechnen: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus konnte die Koordinate nicht umrechnen: %@"
+          }
+        }
+      }
+    },
+    "Ortus-Endpoint-URL ist ungültig." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus-Endpoint-URL ist ungültig."
           }
         }
       }

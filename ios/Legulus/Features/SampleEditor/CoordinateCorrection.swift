@@ -34,7 +34,9 @@ final class CoordinateCorrection {
     }
 
     /// Shown when the coordinate could not be written.
-    static let saveFailedMessage = "Koordinate konnte nicht gespeichert werden."
+    static var saveFailedMessage: String {
+        String(localized: "Koordinate konnte nicht gespeichert werden.")
+    }
 
     private(set) var pending: Pending?
 
