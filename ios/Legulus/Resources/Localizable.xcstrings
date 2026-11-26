@@ -4,6 +4,116 @@
     "" : {
 
     },
+    "Auf diesem Gerät gibt es keine Kamera." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf diesem Gerät gibt es keine Kamera."
+          }
+        }
+      }
+    },
+    "Das Foto konnte nicht aufgenommen werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Foto konnte nicht aufgenommen werden."
+          }
+        }
+      }
+    },
+    "Das Foto konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Foto konnte nicht gespeichert werden."
+          }
+        }
+      }
+    },
+    "Die Kamera lässt sich nicht einrichten." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera lässt sich nicht einrichten."
+          }
+        }
+      }
+    },
+    "Die Kamera lässt sich nicht öffnen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera lässt sich nicht öffnen."
+          }
+        }
+      }
+    },
+    "Die Kamera startet nicht." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera startet nicht."
+          }
+        }
+      }
+    },
+    "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen."
+          }
+        }
+      }
+    },
+    "Foto %lld aufgenommen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto %lld aufgenommen"
+          }
+        }
+      }
+    },
+    "Foto nicht gespeichert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto nicht gespeichert"
+          }
+        }
+      }
+    },
+    "Fotos aus der Galerie nicht übernommen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fotos aus der Galerie nicht übernommen"
+          }
+        }
+      }
+    },
     "Koordinate eingeben" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11,6 +121,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Koordinate eingeben"
+          }
+        }
+      }
+    },
+    "Koordinate kopiert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koordinate kopiert"
+          }
+        }
+      }
+    },
+    "Legulus darf die Kamera nicht benutzen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Legulus darf die Kamera nicht benutzen."
           }
         }
       }

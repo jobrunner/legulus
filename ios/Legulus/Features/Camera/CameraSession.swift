@@ -402,13 +402,13 @@ private final class CameraCore: @unchecked Sendable {
                 deviceTypes: CameraSession.preferredDeviceTypes, mediaType: .video, position: .back
             ).devices.first else { return .unavailable }
             guard let input = try? AVCaptureDeviceInput(device: camera) else {
-                return .failed("Die Kamera lässt sich nicht öffnen.")
+                return .failed(String(localized: "Die Kamera lässt sich nicht öffnen."))
             }
             session.beginConfiguration()
             session.sessionPreset = .photo
             guard session.canAddInput(input), session.canAddOutput(output) else {
                 session.commitConfiguration()
-                return .failed("Die Kamera lässt sich nicht einrichten.")
+                return .failed(String(localized: "Die Kamera lässt sich nicht einrichten."))
             }
             session.addInput(input)
             session.addOutput(output)
@@ -443,7 +443,7 @@ private final class CameraCore: @unchecked Sendable {
             observeSubjectArea(of: camera)
         }
         if !session.isRunning { session.startRunning() }
-        return session.isRunning ? .running : .failed("Die Kamera startet nicht.")
+        return session.isRunning ? .running : .failed(String(localized: "Die Kamera startet nicht."))
     }
 
     func stop() {
@@ -776,7 +776,7 @@ extension CameraSession: AVCapturePhotoCaptureDelegate {
                 self.onPhoto?(data)
             } else {
                 Log.ui.error("camera capture failed: \(message ?? "no data", privacy: .public)")
-                self.onCaptureError?("Das Foto konnte nicht aufgenommen werden.")
+                self.onCaptureError?(String(localized: "Das Foto konnte nicht aufgenommen werden."))
             }
         }
     }

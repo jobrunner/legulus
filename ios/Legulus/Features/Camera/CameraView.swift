@@ -163,12 +163,12 @@ struct CameraView: View {
             }
         case .unauthorized:
             notice(
-                "Legulus darf die Kamera nicht benutzen.",
-                detail: "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen.",
+                String(localized: "Legulus darf die Kamera nicht benutzen."),
+                detail: String(localized: "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen."),
                 settingsButton: true
             )
         case .unavailable:
-            notice("Auf diesem Gerät gibt es keine Kamera.", detail: nil, settingsButton: false)
+            notice(String(localized: "Auf diesem Gerät gibt es keine Kamera."), detail: nil, settingsButton: false)
         case let .failed(message):
             notice(message, detail: nil, settingsButton: false)
         }
@@ -408,7 +408,7 @@ struct CameraView: View {
         Task {
             if await camera.lockFocus(at: devicePoint) {
                 focusLocked = true
-                AccessibilityNotification.Announcement("Fokus fest").post()
+                AccessibilityNotification.Announcement(String(localized: "Fokus fest")).post()
                 try? await Task.sleep(for: focusMarkDuration)
             }
             withAnimation(AppMotion.respecting(AppMotion.fast, reduceMotion: reduceMotion)) {
@@ -457,8 +457,10 @@ struct CameraView: View {
         }
     }
 
-    private var doneButton: some View {
-        Button("Fertig", action: onDone)
+    /// Leaves the error view (camera denied or missing): no photo was
+    /// taken, so „Schließen“ rather than „Fertig“.
+    private var closeButton: some View {
+        Button("Schließen", action: onDone)
             .font(AppFont.bodyEmphasized)
             .frame(minWidth: minTapTarget, minHeight: minTapTarget)
             .contentShape(Rectangle())
@@ -589,6 +591,8 @@ struct CameraView: View {
         }
     }
 
+    /// `title` and `detail` come translated (`String(localized:)`), a
+    /// failure message from `CameraSession` as well.
     private func notice(_ title: String, detail: String?, settingsButton: Bool) -> some View {
         VStack(spacing: AppSpacing.lg) {
             Image(systemName: "camera.fill")
@@ -611,7 +615,7 @@ struct CameraView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
             }
-            doneButton
+            closeButton
         }
         .foregroundStyle(.white)
         .padding(AppSpacing.xl)
@@ -642,7 +646,7 @@ struct CameraView: View {
                 errorMessage = result.failed == 1
                     ? String(localized: "1 Foto aus der Galerie nicht übernommen")
                     : String(localized: "\(result.failed) Fotos aus der Galerie nicht übernommen")
-                AccessibilityNotification.Announcement("Fotos aus der Galerie nicht übernommen").post()
+                AccessibilityNotification.Announcement(String(localized: "Fotos aus der Galerie nicht übernommen")).post()
             } else if result.stored > 0 {
                 let taken = result.stored == 1
                     ? String(localized: "1 Foto übernommen")
@@ -673,14 +677,14 @@ struct CameraView: View {
             try onPhoto(data)
         } catch {
             Log.ui.error("camera photo not stored: \(error.localizedDescription, privacy: .public)")
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Das Foto konnte nicht gespeichert werden."
-            AccessibilityNotification.Announcement("Foto nicht gespeichert").post()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? String(localized: "Das Foto konnte nicht gespeichert werden.")
+            AccessibilityNotification.Announcement(String(localized: "Foto nicht gespeichert")).post()
             return
         }
         errorMessage = nil
         count += 1
         lastPhoto = PhotoStorage.thumbnail(data: data, maxPixel: lastPhotoPixels)
-        AccessibilityNotification.Announcement("Foto \(count) aufgenommen").post()
+        AccessibilityNotification.Announcement(String(localized: "Foto \(count) aufgenommen")).post()
     }
 }
 

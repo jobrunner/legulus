@@ -13,7 +13,8 @@ import UIKit
 struct CopyableValueChip<Leading: View, Content: View>: View {
     let clipboardText: String
     let accessibilityLabel: String
-    let announcement: String
+    /// What VoiceOver announces after copying; a literal is translated.
+    let announcement: LocalizedStringResource
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let content: () -> Content
 
@@ -65,7 +66,7 @@ struct CopyableValueChip<Leading: View, Content: View>: View {
         UIPasteboard.general.string = clipboardText
         copyCount += 1
         showsCopied = true
-        AccessibilityNotification.Announcement(announcement).post()
+        AccessibilityNotification.Announcement(String(localized: announcement)).post()
         // Ein früher gestarteter Timer darf den neuen Haken nicht
         // vorzeitig ausblenden.
         resetTask?.cancel()
