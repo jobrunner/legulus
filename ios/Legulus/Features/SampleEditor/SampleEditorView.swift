@@ -90,9 +90,6 @@ private struct SampleEditorContent: View {
     /// and would eat a quarter of the screen.
     private let actionBarMaxHeight: CGFloat = 80
 
-    /// Width of the leading icon column in the location rows; grows
-    /// with Dynamic Type so the icons keep their proportion.
-    @ScaledMetric(relativeTo: .body) private var iconColumnWidth: CGFloat = 28
     /// Photo thumbnail edge in the editor's strip.
     @ScaledMetric(relativeTo: .body) private var thumbSize: CGFloat = 72
 
@@ -443,9 +440,6 @@ private struct SampleEditorContent: View {
             }
             locationRow
             if viewModel.isExistingSample {
-                // The leading inset aligns the divider with the right
-                // edge of the icon column inside each row.
-                Divider().padding(.leading, iconColumnWidth)
                 placeSection
             }
         }
@@ -623,95 +617,80 @@ private struct SampleEditorContent: View {
         }
     }
 
+    /// Coordinate and altitude as two small chips side by side, one
+    /// below the other when they don't fit. Nobody reads the digits in
+    /// the field; the chips say „fixed, ready to copy“.
     private var locationRow: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            GPSStatusIcon(status: locationIconStatus)
-                .frame(width: iconColumnWidth)
-                .padding(.top, AppSpacing.xs)
-
-            // Side-by-side at default widths, stacked vertically when
-            // either Dynamic Type or a narrower device pushes the
-            // right-column off-screen. Truncation is the second-line
-            // defense; `ViewThatFits` is the first.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: AppSpacing.md) {
-                    coordinateBlock
-                    Spacer(minLength: AppSpacing.sm)
-                    altitudeBlock(alignment: .trailing)
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    coordinateBlock
-                    altitudeBlock(alignment: .leading)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: AppSpacing.sm) {
+                coordinateChip
+                altitudeChip
+            }
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                coordinateChip
+                altitudeChip
             }
         }
-        .padding(.vertical, AppSpacing.md)
     }
 
-    /// System name on top (aligned with „Höhe“), the coordinate, then
-    /// the horizontal accuracy. Labels secondary, values primary. A tap
-    /// on the coordinate copies it (see `ClipboardText`).
-    private var coordinateBlock: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-            // No line limit: `ViewThatFits` in `locationRow` stacks the
-            // blocks when the coordinate doesn't fit on one line.
-            if let display = coordinateDisplay, let clipboard = coordinateClipboardText {
-                CopyableValueButton(
-                    caption: display.caption,
-                    clipboardText: clipboard,
-                    accessibilityLabel: coordinateA11yLabel(display),
-                    announcement: "Koordinate kopiert"
-                ) {
-                    Text(display.text)
-                        .font(AppFont.body.monospacedDigit())
-                }
-            } else {
+    /// The coordinate with the horizontal accuracy after it. A tap
+    /// copies it (see `ClipboardText`). Without coordinate the chip
+    /// shows the GPS state instead (locating, denied, failed).
+    @ViewBuilder
+    private var coordinateChip: some View {
+        let symbol = GPSStatusIcon(status: locationIconStatus, font: AppFont.caption)
+        if let display = coordinateDisplay, let clipboard = coordinateClipboardText {
+            CopyableValueChip(
+                clipboardText: clipboard,
+                accessibilityLabel: coordinateA11yLabel(display),
+                announcement: "Koordinate kopiert"
+            ) {
+                EmptyView()
+            } content: {
+                withAccuracy(Text(display.text), viewModel.accuracyM)
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+                symbol
                 Text(coordinateText)
-                    .font(AppFont.body.monospacedDigit())
+                    .foregroundStyle(AppColor.textSecondary)
             }
-            if let acc = viewModel.accuracyM {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                    Text("Genauigkeit").foregroundStyle(.secondary)
-                    Text(String(format: "±%.0f m", acc))
-                }
-                .font(AppFont.footnote)
-                // Steht schon im Label des Koordinaten-Buttons.
-                .accessibilityHidden(coordinateDisplay != nil)
-            }
+            .valueChipStyle()
+            .accessibilityElement(children: .combine)
         }
     }
 
-    private func altitudeBlock(alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: AppSpacing.xxs) {
-            if let alt = viewModel.altitudeM {
-                CopyableValueButton(
-                    caption: "Höhe",
-                    clipboardText: ClipboardText.altitude(meters: alt),
-                    accessibilityLabel: altitudeA11yLabel(alt),
-                    announcement: "Höhe kopiert",
-                    alignment: alignment
-                ) {
-                    Text(altitudeText)
-                        .font(AppFont.body.monospacedDigit())
-                }
-            } else {
-                VStack(alignment: alignment, spacing: AppSpacing.xxs) {
-                    Text("Höhe")
-                        .font(AppFont.footnote)
-                        .foregroundStyle(.secondary)
-                    Text(altitudeText)
-                        .font(AppFont.body.monospacedDigit())
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Höhe unbekannt")
+    @ViewBuilder
+    private var altitudeChip: some View {
+        let symbol = Image(systemName: "mountain.2")
+            .foregroundStyle(AppColor.textSecondary)
+            .accessibilityHidden(true)
+        if let alt = viewModel.altitudeM {
+            CopyableValueChip(
+                clipboardText: ClipboardText.altitude(meters: alt),
+                accessibilityLabel: altitudeA11yLabel(alt),
+                announcement: "Höhe kopiert"
+            ) {
+                symbol
+            } content: {
+                withAccuracy(Text(altitudeText), viewModel.savedSample?.verticalAccuracy)
             }
-            if let acc = viewModel.savedSample?.verticalAccuracy {
-                Text(String(format: "±%.0f m", acc))
-                    .font(AppFont.footnote)
-                    // Steht schon im Label des Höhen-Buttons.
-                    .accessibilityHidden(viewModel.altitudeM != nil)
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+                symbol
+                Text(altitudeText)
+                    .foregroundStyle(AppColor.textSecondary)
             }
+            .valueChipStyle()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Höhe unbekannt")
         }
+    }
+
+    /// „276 m ±3 m“ with the accuracy in the secondary color.
+    private func withAccuracy(_ value: Text, _ accuracy: Double?) -> Text {
+        guard let accuracy else { return value }
+        return value + Text(String(format: " ±%.0f m", accuracy)).foregroundStyle(AppColor.textSecondary)
     }
 
     /// Place data of a saved sample: status hints, exposure, MTB and
@@ -719,27 +698,22 @@ private struct SampleEditorContent: View {
     /// stay here (accept/dismiss a suggestion, resend a failed push).
     /// Editing goes through „Bearbeiten“.
     private var placeSection: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            Color.clear
-                .frame(width: iconColumnWidth)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                if viewModel.canResend {
-                    resendBanner
-                }
-                if viewModel.hasSuggestion {
-                    suggestionBanner
-                }
-                placeStatusLine
-                placeSummary
-                if let error = viewModel.placeActionError {
-                    Text(error)
-                        .font(.footnote)
-                        .foregroundStyle(AppColor.danger)
-                }
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            if viewModel.canResend {
+                resendBanner
             }
-            Spacer(minLength: 0)
+            if viewModel.hasSuggestion {
+                suggestionBanner
+            }
+            placeStatusLine
+            placeSummary
+            if let error = viewModel.placeActionError {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(AppColor.danger)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, AppSpacing.sm)
     }
 
@@ -848,9 +822,11 @@ private struct SampleEditorContent: View {
             Text(exposure)
                 .font(AppFont.subhead)
         }
-        let details = placeDetails
-        if !details.isEmpty {
-            ValuePairGrid(details)
+        // One line each: „6225/2 Würzburg Süd“ breaks in half a column.
+        ForEach(placeDetails) { item in
+            (Text(item.label + " ").foregroundStyle(AppColor.textSecondary) + Text(item.value))
+                .font(AppFont.subhead)
+                .accessibilityLabel(item.spoken)
         }
     }
 

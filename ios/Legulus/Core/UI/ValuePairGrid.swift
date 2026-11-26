@@ -16,7 +16,7 @@ struct LabeledValue: Equatable, Identifiable {
 /// Use it where several short measurements belong together and each is
 /// just a label and a value. For place fields with a country-specific
 /// term use `PlaceFieldRow`; for a value the user can copy use
-/// `CopyableValueButton`.
+/// `CopyableValueChip`.
 ///
 /// Layout: two columns; one column at accessibility text sizes, where
 /// two would squeeze every value onto several lines. A value never
