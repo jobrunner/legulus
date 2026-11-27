@@ -2,17 +2,20 @@ import UIKit
 
 /// Time to finish after the app left the foreground: the system keeps
 /// the app running (typically about 30 s) until the returned closure is
-/// called or the time is up. Used for the photo upload, which otherwise
-/// breaks off when the phone is put away right after the photos.
+/// called or the time is up; then `onExpire` runs first. Used for the
+/// photo upload, which otherwise breaks off when the phone is put away
+/// right after the photos.
 enum BackgroundActivity {
     @MainActor
-    static func begin(_ name: String) -> () -> Void {
+    static func begin(_ name: String, onExpire: @escaping @MainActor () -> Void) -> () -> Void {
         let request = Request()
         request.id = UIApplication.shared.beginBackgroundTask(withName: name) {
-            // Time is up: the upload in flight is cut off and retried
-            // on the next pass.
-            Log.sync.notice("background time for \(name, privacy: .public) expired")
-            request.end()
+            // UIKit calls this on the main thread.
+            MainActor.assumeIsolated {
+                Log.sync.notice("background time for \(name, privacy: .public) expired")
+                onExpire()
+                request.end()
+            }
         }
         return { request.end() }
     }
