@@ -93,9 +93,14 @@ struct ConditionsDisplay: Equatable {
         self.state = state
     }
 
-    /// - Parameter night: the sample's fieldtrip is a night fieldtrip
-    ///   (decides the instant of an all-day sample).
-    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature]) {
+    /// - Parameters:
+    ///   - night: the sample's fieldtrip is a night fieldtrip (decides
+    ///     the instant of an all-day sample).
+    ///   - locale: dates and times follow it (the device's region);
+    ///     tests pass a fixed one.
+    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature],
+         locale: Locale = .autoupdatingCurrent)
+    {
         guard sample.latitude != nil, sample.longitude != nil else {
             self.init(state: .noCoordinate)
             return
@@ -121,7 +126,7 @@ struct ConditionsDisplay: Equatable {
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
         switch Self.provisionalReason(conditions) {
         case let .young(finalFrom):
-            provisionalNote = String(localized: "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone))")
+            provisionalNote = String(localized: "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone, locale: locale))")
         case .incomplete:
             provisionalNote = String(localized: "Unvollständig, wird nachgeholt")
         case nil:
@@ -141,11 +146,11 @@ struct ConditionsDisplay: Equatable {
         }
         koppen = conditions.text("climate_koppen_code")
         altitudinalBelt = conditions.text("climate_altitudinal_belt")
-        fillSky(conditions, zone: zone)
+        fillSky(conditions, zone: zone, locale: locale)
         lightPhase = sample.isAllDay
             ? (night ? .night : .day)
             : Self.lightPhase(at: request.instant, conditions: conditions, features: features)
-        fillSkyBand(conditions, features: features, zone: zone)
+        fillSkyBand(conditions, features: features, zone: zone, locale: locale)
         // A final answer without what this kind of sample shows as
         // weather: its hourly values (the code's text counts), or the
         // day values of an all-day sample.
@@ -272,7 +277,7 @@ struct ConditionsDisplay: Equatable {
             .contains { c.number($0) != nil }
     }
 
-    private mutating func fillSky(_ c: SampleConditions, zone: TimeZone) {
+    private mutating func fillSky(_ c: SampleConditions, zone: TimeZone, locale: Locale) {
         let illumination = c.number("moon_illumination_pct").map { Self.number($0, digits: 0) }
         let phase = c.text("moon_phase")
         if let phase {
@@ -292,8 +297,8 @@ struct ConditionsDisplay: Equatable {
             )
         }
         if moon != nil { moonSymbol = Self.moonSymbol(phase: phase) }
-        sunrise = c.date("sunrise").map { Self.time($0, zone: zone) }
-        sunset = c.date("sunset").map { Self.time($0, zone: zone) }
+        sunrise = c.date("sunrise").map { Self.time($0, zone: zone, locale: locale) }
+        sunset = c.date("sunset").map { Self.time($0, zone: zone, locale: locale) }
     }
 
     // MARK: - provisional
@@ -319,12 +324,13 @@ struct ConditionsDisplay: Equatable {
         return .incomplete
     }
 
-    /// „24.05.“ in `zone`.
-    static func dayMonth(_ date: Date, zone: TimeZone) -> String {
+    /// Day and month in `zone`, as the region writes them („24.05.“,
+    /// „05/24“).
+    static func dayMonth(_ date: Date, zone: TimeZone, locale: Locale) -> String {
         let f = DateFormatter()
         f.locale = locale
         f.timeZone = zone
-        f.dateFormat = "dd.MM."
+        f.setLocalizedDateFormatFromTemplate("ddMM")
         return f.string(from: date)
     }
 
@@ -407,7 +413,9 @@ struct ConditionsDisplay: Equatable {
 
     /// Events and facts for the light band. The positions are Tempus'
     /// for exactly the queried instant.
-    private mutating func fillSkyBand(_ c: SampleConditions, features: [LocalSampleFeature], zone: TimeZone) {
+    private mutating func fillSkyBand(_ c: SampleConditions, features: [LocalSampleFeature], zone: TimeZone,
+                                      locale: Locale)
+    {
         let sun = Self.sunProperties(in: features)
         let moon = Self.moonProperties(in: features)
         let twilight = Self.twilightTimes(in: sun)
@@ -434,7 +442,7 @@ struct ConditionsDisplay: Equatable {
                 let lit = moonIllumination.map { " · " + Self.number($0, digits: 0) + Self.nbsp + "%" } ?? ""
                 moonFact = String(localized: "Mond \(Self.number(elevation, digits: 0))° hoch, \(LightBand.compass(azimuth))") + lit
             } else if let rise = skyEvents.moonrise {
-                moonFact = String(localized: "Mond unter dem Horizont · Aufgang \(Self.time(rise, zone: zone))")
+                moonFact = String(localized: "Mond unter dem Horizont · Aufgang \(Self.time(rise, zone: zone, locale: locale))")
             } else {
                 moonFact = String(localized: "Mond unter dem Horizont")
             }
@@ -499,11 +507,13 @@ struct ConditionsDisplay: Equatable {
     }
 
     /// „07:31“ in `zone`.
-    static func time(_ date: Date, zone: TimeZone) -> String {
+    /// Hour and minute in `zone` with the region's clock („15:20“,
+    /// „3:20 PM“).
+    static func time(_ date: Date, zone: TimeZone, locale: Locale) -> String {
         let f = DateFormatter()
         f.locale = locale
         f.timeZone = zone
-        f.dateFormat = "HH:mm"
+        f.setLocalizedDateFormatFromTemplate("jmm")
         return f.string(from: date)
     }
 

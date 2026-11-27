@@ -126,14 +126,14 @@ struct LightBandView: View {
 
     private var hourLabels: some View {
         GeometryReader { geo in
-            ForEach(0 ..< 5, id: \.self) { step in
-                Text(Self.hourLabel(band.start.addingTimeInterval(Double(step) * 6 * 3600)))
+            ForEach(Array(band.hourMarks.enumerated()), id: \.offset) { _, mark in
+                Text(Self.hourLabel(mark.date, zone: band.zone))
                     .font(AppFont.caption2)
                     .foregroundStyle(AppColor.textSecondary)
                     // An axis label stays on one line; the scaled
                     // inset keeps it inside the card.
                     .fixedSize()
-                    .position(x: Self.labelX(Double(step) / 4, width: geo.size.width, inset: hourInset), y: labelRow / 2)
+                    .position(x: Self.labelX(mark.at, width: geo.size.width, inset: hourInset), y: labelRow / 2)
             }
         }
         .frame(height: labelRow)
@@ -184,9 +184,12 @@ struct LightBandView: View {
 
     /// The hour in the device's clock: „6“ with a 24-hour clock, „6 AM“
     /// with a 12-hour one.
-    static func hourLabel(_ date: Date, locale: Locale = .autoupdatingCurrent) -> String {
+    /// In `zone`, the sample's: the axis matches its times, not the
+    /// device's zone.
+    static func hourLabel(_ date: Date, zone: TimeZone, locale: Locale = .autoupdatingCurrent) -> String {
         let f = DateFormatter()
         f.locale = locale
+        f.timeZone = zone
         let twelve = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale)?.contains("a") ?? false
         if twelve {
             f.setLocalizedDateFormatFromTemplate("ha")

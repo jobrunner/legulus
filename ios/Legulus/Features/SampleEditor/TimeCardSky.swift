@@ -43,7 +43,7 @@ struct TimeCardSky: Equatable {
             f.locale = locale
             f.timeZone = zone
             f.setLocalizedDateFormatFromTemplate("jmm")
-            return f.string(from: band.start.addingTimeInterval(fraction * 86400))
+            return f.string(from: band.date(at: fraction))
         }
         let days = band.segments.filter { $0.phase == .day }
         let rise = days.map(\.from).first { $0 > 0 }

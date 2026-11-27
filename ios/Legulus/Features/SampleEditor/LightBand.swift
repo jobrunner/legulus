@@ -34,8 +34,12 @@ struct LightBand: Equatable {
         let to: Double
     }
 
-    /// Where the band begins (local noon or midnight).
+    /// Where the band begins (local noon or midnight) and ends, one
+    /// calendar day later: 23 or 25 hours on a clock change.
     let start: Date
+    let end: Date
+    /// The sample's zone; the band's hours are its wall clock.
+    let zone: TimeZone
     let nightCentered: Bool
     /// Left to right, neighbours of the same phase merged; empty without
     /// any sun times.
@@ -55,16 +59,24 @@ struct LightBand: Equatable {
         let midnight = calendar.startOfDay(for: begin)
         let start: Date
         if nightCentered {
-            let noon = midnight.addingTimeInterval(12 * 3600)
-            start = begin >= noon ? noon : noon.addingTimeInterval(-Self.day)
+            // Built with the calendar: midnight + 12 h is 11:00 or 13:00
+            // on a clock change.
+            let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: midnight)
+                ?? midnight.addingTimeInterval(12 * 3600)
+            start = begin >= noon
+                ? noon
+                : calendar.date(byAdding: .day, value: -1, to: noon) ?? noon.addingTimeInterval(-Self.day)
         } else {
             start = midnight
         }
+        let end24 = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(Self.day)
         self.start = start
+        self.end = end24
+        self.zone = zone
         self.nightCentered = nightCentered
-        let end24 = start.addingTimeInterval(Self.day)
+        let length = end24.timeIntervalSince(start)
         func fraction(_ d: Date) -> Double {
-            min(max(d.timeIntervalSince(start) / Self.day, 0), 1)
+            min(max(d.timeIntervalSince(start) / length, 0), 1)
         }
 
         let levels: [(Phase, Date?, Date?)] = [
@@ -109,6 +121,27 @@ struct LightBand: Equatable {
         } else {
             self.begin = fraction(begin)
             window = end.flatMap { $0 > begin ? fraction(begin) ... fraction($0) : nil }
+        }
+    }
+
+    /// The moment at `fraction` of the band.
+    func date(at fraction: Double) -> Date {
+        start.addingTimeInterval(fraction * end.timeIntervalSince(start))
+    }
+
+    /// Every six hours of the wall clock from the start, with their
+    /// position: 0, 6, 12, 18, 24 (or 12 … 12 at night). On a clock
+    /// change they are not evenly spaced.
+    var hourMarks: [(date: Date, at: Double)] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let base = calendar.dateComponents([.year, .month, .day, .hour], from: start)
+        let length = end.timeIntervalSince(start)
+        return (0 ... 4).compactMap { step in
+            var c = base
+            c.hour = (base.hour ?? 0) + 6 * step
+            guard let date = calendar.date(from: c) else { return nil }
+            return (date, min(max(date.timeIntervalSince(start) / length, 0), 1))
         }
     }
 

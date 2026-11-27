@@ -39,7 +39,12 @@ struct ConditionsDetailView: View {
                 } header: {
                     // Only the weather is provisional; the other groups
                     // are final as they are.
-                    Text(group.id == "weather" && model.isProvisional ? group.title + " · vorläufig" : group.title)
+                    if group.id == "weather" && model.isProvisional {
+                        // Interpolated literal: goes through the string catalog.
+                        Text("\(group.title) · vorläufig")
+                    } else {
+                        Text(group.title)
+                    }
                 } footer: {
                     source(of: group)
                 }

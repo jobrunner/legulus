@@ -100,4 +100,48 @@ final class LightBandTests: XCTestCase {
         XCTAssertEqual(LightBand.compass(292), "WNW")
         XCTAssertEqual(LightBand.compass(359), "N")
     }
+
+    // MARK: - clock changes
+
+    private func berlin(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
+        var c = DateComponents(year: year, month: month, day: day, hour: hour)
+        c.timeZone = zone
+        return Calendar(identifier: .gregorian).date(from: c) ?? Date()
+    }
+
+    /// 29.03.2026, clocks go forward at 2:00: the night band still starts
+    /// at local noon, not at 13:00.
+    func testNightBand_StartsAtLocalNoonOnClockChangeDay() {
+        let begin = berlin(2026, 3, 29, 21)
+        let band = LightBand(begin: begin, end: nil, isAllDay: false, events: SkyEvents(sunrise: berlin(2026, 3, 29, 7),
+                                                                                        sunset: berlin(2026, 3, 29, 19)),
+                             zone: zone, nightCentered: true)
+        XCTAssertEqual(band.start, berlin(2026, 3, 29, 12))
+        XCTAssertEqual(band.end, berlin(2026, 3, 30, 12))
+    }
+
+    /// 25.10.2026, clocks go back at 3:00: noon to noon lasts 25 hours,
+    /// local midnight lies at 12/25 of the band, the hour marks follow
+    /// the clock on the wall.
+    func testNightBand_TwentyFiveHoursWhenClocksGoBack() {
+        let begin = berlin(2026, 10, 25, 1)
+        let band = LightBand(begin: begin, end: nil, isAllDay: false, events: SkyEvents(sunrise: berlin(2026, 10, 25, 7),
+                                                                                        sunset: berlin(2026, 10, 24, 18)),
+                             zone: zone, nightCentered: true)
+        XCTAssertEqual(band.start, berlin(2026, 10, 24, 12))
+        XCTAssertEqual(band.end, berlin(2026, 10, 25, 12))
+        let marks = band.hourMarks
+        XCTAssertEqual(marks.map(\.date), [12, 18, 24, 30, 36].map { berlin(2026, 10, 24, $0) })
+        XCTAssertEqual(marks[2].at, 12.0 / 25, accuracy: 1e-9)
+        XCTAssertEqual(band.begin ?? -1, 13.0 / 25, accuracy: 1e-9)
+    }
+
+    /// The axis shows the given zone (the sample's), not the device's:
+    /// Berlin midnight is 23 in UTC.
+    func testHourLabel_InSampleZone() {
+        let german = Locale(identifier: "de_DE")
+        let midnight = berlin(2026, 11, 23, 0)
+        XCTAssertEqual(LightBandView.hourLabel(midnight, zone: zone, locale: german), "0")
+        XCTAssertEqual(LightBandView.hourLabel(midnight, zone: .gmt, locale: german), "23")
+    }
 }

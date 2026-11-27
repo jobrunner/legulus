@@ -3,6 +3,8 @@ import LegulusGeo
 import XCTest
 
 final class ConditionsDisplayTests: XCTestCase {
+    private let german = Locale(identifier: "de_DE")
+
     private var store: LocalSampleStore!
     /// 2026-05-19 12:00 UTC.
     private let begin = Date(timeIntervalSince1970: 1_779_192_000)
@@ -106,7 +108,7 @@ final class ConditionsDisplayTests: XCTestCase {
         var base = try sample()
         base.timezone = "Atlantic/Canary"
         let (s, rows) = try answered(base)
-        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
         // 03:27Z and 19:02Z; the Canaries are at UTC+1 in May.
         XCTAssertEqual(d.sunrise, "04:27")
         XCTAssertEqual(d.sunset, "20:02")
@@ -182,13 +184,25 @@ final class ConditionsDisplayTests: XCTestCase {
     /// 19.05. → 24.05., in the sample's zone).
     func testValues_ProvisionalByAgeNamesTheDate() throws {
         let (s, rows) = try answered(sample(), fetchedAfter: 3600)
-        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
         XCTAssertEqual(d.provisionalNote, "Wetterwerte vorläufig bis 24.05.")
         XCTAssertEqual(
-            ConditionsDetailModel(sample: s, night: false, features: rows).provisionalNote,
-            "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden; "
-                + "endgültig ab 24.05. Sonne, Mond und Klima sind endgültig."
+            ConditionsDetailModel(sample: s, night: false, features: rows, locale: german).provisionalNote,
+            "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden "
+                + "(endgültig ab 24.05.). Sonne, Mond und Klima sind endgültig."
         )
+    }
+
+    /// Dates and times follow the region: a 12-hour clock and month first
+    /// in the US.
+    func testValues_DatesAndTimesFollowTheRegion() throws {
+        let us = Locale(identifier: "en_US")
+        let (s, rows) = try answered(sample(), fetchedAfter: 3600)
+        XCTAssertEqual(ConditionsDisplay(sample: s, night: false, features: rows, locale: us).provisionalNote,
+                       "Wetterwerte vorläufig bis 05/24")
+        let (sky, skyRows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: sky, night: false, features: skyRows, locale: us)
+        XCTAssertEqual(d.moonFact, "Mond unter dem Horizont · Aufgang 3:20\u{202F}PM")
     }
 
     /// Old enough, but a provider was unavailable: something is missing
@@ -393,7 +407,7 @@ final class ConditionsDisplayTests: XCTestCase {
     /// (Berlin is UTC+2 in May).
     func testSkyFacts_SunUpMoonDown() throws {
         let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
-        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
         XCTAssertEqual(d.sunFact, "Sonne 18° hoch, S")
         XCTAssertEqual(d.moonFact, "Mond unter dem Horizont · Aufgang 15:20")
         XCTAssertTrue(d.sunIsUp)

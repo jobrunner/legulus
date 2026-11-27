@@ -100,8 +100,12 @@ struct ConditionsDetailModel: Equatable {
 
     init() {}
 
-    /// - Parameter night: see `ConditionsDisplay`.
-    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature]) {
+    /// - Parameters:
+    ///   - night: see `ConditionsDisplay`.
+    ///   - locale: dates follow it (the device's region).
+    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature],
+         locale: Locale = .autoupdatingCurrent)
+    {
         // The page is the features: without the ones of this answer
         // (see `holdsItsFeatures`) there is nothing to show.
         guard let conditions = sample.conditions, conditions.hasAnswer, conditions.holdsItsFeatures,
@@ -111,10 +115,12 @@ struct ConditionsDetailModel: Equatable {
         isProvisional = conditions.status == .provisional
         switch ConditionsDisplay.provisionalReason(conditions) {
         case let .young(finalFrom):
-            let date = ConditionsDisplay.dayMonth(finalFrom, zone: zone)
+            let date = ConditionsDisplay.dayMonth(finalFrom, zone: zone, locale: locale)
+            // The date in brackets: the sentence keeps its own full stop,
+            // whatever the region's date ends with.
             provisionalNote = String(localized: """
-            Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden; \
-            endgültig ab \(date) Sonne, Mond und Klima sind endgültig.
+            Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden \
+            (endgültig ab \(date)). Sonne, Mond und Klima sind endgültig.
             """)
         case .incomplete:
             provisionalNote = String(localized: "Ein Dienst war beim Abruf nicht erreichbar; fehlende Werte werden nachgeholt.")
