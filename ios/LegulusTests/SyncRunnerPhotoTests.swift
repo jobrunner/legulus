@@ -16,6 +16,8 @@ final class SyncRunnerPhotoTests: XCTestCase {
     private var wifiOnly = false
     private var account: String? = "user-a"
     private var lastSampleID: String?
+    /// Order of background activity and uploads ("begin", "upload", "end").
+    private var events: [String] = []
     private var sampleIDs: [String] = []
     // swiftlint:disable:next force_unwrapping
     private let berlin = TimeZone(identifier: "Europe/Berlin")!
@@ -28,6 +30,7 @@ final class SyncRunnerPhotoTests: XCTestCase {
         mutations = PendingMutationsStore(database: database)
         client = FakePhotoClient()
         uploadAllowed = true
+        events = []
     }
 
     override func tearDownWithError() throws {
@@ -53,7 +56,11 @@ final class SyncRunnerPhotoTests: XCTestCase {
             photoUploadAllowed: { [unowned self] in self.uploadAllowed },
             photoWiFiOnly: { [unowned self] in self.wifiOnly },
             accountProvider: { [unowned self] in self.account },
-            now: { [unowned self] in self.now }
+            now: { [unowned self] in self.now },
+            beginBackgroundActivity: { [unowned self] _ in
+                self.events.append("begin")
+                return { self.events.append("end") }
+            }
         )
     }
 
@@ -317,6 +324,33 @@ final class SyncRunnerPhotoTests: XCTestCase {
         client.deleteError = SampleClientError.http(status: 500, body: "")
         await run(makeRunner())
         XCTAssertEqual(try mutations.fetch(entityType: .samplePhoto).count, 1)
+    }
+
+    // MARK: - background activity
+
+    /// Put away right after the photo, the phone suspends the app; the
+    /// upload broke off mid-body. It runs inside a background activity
+    /// that ends when the batch is through.
+    func testUploadsRunInsideOneBackgroundActivity() async throws {
+        _ = try seed(pushed: true)
+        _ = try seed(pushed: true, sameSample: true)
+        client.duringUpload = { [unowned self] in self.events.append("upload") }
+        await run(makeRunner())
+        XCTAssertEqual(events, ["begin", "upload", "upload", "end"])
+    }
+
+    func testBackgroundActivityEndsAfterFailedUpload() async throws {
+        _ = try seed(pushed: true)
+        client.nextError = SampleClientError.http(status: 500, body: "")
+        await run(makeRunner())
+        XCTAssertEqual(events.first, "begin")
+        XCTAssertEqual(events.last, "end")
+    }
+
+    func testNoBackgroundActivityWithoutDuePhoto() async throws {
+        _ = try seed(pushed: false)
+        await run(makeRunner())
+        XCTAssertEqual(events, [])
     }
 }
 

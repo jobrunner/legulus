@@ -96,6 +96,7 @@ final class AccountGraph {
                     }
                 )
             },
+            beginBackgroundActivity: BackgroundActivity.begin,
             onSampleSynced: { fieldtripID in
                 Task { await hydrator.pullOne(fieldtripID) }
             },

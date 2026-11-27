@@ -442,6 +442,11 @@ final class SyncRunner: ObservableObject {
     /// „Fotos nur im WLAN hochladen“ is on: the upload request itself
     /// refuses cellular.
     private let photoWiFiOnly: () -> Bool
+    /// Asks the system for time to finish after the app left the
+    /// foreground; returns the closure that ends that request. Put away
+    /// right after the photos, the phone otherwise suspends the app and
+    /// the upload breaks off mid-body.
+    private let beginBackgroundActivity: @MainActor (_ name: String) -> () -> Void
     /// The signed-in account. A photo batch belongs to the account it
     /// started under: after a sign-out the local rows are wiped and the
     /// next account must not inherit the rest of the batch.
@@ -495,6 +500,7 @@ final class SyncRunner: ObservableObject {
          accountProvider: (() -> String?)? = nil,
          conditionsResolver: (@MainActor () -> SampleConditionsResolver?)? = nil,
          now: @escaping () -> Date = Date.init,
+         beginBackgroundActivity: @escaping @MainActor (_ name: String) -> () -> Void = { _ in {} },
          onSampleSynced: @escaping (String) -> Void = { _ in },
          onLocalityChanged: @escaping () -> Void = {})
     {
@@ -518,6 +524,7 @@ final class SyncRunner: ObservableObject {
         self.photoWiFiOnly = photoWiFiOnly
         accountID = accountProvider ?? { authProvider()?.currentToken.flatMap(AccountBoundAuth.userID(ofToken:)) }
         self.now = now
+        self.beginBackgroundActivity = beginBackgroundActivity
         self.conditionsResolver = conditionsResolver
         self.onSampleSynced = onSampleSynced
         self.onLocalityChanged = onLocalityChanged
@@ -1620,6 +1627,10 @@ final class SyncRunner: ObservableObject {
         let client = photoClientFactory(endpoint, authProvider())
         let account = accountID()
         var backendIDs: [String: String?] = [:]
+        // Begun with the first upload, ended when the batch is through,
+        // also on an early return.
+        var endActivity: (() -> Void)?
+        defer { endActivity?() }
         for photo in due {
             // Checked before every photo: Wi-Fi may drop, the user may
             // switch „nur im WLAN“ on, or sign out, in the middle of a
@@ -1635,6 +1646,9 @@ final class SyncRunner: ObservableObject {
             // The sample itself is not on the server yet; its create
             // mutation comes first, the photo follows in a later pass.
             guard let backendID, !backendID.isEmpty else { continue }
+            if endActivity == nil {
+                endActivity = beginBackgroundActivity("photo upload")
+            }
             await pushOnePhoto(photo, backendSampleID: backendID, via: client, account: account)
         }
     }
