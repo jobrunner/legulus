@@ -81,10 +81,20 @@ struct ZoomScale: Equatable {
         return minFactor * pow(maxFactor / minFactor, position)
     }
 
-    /// The snap factors that lie on this scale, as device factors.
+    /// The snap factors that lie on this scale, plus every lens and both
+    /// ends, as device factors in ascending order. A 5× telephoto lies
+    /// beyond the fixed stops and must still be reachable (VoiceOver
+    /// steps from stop to stop).
     var snapStops: [CGFloat] {
-        Self.snapDisplayFactors.map(deviceFactor(display:))
+        let fixed = Self.snapDisplayFactors.map(deviceFactor(display:))
             .filter { $0 >= minFactor - Self.tolerance && $0 <= maxFactor + Self.tolerance }
+        var stops: [CGFloat] = []
+        for stop in (fixed + lensStops + [minFactor, maxFactor]).sorted()
+            where stops.last.map({ stop - $0 > Self.tolerance }) ?? true
+        {
+            stops.append(stop)
+        }
+        return stops
     }
 
     /// The factor with snapping: a snap stop when close enough, else as is.

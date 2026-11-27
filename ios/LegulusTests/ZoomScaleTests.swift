@@ -53,6 +53,14 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(triple.snapStops, [1, 2, 4, 6])
     }
 
+    /// Mit 5×-Tele liegt das Teleobjektiv jenseits der festen Raststufen;
+    /// es muss trotzdem eine Raststufe sein, sonst erreicht VoiceOver es nicht.
+    func testSnapStops_IncludeLensesBeyondFixedStops() {
+        let fiveX = ZoomScale(deviceType: .builtInTripleCamera, switchOverFactors: [2, 10], minFactor: 1, maxFactor: 20)
+        XCTAssertEqual(fiveX.snapStops, [1, 2, 4, 6, 10])
+        XCTAssertEqual(fiveX.step(6, up: true), 10)
+    }
+
     func testSnap() {
         XCTAssertEqual(triple.snapped(2.05), 2, "nah an 1× rastet ein")
         XCTAssertEqual(triple.snapped(5), 5, "zwischen 2× und 3× frei")
