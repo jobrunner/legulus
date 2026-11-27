@@ -2,7 +2,8 @@ import Foundation
 
 /// What the „Zeit“ card shows of the sky (variant T2): the light band,
 /// sunrise and sunset under it, the lines about sun and moon and the
-/// summary for VoiceOver. nil without Tempus values or without sun times.
+/// summary for VoiceOver. Without sun times (polar day or night) only the
+/// lines; nil without Tempus values or when there is nothing to show.
 struct TimeCardSky: Equatable {
     let band: LightBand
     let markers: SkyMarkers
@@ -11,6 +12,12 @@ struct TimeCardSky: Equatable {
     /// „Sonne 18° hoch, S“, „Mond unter dem Horizont · Aufgang 13:20“.
     let facts: [String]
     let accessibilityText: String
+
+    /// False without sun times (polar day or night): no band, the lines
+    /// about sun and moon still show.
+    var showsBand: Bool {
+        !band.segments.isEmpty
+    }
 
     struct Label: Equatable {
         let text: String
@@ -26,7 +33,6 @@ struct TimeCardSky: Equatable {
         let nightCentered = display.lightPhase.map { $0 != .day } ?? false
         let band = LightBand(begin: begin, end: end, isAllDay: isAllDay, events: display.skyEvents,
                              zone: zone, nightCentered: nightCentered)
-        guard !band.segments.isEmpty else { return nil }
         self.band = band
         // By day the moon is left out, at night the sun; twilight
         // shows both.
@@ -35,6 +41,7 @@ struct TimeCardSky: Equatable {
                              showsMoon: display.showsMoon)
         facts = [display.showsSun ? display.sunFact : nil, display.showsMoon ? display.moonFact : nil]
             .compactMap { $0 }
+        guard !band.segments.isEmpty || !facts.isEmpty else { return nil }
 
         // Sunrise and sunset are the edges of the day stretches inside
         // the band.

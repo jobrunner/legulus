@@ -16,12 +16,14 @@ struct SampleTimeCard: View {
             SectionHeader(title: "Zeit")
             dateRow
             if let sky {
-                LightBandView(
-                    band: sky.band, markers: sky.markers,
-                    sunrise: sky.sunrise.map { ($0.text, $0.at) }, sunset: sky.sunset.map { ($0.text, $0.at) },
-                    accessibilityText: sky.accessibilityText
-                )
-                .padding(.top, AppSpacing.xs)
+                if sky.showsBand {
+                    LightBandView(
+                        band: sky.band, markers: sky.markers,
+                        sunrise: sky.sunrise.map { ($0.text, $0.at) }, sunset: sky.sunset.map { ($0.text, $0.at) },
+                        accessibilityText: sky.accessibilityText
+                    )
+                    .padding(.top, AppSpacing.xs)
+                }
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
                     ForEach(sky.facts, id: \.self) { fact in
                         Text(fact)

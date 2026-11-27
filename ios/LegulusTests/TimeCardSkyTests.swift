@@ -61,6 +61,18 @@ final class TimeCardSkyTests: XCTestCase {
     }
 
     /// Without values or without sun times there is no band.
+    /// Polar day or night: no sun times, so no band, but the lines about
+    /// sun and moon stay.
+    func testNoSunTimes_KeepsFactsWithoutBand() throws {
+        var polar = ConditionsDisplay(state: .values)
+        polar.lightPhase = .day
+        polar.sunFact = "Sonne 5° hoch, S"
+        let sky = try XCTUnwrap(TimeCardSky(display: polar, begin: t("11:15"), end: nil, isAllDay: false,
+                                            zone: zone, locale: german))
+        XCTAssertFalse(sky.showsBand)
+        XCTAssertEqual(sky.facts, ["Sonne 5° hoch, S"])
+    }
+
     func testNoValues_NoSky() {
         XCTAssertNil(TimeCardSky(display: ConditionsDisplay(state: .pending), begin: t("11:15"), end: nil,
                                  isAllDay: false, zone: zone, locale: german))
