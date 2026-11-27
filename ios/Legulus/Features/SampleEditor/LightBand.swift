@@ -15,6 +15,10 @@ struct SkyEvents: Equatable {
     var astronomicalDusk: Date?
     var moonrise: Date?
     var moonset: Date?
+    /// False while the sun feature with the twilights has not arrived:
+    /// missing twilight times then mean „unknown“, not „the sun never
+    /// sinks that far“.
+    var twilightKnown = true
 }
 
 /// The 24 hours around a sample as a band of light phases: by day from
@@ -95,7 +99,7 @@ struct LightBand: Equatable {
             func covers(_ index: Int, _ m: Date) -> Bool {
                 let (_, from, to) = levels[index]
                 if let from, let to { return Self.isWithin(m, from, to) }
-                return levels[..<index].contains { $0.1 != nil && $0.2 != nil }
+                return events.twilightKnown && levels[..<index].contains { $0.1 != nil && $0.2 != nil }
             }
             func phase(at m: Date) -> Phase {
                 for (index, level) in levels.enumerated() where covers(index, m) {

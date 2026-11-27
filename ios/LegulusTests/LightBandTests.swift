@@ -144,4 +144,14 @@ final class LightBandTests: XCTestCase {
         XCTAssertEqual(LightBandView.hourLabel(midnight, zone: zone, locale: german), "0")
         XCTAssertEqual(LightBandView.hourLabel(midnight, zone: .gmt, locale: german), "23")
     }
+
+    /// Sunrise and sunset known, the sun feature with the twilights not
+    /// yet: outside the day it is night, not endless civil twilight.
+    func testUnknownTwilights_AreNotContinuousTwilight() {
+        var partial = SkyEvents(sunrise: t("07:43"), sunset: t("16:29"))
+        partial.twilightKnown = false
+        let band = LightBand(begin: t("11:15"), end: nil, isAllDay: false, events: partial, zone: zone,
+                             nightCentered: false)
+        XCTAssertEqual(phases(band), [.night, .day, .night])
+    }
 }

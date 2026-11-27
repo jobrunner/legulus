@@ -424,7 +424,8 @@ struct ConditionsDisplay: Equatable {
             civilDawn: twilight["civil.dawn"], sunrise: c.date("sunrise"), sunset: c.date("sunset"),
             civilDusk: twilight["civil.dusk"], nauticalDusk: twilight["nautical.dusk"],
             astronomicalDusk: twilight["astronomical.dusk"],
-            moonrise: Self.isoTime(moon?["moonrise"]), moonset: Self.isoTime(moon?["moonset"])
+            moonrise: Self.isoTime(moon?["moonrise"]), moonset: Self.isoTime(moon?["moonset"]),
+            twilightKnown: sun != nil
         )
         if let elevation = Self.number(in: sun, "elevationDeg") {
             sunIsUp = elevation > 0

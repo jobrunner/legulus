@@ -73,6 +73,17 @@ final class TimeCardSkyTests: XCTestCase {
         XCTAssertEqual(sky.facts, ["Sonne 5° hoch, S"])
     }
 
+    /// Moon phase without the moon's elevation: phase and light stay as
+    /// the moon line instead of no moon at all.
+    func testMoonWithoutElevation_FallsBackToPhase() throws {
+        var night = ConditionsDisplay(state: .values)
+        night.lightPhase = .night
+        night.moon = ConditionsDisplay.Pair(id: "moon", label: "Mond", value: "Zunehmender Mond, 78 %", spoken: "")
+        let sky = try XCTUnwrap(TimeCardSky(display: night, begin: t("22:15"), end: nil, isAllDay: false,
+                                            zone: zone, locale: german))
+        XCTAssertEqual(sky.facts, ["Mond: Zunehmender Mond, 78 %"])
+    }
+
     func testNoValues_NoSky() {
         XCTAssertNil(TimeCardSky(display: ConditionsDisplay(state: .pending), begin: t("11:15"), end: nil,
                                  isAllDay: false, zone: zone, locale: german))

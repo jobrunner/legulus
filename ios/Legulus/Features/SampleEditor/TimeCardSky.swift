@@ -39,7 +39,9 @@ struct TimeCardSky: Equatable {
         markers = SkyMarkers(sunIsUp: display.sunIsUp && display.showsSun,
                              moonIsUp: display.moonIsUp && display.showsMoon,
                              showsMoon: display.showsMoon)
-        facts = [display.showsSun ? display.sunFact : nil, display.showsMoon ? display.moonFact : nil]
+        // Without the moon's elevation its phase and light stand in.
+        let moonFact = display.moonFact ?? display.moon.map { String(localized: "Mond: \($0.value)") }
+        facts = [display.showsSun ? display.sunFact : nil, display.showsMoon ? moonFact : nil]
             .compactMap { $0 }
         guard !band.segments.isEmpty || !facts.isEmpty else { return nil }
 
