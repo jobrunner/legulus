@@ -95,11 +95,12 @@ enum PlaceDisplay {
     }
 
     static func heading(_ place: Place?) -> Heading? {
-        guard let place, let title = shortName(place) else { return nil }
+        guard let place, let titleTier = titleTier(place), let title = place.admin[titleTier].map(displayValue)
+        else { return nil }
+        // The tier `shortName` took, not the first one of that name: a
+        // city and state both called New York keep the county between.
         let tiers = AdminTier.allCases
-        let titleIndex = tiers.firstIndex { tier in
-            place.admin[tier].map(displayValue) == title
-        } ?? tiers.count
+        let titleIndex = tiers.firstIndex(of: titleTier) ?? tiers.count
         var context = tiers[..<titleIndex].reversed()
             .filter { $0 != .country }
             .compactMap { place.admin[$0].map(displayValue) }
@@ -220,15 +221,17 @@ enum PlaceDisplay {
     /// Name for list rows: the municipality, else the next higher
     /// filled level (district, county, … up to the country).
     static func shortName(_ place: Place?) -> String? {
-        guard let place else { return nil }
+        guard let place, let tier = titleTier(place) else { return nil }
+        return place.admin[tier].map(displayValue)
+    }
+
+    /// The tier `shortName` names: the municipality, else the next
+    /// higher filled one.
+    private static func titleTier(_ place: Place) -> AdminTier? {
         let upward: [AdminTier] = [.municipality, .district, .county, .province, .region, .state, .country]
-        for tier in upward {
-            if let value = place.admin[tier] {
-                let text = displayValue(value)
-                if !text.isEmpty { return text }
-            }
+        return upward.first { tier in
+            place.admin[tier].map { !displayValue($0).isEmpty } ?? false
         }
-        return nil
     }
 
     /// "MTB 6326/1 Ochsenfurt". Only for German samples (the backend

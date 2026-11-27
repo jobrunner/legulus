@@ -159,6 +159,18 @@ final class PlaceDisplayTests: XCTestCase {
                        PlaceDisplay.Heading(title: "Würzburg", context: ["Unterfranken", "Bayern", "DE"]))
     }
 
+    /// City and state of the same name (New York): the title is the
+    /// city, the county between them stays.
+    func testHeading_TitleTierFollowsShortNamePriority() {
+        let newYork = Place(countryISO: "US", admin: [
+            .state: AdminValue(name: "New York", level: 4),
+            .county: AdminValue(name: "Kings County", level: 6),
+            .municipality: AdminValue(name: "New York", level: 8)
+        ])
+        XCTAssertEqual(PlaceDisplay.heading(newYork),
+                       PlaceDisplay.Heading(title: "New York", context: ["Kings County", "US"]))
+    }
+
     func testHeading_NilWithoutData() {
         XCTAssertNil(PlaceDisplay.heading(nil))
         XCTAssertNil(PlaceDisplay.heading(Place(countryISO: "DE")))
