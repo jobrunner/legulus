@@ -22,7 +22,7 @@ struct CameraView: View {
     /// photos. The shutter never waits for it.
     @StateObject private var location = LocationProvider()
 
-    @State private var count = 0
+    @State private var photoCount = 0
     @State private var lastPhoto: UIImage?
     @State private var errorMessage: String?
     /// The last fix of this session; survives the provider going back
@@ -498,7 +498,7 @@ struct CameraView: View {
         } label: {
             finishSymbol
                 .modifier(upright)
-                .foregroundStyle(count == 0 ? .white : AppColor.cameraActive)
+                .foregroundStyle(photoCount == 0 ? .white : AppColor.cameraActive)
                 .frame(width: finishSize, height: finishSize)
                 .background(AppColor.cameraScrim, in: Circle())
                 .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: hairline))
@@ -507,9 +507,9 @@ struct CameraView: View {
     }
 
     private var finishSymbol: some View {
-        Image(systemName: count == 0 ? "xmark" : "checkmark")
+        Image(systemName: photoCount == 0 ? "xmark" : "checkmark")
             .font(AppFont.headline.weight(.bold))
-            .accessibilityLabel(count == 0 ? Text("Abbrechen") : Text("Fertig"))
+            .accessibilityLabel(photoCount == 0 ? Text("Abbrechen") : Text("Fertig"))
     }
 
     /// Turns numbers and icons upright to the horizon in landscape; the
@@ -566,7 +566,7 @@ struct CameraView: View {
                     .frame(width: lastPhotoSize, height: lastPhotoSize)
                     .accessibilityHidden(true)
             }
-            Text(count, format: .number)
+            Text(photoCount, format: .number)
                 .font(AppFont.caption2.monospacedDigit().weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, AppSpacing.xs)
@@ -622,7 +622,7 @@ struct CameraView: View {
     }
 
     private var countText: String {
-        count == 1 ? String(localized: "1 Foto") : String(localized: "\(count) Fotos")
+        photoCount == 1 ? String(localized: "1 Foto") : String(localized: "\(photoCount) Fotos")
     }
 
     /// Takes the picked photos over in the background; the shutter stays
@@ -638,7 +638,7 @@ struct CameraView: View {
                 store: { try onPhoto($0) }
             )
             if result.stored > 0, let last = result.last {
-                count += result.stored
+                photoCount += result.stored
                 lastPhoto = PhotoStorage.thumbnail(data: last, maxPixel: lastPhotoPixels)
                 errorMessage = nil
             }
@@ -682,9 +682,9 @@ struct CameraView: View {
             return
         }
         errorMessage = nil
-        count += 1
+        photoCount += 1
         lastPhoto = PhotoStorage.thumbnail(data: data, maxPixel: lastPhotoPixels)
-        AccessibilityNotification.Announcement(String(localized: "Foto \(count) aufgenommen")).post()
+        AccessibilityNotification.Announcement(String(localized: "Foto \(photoCount) aufgenommen")).post()
     }
 }
 
