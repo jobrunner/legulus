@@ -12,12 +12,14 @@ import SwiftUI
 /// status twice.
 struct GPSStatusIcon: View {
     let status: LocationProvider.Status
+    /// The icon's size; the coordinate chip passes its text style.
+    var font: Font = .title2
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Image(systemName: symbolName)
-            .font(.title2)
+            .font(font)
             .foregroundStyle(color)
             .symbolEffect(.pulse, options: .repeating, isActive: isLoading && !reduceMotion)
             .accessibilityHidden(true)
@@ -39,7 +41,7 @@ struct GPSStatusIcon: View {
     private var color: Color {
         switch status {
         case .fixed: return AppColor.brandPrimaryText
-        case .denied, .failed: return .red
+        case .denied, .failed: return AppColor.danger
         case .idle, .requestingAuthorization, .locating: return .secondary
         }
     }

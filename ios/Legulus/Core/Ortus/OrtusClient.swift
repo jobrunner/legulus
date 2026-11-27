@@ -19,15 +19,16 @@ enum OrtusQueryError: Error, Equatable {
     var userMessage: String {
         switch self {
         case .offline:
-            "Keine Verbindung zu Ortus. Bitte später erneut versuchen."
+            String(localized: "Keine Verbindung zu Ortus. Bitte später erneut versuchen.")
         case let .server(message):
             if let message, !message.isEmpty {
-                "Ortus konnte die Koordinate nicht umrechnen: \(message)"
+                // Ortus' own text stays as it comes; only the frame is ours.
+                String(localized: "Ortus konnte die Koordinate nicht umrechnen: \(message)")
             } else {
-                "Ortus konnte die Koordinate nicht umrechnen."
+                String(localized: "Ortus konnte die Koordinate nicht umrechnen.")
             }
         case .noWGS84:
-            "Ortus konnte die Koordinate nicht umrechnen."
+            String(localized: "Ortus konnte die Koordinate nicht umrechnen.")
         }
     }
 
@@ -38,7 +39,7 @@ enum OrtusQueryError: Error, Equatable {
         case let ortusError as OrtusQueryError:
             ortusError.userMessage
         case is CoordinateInputError:
-            "Bitte eine gültige Koordinate eingeben."
+            String(localized: "Bitte eine gültige Koordinate eingeben.")
         default:
             OrtusQueryError.server(message: nil).userMessage
         }
@@ -58,8 +59,8 @@ enum OrtusClientError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidEndpoint: "Ortus-Endpoint-URL ist ungültig."
-        case let .http(status): "Ortus antwortete mit HTTP \(status)."
+        case .invalidEndpoint: String(localized: "Ortus-Endpoint-URL ist ungültig.")
+        case let .http(status): String(localized: "Ortus antwortete mit HTTP \(status).")
         }
     }
 }

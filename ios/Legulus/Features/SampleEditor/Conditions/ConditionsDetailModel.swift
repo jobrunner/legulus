@@ -26,6 +26,9 @@ struct ConditionsDetailModel: Equatable {
     /// corrected to the height the query was made with.
     var elevationNote: String?
     var isProvisional = false
+    /// Explains what is provisional and until when (see
+    /// `ConditionsDisplay.ProvisionalReason`); nil for a final answer.
+    var provisionalNote: String?
 
     /// Subjects in display order with the feature kinds they hold.
     private static let subjects: [(id: String, title: String, kinds: [String])] = [
@@ -97,8 +100,12 @@ struct ConditionsDetailModel: Equatable {
 
     init() {}
 
-    /// - Parameter night: see `ConditionsDisplay`.
-    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature]) {
+    /// - Parameters:
+    ///   - night: see `ConditionsDisplay`.
+    ///   - locale: dates follow it (the device's region).
+    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature],
+         locale: Locale = .autoupdatingCurrent)
+    {
         // The page is the features: without the ones of this answer
         // (see `holdsItsFeatures`) there is nothing to show.
         guard let conditions = sample.conditions, conditions.hasAnswer, conditions.holdsItsFeatures,
@@ -106,10 +113,24 @@ struct ConditionsDetailModel: Equatable {
         else { return }
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
         isProvisional = conditions.status == .provisional
+        switch ConditionsDisplay.provisionalReason(conditions) {
+        case let .young(finalFrom):
+            let date = ConditionsDisplay.dayMonth(finalFrom, zone: zone, locale: locale)
+            // The date in brackets: the sentence keeps its own full stop,
+            // whatever the region's date ends with.
+            provisionalNote = String(localized: """
+            Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden \
+            (endgültig ab \(date)). Sonne, Mond und Klima sind endgültig.
+            """)
+        case .incomplete:
+            provisionalNote = String(localized: "Ein Dienst war beim Abruf nicht erreichbar; fehlende Werte werden nachgeholt.")
+        case nil:
+            break
+        }
         queriedFor = conditions.queriedFor.map { Self.dateTime($0, zone: zone) }
         fetchedAt = conditions.fetchedAt.map { Self.dateTime($0, zone: zone) }
         if let metres = conditions.inputs?.elevationMetres {
-            elevationNote = "Werte für \(metres) m über dem Meer"
+            elevationNote = String(localized: "Werte für \(metres) m über dem Meer")
         }
         for subject in Self.subjects {
             let own = subject.kinds.flatMap { kind in features.filter { $0.layer == kind } }

@@ -42,11 +42,14 @@ enum TopoMapRenderer {
 
     /// The header image and whether it is the topographic map (the
     /// attribution belongs to it) or the Apple fallback; nil when both
-    /// fail. `scale` is the screen's display scale.
+    /// fail. `scale` is the screen's display scale; `anchor` is where the
+    /// coordinate and pin go (the middle when nil), for the Apple
+    /// fallback as well.
     static func image(
-        at coord: CLLocationCoordinate2D, size: CGSize, scale: CGFloat, dark: Bool
+        at coord: CLLocationCoordinate2D, size: CGSize, anchor: CGPoint? = nil, scale: CGFloat, dark: Bool
     ) async -> (image: UIImage, isTopo: Bool)? {
-        let key = cacheKey(coord: coord, size: size)
+        let pin = anchor ?? CGPoint(x: size.width / 2, y: size.height / 2)
+        let key = cacheKey(coord: coord, size: size, anchor: pin)
         if let cached = memoryCache.object(forKey: key as NSString) {
             Log.network.debug("topo header: cache hit (memory)")
             touch(key)
@@ -60,7 +63,7 @@ enum TopoMapRenderer {
         }
         if gateAllows() {
             let start = Date()
-            if let image = await withDeadline(topoDeadline, { await renderTopo(coord: coord, size: size, scale: scale) }) {
+            if let image = await withDeadline(topoDeadline, { await renderTopo(coord: coord, size: size, anchor: pin, scale: scale) }) {
                 Log.network.info(
                     "topo header: cache miss, rendered in \(Int(Date().timeIntervalSince(start) * 1000), privacy: .public) ms"
                 )
@@ -77,7 +80,7 @@ enum TopoMapRenderer {
             Log.network.debug("topo header: server skipped after a recent failure")
         }
         if let fallback = await withDeadline(fallbackDeadline, {
-            try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark)
+            try? await MapSnapshotter.snapshot(at: coord, size: size, dark: dark, anchor: pin)
         }) {
             return (fallback, false)
         }
@@ -122,8 +125,10 @@ enum TopoMapRenderer {
         }
     }
 
-    private static func renderTopo(coord: CLLocationCoordinate2D, size: CGSize, scale: CGFloat) async -> UIImage? {
-        let placements = TopoTiles.placements(center: coord, zoom: zoom, size: size, tileSide: tileSide)
+    private static func renderTopo(
+        coord: CLLocationCoordinate2D, size: CGSize, anchor: CGPoint, scale: CGFloat
+    ) async -> UIImage? {
+        let placements = TopoTiles.placements(center: coord, zoom: zoom, size: size, tileSide: tileSide, anchor: anchor)
         guard !placements.isEmpty else { return nil }
         var tiles: [(TopoTiles.TilePlacement, UIImage)] = []
         do {
@@ -158,7 +163,7 @@ enum TopoMapRenderer {
             for (placement, tile) in tiles {
                 tile.draw(in: CGRect(origin: placement.origin, size: CGSize(width: tileSide, height: tileSide)))
             }
-            MapSnapshotter.drawPinMark(at: CGPoint(x: size.width / 2, y: size.height / 2), in: ctx.cgContext)
+            MapSnapshotter.drawPinMark(at: anchor, in: ctx.cgContext)
         }
     }
 
@@ -219,9 +224,9 @@ enum TopoMapRenderer {
         }
     }
 
-    private static func cacheKey(coord: CLLocationCoordinate2D, size: CGSize) -> String {
-        let raw = String(format: "topo|%.5f|%.5f|%d|%.0fx%.0f",
-                         coord.latitude, coord.longitude, zoom, size.width, size.height)
+    private static func cacheKey(coord: CLLocationCoordinate2D, size: CGSize, anchor: CGPoint) -> String {
+        let raw = String(format: "topo|%.5f|%.5f|%d|%.0fx%.0f|%.0f,%.0f",
+                         coord.latitude, coord.longitude, zoom, size.width, size.height, anchor.x, anchor.y)
         return SHA256.hash(data: Data(raw.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 

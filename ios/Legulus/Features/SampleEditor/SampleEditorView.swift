@@ -78,6 +78,9 @@ private struct SampleEditorContent: View {
     @State private var showingForm = false
     /// „Bestimmen“ in the action bar opens a new determination.
     @State private var presentingNewDetermination = false
+    /// Height of status and navigation bar: the map reaches up under
+    /// them by this much.
+    @State private var topBarInset: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
@@ -87,9 +90,6 @@ private struct SampleEditorContent: View {
     /// and would eat a quarter of the screen.
     private let actionBarMaxHeight: CGFloat = 80
 
-    /// Width of the leading icon column in the location rows; grows
-    /// with Dynamic Type so the icons keep their proportion.
-    @ScaledMetric(relativeTo: .body) private var iconColumnWidth: CGFloat = 28
     /// Photo thumbnail edge in the editor's strip.
     @ScaledMetric(relativeTo: .body) private var thumbSize: CGFloat = 72
 
@@ -149,8 +149,8 @@ private struct SampleEditorContent: View {
             ScrollView {
                 VStack(spacing: AppSpacing.md) {
                     // Edge to edge: cancels the contentMargins with the
-                    // same negative padding.
-                    SampleMapHeader(coordinate: viewModel.coordinate)
+                    // same negative padding; up under the bars, too.
+                    SampleMapHeader(coordinate: viewModel.coordinate, topInset: topBarInset)
                         .padding(.leading, -leadingMargin)
                         .padding(.trailing, -trailingMargin)
                     codeBand
@@ -172,6 +172,8 @@ private struct SampleEditorContent: View {
                 }
                 .padding(.bottom, AppSpacing.lg)
             }
+            // The map lies under the notch and the navigation bar.
+            .ignoresSafeArea(edges: .top)
             // The field actions stay in thumb reach while scrolling; while
             // typing the keyboard needs the room.
             .safeAreaInset(edge: .bottom) {
@@ -180,6 +182,9 @@ private struct SampleEditorContent: View {
                 }
             }
         }
+        // The bars' height, read outside the scroll view: inside, the top
+        // safe area is already given up and reads 0.
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { topBarInset = $0 }
         // contentMargins greift VOR dem iOS-26-CALayer-Shift und ist
         // unsere einzige Stellschraube auf der ScrollView-Ebene.
         .contentMargins(.leading, leadingMargin, for: .scrollContent)
@@ -191,6 +196,7 @@ private struct SampleEditorContent: View {
         .background(AppColor.surfaceGrouped)
         .navigationTitle(viewModel.isExistingSample && !viewModel.isNew ? "Probe" : "Neue Probe")
         .navigationBarTitleDisplayMode(.inline)
+        .modifier(BarOverMap())
         // Our own back button saves first. The swipe-back is switched
         // off explicitly so it can't bypass the id validation.
         .navigationBarBackButtonHidden(true)
@@ -428,22 +434,25 @@ private struct SampleEditorContent: View {
 
     private var placeCard: some View {
         VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            SectionHeader(title: "Ort")
+            // The place name heads the card once there is one; until then
+            // the generic title does, and bearing or landscape still show.
+            if viewModel.isExistingSample, viewModel.placeHeading != nil {
+                placeHeading
+            } else {
+                SectionHeader(title: "Ort")
+                if viewModel.isExistingSample {
+                    placeHeading
+                }
+            }
             locationRow
             if viewModel.isExistingSample {
-                // The leading inset aligns the divider with the right
-                // edge of the icon column inside each row.
-                Divider().padding(.leading, iconColumnWidth)
                 placeSection
             }
         }
     }
 
     private var timeCard: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            SectionHeader(title: "Zeit")
-            timeRow
-        }
+        SampleTimeCard(texts: dateTexts, sky: timeCardSky, zoneLabel: timezoneLabelText)
     }
 
     // MARK: - action bar
@@ -587,123 +596,135 @@ private struct SampleEditorContent: View {
 
     // MARK: - place and time
 
+    /// „Würzburg“, below it the broader units, the bearing and island,
+    /// mountain range, mountain: „Unterfranken, Bayern, DE · 2,3km SW
+    /// Randersacker · La Palma“, names only. The full hierarchy stays in the
+    /// form under „Bearbeiten“.
+    @ViewBuilder
+    private var placeHeading: some View {
+        let heading = viewModel.placeHeading
+        let context = heading?.context.joined(separator: ", ") ?? ""
+        let landscape = viewModel.placeLandscape.map(\.value)
+        let subline = ([context, viewModel.placeBearing ?? ""] + landscape)
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        if heading != nil || !subline.isEmpty {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                if let heading {
+                    Text(heading.title)
+                        .font(AppFont.headline)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                if !subline.isEmpty {
+                    Text(subline)
+                        .font(AppFont.subhead)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// Coordinate and altitude as two small chips side by side, one
+    /// below the other when they don't fit. Nobody reads the digits in
+    /// the field; the chips say „fixed, ready to copy“.
     private var locationRow: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            GPSStatusIcon(status: locationIconStatus)
-                .frame(width: iconColumnWidth)
-                .padding(.top, AppSpacing.xs)
-
-            // Side-by-side at default widths, stacked vertically when
-            // either Dynamic Type or a narrower device pushes the
-            // right-column off-screen. Truncation is the second-line
-            // defense; `ViewThatFits` is the first.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: AppSpacing.md) {
-                    coordinateBlock
-                    Spacer(minLength: AppSpacing.sm)
-                    altitudeBlock(alignment: .trailing)
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    coordinateBlock
-                    altitudeBlock(alignment: .leading)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: AppSpacing.md) {
+                coordinateChip
+                altitudeChip
+            }
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                coordinateChip
+                altitudeChip
             }
         }
-        .padding(.vertical, AppSpacing.md)
     }
 
-    /// System name on top (aligned with „Höhe“), the coordinate, then
-    /// the horizontal accuracy. Labels secondary, values primary. A tap
-    /// on the coordinate copies it (see `ClipboardText`).
-    private var coordinateBlock: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-            // No line limit: `ViewThatFits` in `locationRow` stacks the
-            // blocks when the coordinate doesn't fit on one line.
-            if let display = coordinateDisplay, let clipboard = coordinateClipboardText {
-                CopyableValueButton(
-                    caption: display.caption,
-                    clipboardText: clipboard,
-                    accessibilityLabel: coordinateA11yLabel(display),
-                    announcement: "Koordinate kopiert"
-                ) {
-                    Text(display.text)
-                        .font(AppFont.body.monospacedDigit())
-                }
-            } else {
+    /// A map pin, the coordinate (grid systems with their name in
+    /// front: „MGRS 32U NA …“) and the horizontal accuracy. A tap copies
+    /// it (see `ClipboardText`). Without coordinate the chip shows the
+    /// GPS state instead (locating, denied, failed).
+    @ViewBuilder
+    private var coordinateChip: some View {
+        if let display = coordinateDisplay, let clipboard = coordinateClipboardText {
+            CopyableValueChip(
+                clipboardText: clipboard,
+                accessibilityLabel: coordinateA11yLabel(display),
+                announcement: "Koordinate kopiert"
+            ) {
+                Image(systemName: "mappin")
+                    .foregroundStyle(AppColor.brandPrimaryText)
+                    .accessibilityHidden(true)
+            } content: {
+                withAccuracy(gridLabel(display) + Text(display.text), viewModel.accuracyM)
+            }
+        } else {
+            // Nothing to copy yet: no chip, only the state.
+            HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+                GPSStatusIcon(status: locationIconStatus, font: AppFont.caption)
                 Text(coordinateText)
-                    .font(AppFont.body.monospacedDigit())
+                    .foregroundStyle(AppColor.textSecondary)
             }
-            if let acc = viewModel.accuracyM {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                    Text("Genauigkeit").foregroundStyle(.secondary)
-                    Text(String(format: "±%.0f m", acc))
-                }
-                .font(AppFont.footnote)
-                // Steht schon im Label des Koordinaten-Buttons.
-                .accessibilityHidden(coordinateDisplay != nil)
-            }
+            .font(AppFont.caption.monospacedDigit())
+            .accessibilityElement(children: .combine)
         }
     }
 
-    private func altitudeBlock(alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: AppSpacing.xxs) {
-            if let alt = viewModel.altitudeM {
-                CopyableValueButton(
-                    caption: "Höhe",
-                    clipboardText: ClipboardText.altitude(meters: alt),
-                    accessibilityLabel: altitudeA11yLabel(alt),
-                    announcement: "Höhe kopiert",
-                    alignment: alignment
-                ) {
-                    Text(altitudeText)
-                        .font(AppFont.body.monospacedDigit())
-                }
+    /// „MGRS “ in the secondary color, empty for degree formats.
+    private func gridLabel(_ display: (text: String, caption: String)) -> Text {
+        guard let name = PlaceDisplay.gridSystemLabel(config.coordinateDisplayFormat, shownAs: display.caption) else {
+            return Text(verbatim: "")
+        }
+        return Text(verbatim: name + " ").foregroundStyle(AppColor.textSecondary)
+    }
+
+    /// Altitude with its accuracy, shown only (nobody pastes it), so no
+    /// chip: the tinted surface marks what can be tapped.
+    private var altitudeChip: some View {
+        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+            Image(systemName: "mountain.2")
+                .foregroundStyle(AppColor.textSecondary)
+            if viewModel.altitudeM != nil {
+                withAccuracy(Text(altitudeText), viewModel.savedSample?.verticalAccuracy)
             } else {
-                VStack(alignment: alignment, spacing: AppSpacing.xxs) {
-                    Text("Höhe")
-                        .font(AppFont.footnote)
-                        .foregroundStyle(.secondary)
-                    Text(altitudeText)
-                        .font(AppFont.body.monospacedDigit())
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Höhe unbekannt")
-            }
-            if let acc = viewModel.savedSample?.verticalAccuracy {
-                Text(String(format: "±%.0f m", acc))
-                    .font(AppFont.footnote)
-                    // Steht schon im Label des Höhen-Buttons.
-                    .accessibilityHidden(viewModel.altitudeM != nil)
+                Text(altitudeText)
+                    .foregroundStyle(AppColor.textSecondary)
             }
         }
+        .font(AppFont.caption.monospacedDigit())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(viewModel.altitudeM.map(altitudeA11yLabel) ?? "Höhe unbekannt")
     }
 
-    /// Place data of a saved sample: status hints, the gazetteer line,
-    /// bearing/aspect/slope, MTB, and the actions that
+    /// „276 m ±3 m“ with the accuracy in the secondary color.
+    private func withAccuracy(_ value: Text, _ accuracy: Double?) -> Text {
+        guard let accuracy else { return value }
+        return value + Text(String(format: " ±%.0fm", accuracy)).foregroundStyle(AppColor.textSecondary)
+    }
+
+    /// Place data of a saved sample: status hints, exposure, MTB and
+    /// altitudinal belt, and the actions that
     /// stay here (accept/dismiss a suggestion, resend a failed push).
     /// Editing goes through „Bearbeiten“.
     private var placeSection: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            Color.clear
-                .frame(width: iconColumnWidth)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                if viewModel.canResend {
-                    resendBanner
-                }
-                if viewModel.hasSuggestion {
-                    suggestionBanner
-                }
-                placeStatusLine
-                placeSummary
-                if let error = viewModel.placeActionError {
-                    Text(error)
-                        .font(.footnote)
-                        .foregroundStyle(AppColor.danger)
-                }
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            if viewModel.canResend {
+                resendBanner
             }
-            Spacer(minLength: 0)
+            if viewModel.hasSuggestion {
+                suggestionBanner
+            }
+            placeStatusLine
+            placeSummary
+            if let error = viewModel.placeActionError {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(AppColor.danger)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, AppSpacing.sm)
     }
 
@@ -715,7 +736,8 @@ private struct SampleEditorContent: View {
                       systemImage: "mappin.slash")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            } else if viewModel.gazetteerLine == nil {
+                enterPlaceButton("Koordinate eingeben")
+            } else if viewModel.placeHeading == nil {
                 switch sample.locationStatus {
                 case .pending:
                     Label("Ortsangaben werden ermittelt – spätestens nach dem nächsten Sync.",
@@ -727,6 +749,7 @@ private struct SampleEditorContent: View {
                           systemImage: "water.waves")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    enterPlaceButton("Ortsangaben eingeben")
                 case .inherited, .manual:
                     EmptyView()
                 }
@@ -741,6 +764,17 @@ private struct SampleEditorContent: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Opens the edit form where coordinate and place data are set by
+    /// hand; `.large` reaches the 44 pt tap target.
+    private func enterPlaceButton(_ title: LocalizedStringKey) -> some View {
+        Button(action: openForm) {
+            Label(title, systemImage: "square.and.pencil")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .tint(AppColor.brandPrimary)
     }
 
     private var suggestionBanner: some View {
@@ -805,41 +839,39 @@ private struct SampleEditorContent: View {
         .background(AppColor.surface, in: RoundedRectangle(cornerRadius: AppRadius.md))
     }
 
-    /// Gazetteer line, bearing, MTB, then aspect and slope on one line,
-    /// then the altitudinal belt.
+    /// Aspect and slope as one line, then MTB and altitudinal belt.
     @ViewBuilder
     private var placeSummary: some View {
-        if let line = viewModel.gazetteerLine {
-            Text(line)
-                .font(.body)
-        }
-        if let bearing = viewModel.placeBearing {
-            Text(bearing)
-                .font(.footnote)
-        }
-        if let mtb = viewModel.mtbValue {
-            terrainText(PlaceDisplay.DetailLine(label: "MTB", value: mtb))
-                .font(.footnote)
-        }
-        let terrain = viewModel.placeTerrainItems
-        if !terrain.isEmpty {
-            // „Exposition: SSW (203°)   Hangneigung: 8°“ side by side;
-            // one item per line when that doesn't fit (AX sizes).
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.lg) {
-                    ForEach(terrain) { terrainText($0) }
+        let details = placeDetails
+        if viewModel.placeExposure != nil || !details.isEmpty {
+            // Looked at rarely: the small type of the coordinate, set
+            // tight. One line each: „6225/2 Würzburg Süd“ breaks in half
+            // a column.
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                if let exposure = viewModel.placeExposure {
+                    Text(exposure)
                 }
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    ForEach(terrain) { terrainText($0) }
+                ForEach(details) { item in
+                    (Text(item.label + " ").foregroundStyle(AppColor.textSecondary) + Text(item.value))
+                        .accessibilityLabel(item.spoken)
                 }
             }
-            .font(.footnote)
-            .accessibilityElement(children: .combine)
+            .font(AppFont.caption.monospacedDigit())
         }
+    }
+
+    /// Altitudinal belt and MTB.
+    private var placeDetails: [LabeledValue] {
+        var items: [LabeledValue] = []
         if let belt = altitudinalBelt {
-            terrainText(PlaceDisplay.DetailLine(label: "Höhenstufe", value: belt))
-                .font(.footnote)
+            let label = String(localized: "Höhenstufe")
+            items.append(LabeledValue(id: "belt", label: label, value: belt, spoken: "\(label) \(belt)"))
         }
+        if let mtb = viewModel.mtbValue {
+            let spoken = String(localized: "Messtischblatt \(mtb)")
+            items.append(LabeledValue(id: "mtb", label: String(localized: "MTB"), value: mtb, spoken: spoken))
+        }
+        return items
     }
 
     /// From the conditions; only while they fit the sample.
@@ -848,85 +880,12 @@ private struct SampleEditorContent: View {
         return display.altitudinalBelt
     }
 
-    /// Sun and moon of the sample's instant, by light phase (see
-    /// `ConditionsDisplay.skyItems`); empty without weather values.
-    private var skyItems: [ConditionsDisplay.SkyItem] {
-        guard let display = viewModel.conditionsDisplay, display.state == .values else { return [] }
-        return display.skyItems
-    }
-
-    /// „🌅 07:31  🌇 16:42  🌕 Vollmond, 98 %“ side by side; one per line
-    /// when that doesn't fit (AX sizes). Read with the date row.
-    @ViewBuilder
-    private var skyLine: some View {
-        let items = skyItems
-        if !items.isEmpty {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.lg) {
-                    ForEach(items) { skyLabel($0) }
-                }
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    ForEach(items) { skyLabel($0) }
-                }
-            }
-            .font(AppFont.subhead)
-        }
-    }
-
-    private func skyLabel(_ item: ConditionsDisplay.SkyItem) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-            Image(systemName: item.symbol)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(item.value)
-                .monospacedDigit()
-        }
-    }
-
-    /// „Exposition: SSW (203°)“ with a secondary label, or a bare „eben“.
-    private func terrainText(_ item: PlaceDisplay.DetailLine) -> Text {
-        guard let label = item.label else { return Text(item.value) }
-        return Text("\(label):").foregroundStyle(.secondary) + Text(" " + item.value)
-    }
-
-    private var timeRow: some View {
-        HStack(alignment: .top, spacing: AppSpacing.sm) {
-            Image(systemName: "calendar")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .frame(width: iconColumnWidth)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                // One line while it fits; at large type sizes the date
-                // breaks after the weekday instead of mid-date.
-                ViewThatFits(in: .horizontal) {
-                    Text(longDateText)
-                        // Truncation never shows: `ViewThatFits` takes
-                        // the stacked variant when one line is too narrow.
-                        .lineLimit(1)
-                    VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                        Text(longDateParts.weekday)
-                        Text(longDateParts.date)
-                    }
-                }
-                .font(AppFont.body)
-                if let window = timeWindowText {
-                    Text(window)
-                        .font(.body.monospacedDigit())
-                }
-                skyLine
-                if let zoneLabel = timezoneLabelText {
-                    Text(zoneLabel)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: AppSpacing.sm)
-        }
-        .padding(.vertical, AppSpacing.md)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(timeA11yLabel)
+    /// The light band of the „Zeit“ card; nil without Tempus values or
+    /// for a new, unsaved sample.
+    private var timeCardSky: TimeCardSky? {
+        guard viewModel.isExistingSample, let display = viewModel.conditionsDisplay else { return nil }
+        return TimeCardSky(display: display, begin: viewModel.beginDate, end: viewModel.endDate,
+                           isAllDay: viewModel.isAllDay, zone: viewModel.timeZone)
     }
 
     // MARK: - derived view state
@@ -960,7 +919,7 @@ private struct SampleEditorContent: View {
             default: return "Suche Position …"
             }
         }
-        return coordinateDisplay?.text ?? String(format: "%.6f, %.6f", c.latitude, c.longitude)
+        return coordinateDisplay?.text ?? String(format: "%.6f %.6f", locale: .current, c.latitude, c.longitude)
     }
 
     /// The coordinate in the format chosen in the settings, with the
@@ -979,30 +938,21 @@ private struct SampleEditorContent: View {
     }
 
     private var altitudeText: String {
-        if let alt = viewModel.altitudeM { return String(format: "%.0f m", alt) }
+        if let alt = viewModel.altitudeM { return String(format: "%.0fm", alt) }
         return "—"
     }
 
-    private var longDateParts: (weekday: String, date: String) {
-        // Existing sample: the sample's zone; a new one reads the
-        // device zone (that is the zone it will be created in).
+    /// Date or range of days and the time window, in the sample's zone
+    /// and the device's region. A new, unsaved sample shows today in the
+    /// device zone (the zone it will be created in) and no window.
+    private var dateTexts: SampleDateTexts {
         if viewModel.isExistingSample {
-            return SampleEditorViewModel.longDateParts(viewModel.beginDate, zone: viewModel.timeZone)
+            return SampleDateTexts(
+                begin: viewModel.beginDate, end: viewModel.endDate,
+                isAllDay: viewModel.isAllDay, zone: viewModel.timeZone
+            )
         }
-        return SampleEditorViewModel.longDateParts(Date(), zone: .current)
-    }
-
-    private var longDateText: String {
-        "\(longDateParts.weekday) \(longDateParts.date)"
-    }
-
-    /// „10:07 – 10:22“; nil for an all-day or a not yet saved sample.
-    private var timeWindowText: String? {
-        guard viewModel.isExistingSample else { return nil }
-        return SampleEditorViewModel.timeWindowText(
-            begin: viewModel.beginDate, end: viewModel.endDate,
-            isAllDay: viewModel.isAllDay, zone: viewModel.timeZone
-        )
+        return SampleDateTexts(begin: Date(), end: nil, isAllDay: true, zone: .current)
     }
 
     /// „Atlantic/Canary (WET)“ — Kürzel gilt zum Beginn-Zeitpunkt.
@@ -1026,14 +976,6 @@ private struct SampleEditorContent: View {
         if let acc = viewModel.savedSample?.verticalAccuracy {
             parts.append(String(format: "Fehler etwa %.0f Meter", acc))
         }
-        return parts.joined(separator: ", ")
-    }
-
-    private var timeA11yLabel: String {
-        var parts = [longDateText]
-        if let window = timeWindowText { parts.append(window) }
-        parts += skyItems.map(\.spoken)
-        if let zone = timezoneLabelText { parts.append(zone) }
         return parts.joined(separator: ", ")
     }
 }
@@ -1108,6 +1050,19 @@ private struct DisabledHint: ViewModifier {
             content.accessibilityHint(hint)
         } else {
             content
+        }
+    }
+}
+
+/// Before iOS 26 the navigation bar's items have no glass of their own:
+/// over the map they need the bar's blur to stay readable. iOS 26 draws
+/// its glass buttons on the map directly.
+private struct BarOverMap: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+        } else {
+            content.toolbarBackground(.visible, for: .navigationBar)
         }
     }
 }

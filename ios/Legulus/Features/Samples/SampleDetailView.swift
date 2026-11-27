@@ -123,8 +123,9 @@ struct SampleDetailView: View {
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Label(timeWindowText(for: sample), systemImage: "calendar")
+                    Label(dateTexts(for: sample).shown, systemImage: "calendar")
                         .font(.footnote)
+                        .accessibilityLabel(dateTexts(for: sample).spoken)
                     Text(SampleTime.timezoneLabel(sampleZone(sample), at: sample.beginDate))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -257,21 +258,13 @@ struct SampleDetailView: View {
 
     /// „19.05.2026 12:00 – 12:15“ in the sample's zone; the end carries
     /// its date when it falls on another local day.
-    private func timeWindowText(for sample: LocalSample) -> String {
-        let zone = sampleZone(sample)
-        let full = DateFormatter()
-        full.timeZone = zone
-        full.dateFormat = "dd.MM.yyyy HH:mm"
-        let begin = full.string(from: sample.beginDate)
-        guard let end = sample.endDate, end != sample.beginDate else { return begin }
-        let sameDay = full.string(from: end).prefix(10) == begin.prefix(10)
-        if sameDay {
-            let timeOnly = DateFormatter()
-            timeOnly.timeZone = zone
-            timeOnly.dateFormat = "HH:mm"
-            return "\(begin) – \(timeOnly.string(from: end))"
-        }
-        return "\(begin) – \(full.string(from: end))"
+    /// Date (or range of days) and time window in the sample's zone and
+    /// the device's region, see `SampleDateTexts`.
+    private func dateTexts(for sample: LocalSample) -> (shown: String, spoken: String) {
+        let texts = SampleDateTexts(
+            begin: sample.beginDate, end: sample.endDate, isAllDay: sample.isAllDay, zone: sampleZone(sample)
+        )
+        return ([texts.date, texts.window].compactMap { $0 }.joined(separator: ", "), texts.spoken)
     }
 
     private func shortDate(_ date: Date) -> String {

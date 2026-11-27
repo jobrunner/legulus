@@ -17,7 +17,11 @@ Status-Legende: `pending` · `in progress` · `done` · `blocked`
 
 **Phase S (Sample-Ansicht: Kopieren, Stift-Icon, Datumszeile, Serienkamera, Sample-Nummer, Foto-Import im Original, gestartet 2026-11-19): in progress.** Sechs PRs auf eigenen Feature-Branches, siehe Abschnitt „Phase S“.
 
+**Phase V (Sample-Ansicht nach Variante A: Karten-Kopf mit OpenTopoMap, Karten, Daumenleiste, gestartet 2026-11-22): nach `main` gemerged (PR #55, 2026-11-23).** Offen: Datenschutzerklärung nennt OpenTopoMap noch nicht (Jo). Siehe Abschnitt „Phase V“.
+
 **Phase T (Wetter, Klima und Astronomie über Tempus, gestartet 2026-11-19): in progress.** Vier PRs (Backend, App, Backfill, Astro-Ablösung), siehe Abschnitt „Phase T“.
+
+**Phase K (Foto-View: Vollbild, Fokus fest/Makro, Blitz mit LED, Galerie, Zoomrad, gestartet 2026-11-24): in progress.** Design freigegeben, Plan in Arbeit, siehe Abschnitt „Phase K“.
 
 ---
 
@@ -1261,3 +1265,43 @@ Jede Probe mit Koordinate bekommt Wetter, Klima, Sonne und Mond zu ihrem Zeitpun
 - [ ] PR 10 – Ablösung der eigenen Astronomie (`feat/astro-aus-tempus`, erst nach gelaufenem Backfill mergen)
 
 Bestehende Proben behalten bis zum Backfill einen leeren `conditions_status`. Zahlenspalten gelten nur, wenn ihr Name in `conditions_fields` steht (0 °C ist ein echter Wert).
+
+---
+
+## Phase V – Sample-Ansicht nach Variante A
+
+**Status: gemerged** (gestartet 2026-11-22, PR #55 nach `main` am 2026-11-23)
+
+Ziel: Die Sample-Ansicht wird feldtauglicher und moderner. Karte als
+randloser Kopf (OpenTopoMap, online mit Cache, Apple-Karte als
+Fallback, Attribution über ⓘ), darunter ein Band mit dem editierbaren
+Sample-Code und Status-Chips. Inhalte in einheitlichen Karten (Ort,
+Zeit, Wetter, Notizen, Fotos, Bestimmungen), Wetter als Kacheln, feste
+Aktionsleiste im Daumenbereich (Notiz · Foto · Bestimmen).
+
+Entwürfe: Design-Canvas „Sample-Ansicht Redesign“ (Variante A).
+Plan: `docs/superpowers/plans/2026-11-22-sample-ansicht-variante-a.md`
+
+Nicht in dieser Phase: Vegetationsaufnahmen/EUNIS (eigene Phase,
+Entwurf R1–R3 im selben Canvas), Offline-Kachelregionen (Phase 13),
+Nachtmodus.
+
+Aufgaben:
+- [x] Task 1: OpenTopoMap-Kacheln: Kachelmathematik, Renderer mit Cache und Fallback
+- [x] Task 2: Karten-Kopf mit Attribution
+- [x] Task 3: Wetter als Kacheln
+- [x] Task 4: Code-Band, Karten-Layout, Daumenleiste
+- [x] Task 5: Phase V abschließen — Suite grün auf iOS 18.6 und 26.5, Snapshots neu, Review und Copilot-Review abgearbeitet, PR #55 gemerged
+- [ ] Datenschutzerklärung (`docs/datenschutz.md` und veröffentlichte Fassung) um OpenTopoMap ergänzen — Jo
+
+## Phase K – Foto-View
+
+**Status: in progress** (gestartet 2026-11-24; Design `docs/superpowers/specs/2026-11-24-foto-view-design.md`)
+
+Die Serienkamera aus Phase S wird zur allgemeinen Foto-View. Jetzt nur für das Sample; Pflanzenaufnahmen, Exkursion und Pflanzenbestimmung folgen später. Drei PRs:
+
+- [ ] PR 1 – Vollbild, neues Layout, Schließen oben links, Blitz mit LED-Dauerlicht, Galerie-Import
+- [ ] PR 2 – Blüten-Stufen Auto/Fokus fest/Makro mit Fokusregler und langem Druck
+- [ ] PR 3 – Objektivknöpfe und Zoomrad
+
+Gerätetest durch Jo auf iPhone 14 Pro. Beim ersten Gerätetest prüfen, ob die virtuelle Kamera eine feste Linsenposition erlaubt (sonst Objektivwechsel mit kurzem Schwarzbild, wie im Design).

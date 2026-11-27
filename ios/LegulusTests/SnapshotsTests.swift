@@ -70,13 +70,37 @@ final class SnapshotsTests: XCTestCase {
 
     /// The area „Wetter und Klima“ with a full answer, at standard size
     /// and at AX5 (nothing may clip, pairs stack).
+    /// The „Zeit“ card by day (sun), at night (moon, over midnight) and
+    /// in twilight (both), at standard size and AX5.
+    func testSampleTimeCard() {
+        let os = "iOS\(ProcessInfo.processInfo.operatingSystemVersion.majorVersion)"
+        let cards = [("day", SampleTimeCardPreviewData.day), ("night", SampleTimeCardPreviewData.night),
+                     ("twilight", SampleTimeCardPreviewData.twilight)]
+        for (phase, card) in cards {
+            for (name, typeSize) in [("default", DynamicTypeSize.large), ("ax5", .accessibility5)] {
+                let view = AppCard { card }
+                    .padding(.horizontal)
+                    .frame(width: 375)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background(AppColor.surfaceGrouped)
+                    .dynamicTypeSize(typeSize)
+                assertSnapshot(
+                    of: view,
+                    as: .image(precision: 0.99, perceptualPrecision: 0.97, layout: .sizeThatFits),
+                    named: "\(phase)-\(name).\(os)"
+                )
+            }
+        }
+    }
+
     func testConditionsSection() {
         var display = ConditionsDisplay(state: .values)
         display.isProvisional = true
+        display.provisionalNote = "Wetterwerte vorläufig bis 24.05."
         display.weatherTitle = "Leichter Regen"
         display.weatherSymbol = "cloud.rain"
-        display.temperature = "16,0\u{00A0}°C"
-        display.temperatureSpoken = "16,0 Grad Celsius"
+        display.temperature = "16°C"
+        display.temperatureSpoken = "16 Grad Celsius"
         display.tiles = [
             WeatherTile(id: "wind", value: "7", unit: "km/h", caption: "Wind", word: "leichte Brise", spoken: ""),
             WeatherTile(id: "clouds", value: "100", unit: "%", caption: "Wolken", word: nil, spoken: ""),

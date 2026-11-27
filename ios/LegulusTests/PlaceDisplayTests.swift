@@ -137,39 +137,132 @@ final class PlaceDisplayTests: XCTestCase {
         XCTAssertNil(PlaceDisplay.gazetteerLine(Place(countryISO: "")))
     }
 
-    func testTerrainItems_AspectAndSlope_OnlyPresent() {
-        let items = PlaceDisplay.terrainItems(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 8.4, terrainFlat: false)
-        XCTAssertEqual(items.map(\.label), ["Exposition", "Hangneigung"])
-        XCTAssertEqual(items.map(\.value), ["SSW (203°)", "8°"])
+    // MARK: - „Ort“ card
 
-        XCTAssertEqual(PlaceDisplay.terrainItems(aspectCompass: "N", aspectDeg: nil, slopeDeg: nil, terrainFlat: false),
-                       [PlaceDisplay.DetailLine(label: "Exposition", value: "N")])
-        XCTAssertTrue(PlaceDisplay.terrainItems(aspectCompass: " ", aspectDeg: nil, slopeDeg: nil, terrainFlat: false).isEmpty)
+    func testHeading_MunicipalityOverTwoBroaderLevelsAndISOCode() {
+        XCTAssertEqual(PlaceDisplay.heading(ochsenfurtFixture),
+                       PlaceDisplay.Heading(title: "Ochsenfurt", context: ["Landkreis Würzburg", "Unterfranken", "DE"]))
     }
 
-    func testTerrainItems_FlatTerrainShowsEbenInsteadOfAspectAndSlope() {
-        XCTAssertEqual(PlaceDisplay.terrainItems(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 0.4, terrainFlat: true),
-                       [PlaceDisplay.DetailLine(label: nil, value: "eben")])
+    /// A district-free town is municipality and county at once; the
+    /// duplicate is skipped.
+    func testHeading_SkipsLevelsNamedLikeTheTitle() {
+        let wuerzburg = Place(countryISO: "DE", admin: [
+            .country: AdminValue(name: "Deutschland", level: 2),
+            .state: AdminValue(name: "Bayern", level: 4),
+            .region: AdminValue(name: "Unterfranken", level: 5),
+            .county: AdminValue(name: "Würzburg", level: 6),
+            .municipality: AdminValue(name: "Würzburg", level: 8),
+            .submunicipality: AdminValue(name: "Heidingsfeld", level: 10)
+        ])
+        XCTAssertEqual(PlaceDisplay.heading(wuerzburg),
+                       PlaceDisplay.Heading(title: "Würzburg", context: ["Unterfranken", "Bayern", "DE"]))
     }
 
-    func testBearing_OnlyWhenItAddsInformation() {
-        XCTAssertEqual(PlaceDisplay.meaningfulBearing("2 km WNW Ochsenfurt", distanceKm: 2.3, inside: false),
-                       "2 km WNW Ochsenfurt")
-        XCTAssertEqual(PlaceDisplay.meaningfulBearing("Ochsenfurt", distanceKm: nil, inside: false), "Ochsenfurt")
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Ochsenfurt", distanceKm: 0, inside: true))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Ochsenfurt", distanceKm: nil, inside: false))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing("0 km N Ochsenfurt", distanceKm: 0.3, inside: false))
-        XCTAssertNil(PlaceDisplay.meaningfulBearing(" ", distanceKm: nil, inside: false))
+    /// City and state of the same name (New York): the title is the
+    /// city, the county between them stays.
+    func testHeading_TitleTierFollowsShortNamePriority() {
+        let newYork = Place(countryISO: "US", admin: [
+            .state: AdminValue(name: "New York", level: 4),
+            .county: AdminValue(name: "Kings County", level: 6),
+            .municipality: AdminValue(name: "New York", level: 8)
+        ])
+        XCTAssertEqual(PlaceDisplay.heading(newYork),
+                       PlaceDisplay.Heading(title: "New York", context: ["Kings County", "US"]))
+    }
+
+    func testHeading_NilWithoutData() {
+        XCTAssertNil(PlaceDisplay.heading(nil))
+        XCTAssertNil(PlaceDisplay.heading(Place(countryISO: "DE")))
+    }
+
+    func testBearing_LeftOutWhenTheHeadingSaysIt() {
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("2 km WNW Ochsenfurt", reference: "Ochsenfurt", distanceKm: 2.3,
+                                                      inside: false, placeName: "Frickenhausen"),
+                       "2km WNW Ochsenfurt", "unit at the number")
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 1.6,
+                                                    inside: true, placeName: "Würzburg"))
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("in Würzburg", reference: nil, distanceKm: nil,
+                                                    inside: false, placeName: "wurzburg"))
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("in Heidingsfeld", reference: "Heidingsfeld", distanceKm: 0.4,
+                                                      inside: true, placeName: "Würzburg"),
+                       "in Heidingsfeld")
+        XCTAssertEqual(PlaceDisplay.meaningfulBearing("in Würzburg", reference: "Würzburg", distanceKm: 0,
+                                                      inside: true, placeName: nil),
+                       "in Würzburg", "without a heading the bearing is all there is")
+    }
+
+    func testCompactUnits() {
+        XCTAssertEqual(PlaceDisplay.compactUnits("2.3 km SW Randersacker"), "2.3km SW Randersacker")
+        XCTAssertEqual(PlaceDisplay.compactUnits("800 m N Kist"), "800m N Kist")
+        XCTAssertEqual(PlaceDisplay.compactUnits("in Ochsenfurt"), "in Ochsenfurt")
+        XCTAssertEqual(PlaceDisplay.compactUnits("3 Mühlen"), "3 Mühlen", "only km and m")
+    }
+
+    func testLandscape_OnlyFilledFieldsInOrder() {
+        var place = Place(countryISO: "ES", admin: [.municipality: AdminValue(name: "Garafía", level: 8)])
+        place.island = "La Palma"
+        place.mountain = "Roque de los Muchachos"
+        XCTAssertEqual(PlaceDisplay.landscape(place).map(\.value), ["La Palma", "Roque de los Muchachos"])
+        XCTAssertEqual(PlaceDisplay.landscape(place).map(\.displayTerm), ["Insel", "Berg"])
+        XCTAssertTrue(PlaceDisplay.landscape(ochsenfurt).isEmpty)
+        XCTAssertTrue(PlaceDisplay.landscape(nil).isEmpty)
+    }
+
+    func testBearing_NeverZeroKilometresOrBlank() {
+        XCTAssertNil(PlaceDisplay.meaningfulBearing("0 km N Ochsenfurt", reference: "Ochsenfurt", distanceKm: 0.3,
+                                                    inside: false, placeName: "Ochsenfurt"))
+        XCTAssertNil(PlaceDisplay.meaningfulBearing(" ", reference: nil, distanceKm: nil, inside: false, placeName: nil))
+    }
+
+    private let german = Locale(identifier: "de_DE")
+
+    func testExposure_WordedLikeOrtus() {
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "SW", aspectDeg: 233.6, slopeDeg: 6.54,
+                                             terrainFlat: false, locale: german),
+                       "SW (234°)-Exposition, 6,5° Neigung")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "N", aspectDeg: nil, slopeDeg: nil,
+                                             terrainFlat: false, locale: german),
+                       "N-Exposition")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: " ", aspectDeg: nil, slopeDeg: 3,
+                                             terrainFlat: false, locale: german),
+                       "3,0° Neigung")
+        XCTAssertNil(PlaceDisplay.exposure(aspectCompass: nil, aspectDeg: nil, slopeDeg: nil,
+                                           terrainFlat: false, locale: german))
+    }
+
+    func testExposure_FlatTerrainShowsEbenWithSlope() {
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: "SSW", aspectDeg: 202.5, slopeDeg: 0.44,
+                                             terrainFlat: true, locale: german),
+                       "eben (Neigung 0,4°)")
+        XCTAssertEqual(PlaceDisplay.exposure(aspectCompass: nil, aspectDeg: nil, slopeDeg: nil,
+                                             terrainFlat: true, locale: german),
+                       "eben")
     }
 
     func testCoordinate_FollowsDisplayFormat() {
-        let decimal = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .decimalSign)
-        XCTAssertEqual(decimal.text, "+49.681230 +10.031340")
+        let decimal = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .decimalSign,
+                                              locale: Locale(identifier: "de_DE"))
+        XCTAssertEqual(decimal.text, "+49,681230 +10,031340", "decimal comma, parts apart by a space")
         XCTAssertEqual(decimal.caption, "Geographische Koordinaten")
 
         let mgrs = PlaceDisplay.coordinate(latitude: 49.681230, longitude: 10.031340, format: .mgrs)
         XCTAssertTrue(mgrs.text.hasPrefix("32U NA 744"), mgrs.text)
         XCTAssertEqual(mgrs.caption, "MGRS")
+    }
+
+    func testGridSystemLabel_OnlyForGridFormats() {
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.mgrs, shownAs: "MGRS"), "MGRS")
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.utm, shownAs: "UTM"), "UTM")
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.decimalSign, shownAs: "Geographische Koordinaten"))
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.dmsDirection, shownAs: "Geographische Koordinaten"))
+    }
+
+    /// Near the pole UTM falls back to degrees; those get no „UTM“.
+    func testGridSystemLabel_NotOnDegreeFallback() {
+        let polar = PlaceDisplay.coordinate(latitude: 85, longitude: 10, format: .utm, locale: Locale(identifier: "de_DE"))
+        XCTAssertEqual(polar.caption, "Geographische Koordinaten")
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.utm, shownAs: polar.caption))
     }
 
     func testCountryName_German() {

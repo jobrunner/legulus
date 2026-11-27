@@ -6,8 +6,11 @@ import SwiftUI
 ///
 /// Carries the `.isHeader` accessibility trait so VoiceOver can jump
 /// between sections.
+///
+/// The title is a `LocalizedStringKey`, so it lands in the string
+/// catalog (literals and interpolations like „Fotos · \(count)“ alike).
 struct SectionHeader: View {
-    let title: String
+    let title: LocalizedStringKey
 
     var body: some View {
         Text(title)

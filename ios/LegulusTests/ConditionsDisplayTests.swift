@@ -3,6 +3,8 @@ import LegulusGeo
 import XCTest
 
 final class ConditionsDisplayTests: XCTestCase {
+    private let german = Locale(identifier: "de_DE")
+
     private var store: LocalSampleStore!
     /// 2026-05-19 12:00 UTC.
     private let begin = Date(timeIntervalSince1970: 1_779_192_000)
@@ -89,8 +91,8 @@ final class ConditionsDisplayTests: XCTestCase {
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.state, .values)
         XCTAssertFalse(d.isProvisional)
-        XCTAssertEqual(d.temperature, "0,0\u{00A0}°C", "0 °C is a value and is shown")
-        XCTAssertEqual(d.temperatureSpoken, "0,0 Grad Celsius")
+        XCTAssertEqual(d.temperature, "0°C", "0 °C is a value and is shown; whole degrees, no space")
+        XCTAssertEqual(d.temperatureSpoken, "0 Grad Celsius")
         XCTAssertEqual(d.weatherSymbol, "cloud.rain")
         XCTAssertEqual(d.weatherTitle, "Regen", "fallback text: the trimmed fixture has no description")
         XCTAssertEqual(d.tiles.map(\.id), ["wind", "humidity"], "what Tempus did not deliver is not listed")
@@ -106,7 +108,7 @@ final class ConditionsDisplayTests: XCTestCase {
         var base = try sample()
         base.timezone = "Atlantic/Canary"
         let (s, rows) = try answered(base)
-        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
         // 03:27Z and 19:02Z; the Canaries are at UTC+1 in May.
         XCTAssertEqual(d.sunrise, "04:27")
         XCTAssertEqual(d.sunset, "20:02")
@@ -178,6 +180,50 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertTrue(ConditionsDisplay(sample: s, night: false, features: rows).isProvisional)
     }
 
+    /// Young values say until when: 120 h after the instant (12:00 UTC on
+    /// 19.05. → 24.05., in the sample's zone).
+    func testValues_ProvisionalByAgeNamesTheDate() throws {
+        let (s, rows) = try answered(sample(), fetchedAfter: 3600)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
+        XCTAssertEqual(d.provisionalNote, "Wetterwerte vorläufig bis 24.05.")
+        XCTAssertEqual(
+            ConditionsDetailModel(sample: s, night: false, features: rows, locale: german).provisionalNote,
+            "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden "
+                + "(endgültig ab 24.05.). Sonne, Mond und Klima sind endgültig."
+        )
+    }
+
+    /// Dates and times follow the region: a 12-hour clock and month first
+    /// in the US.
+    func testValues_DatesAndTimesFollowTheRegion() throws {
+        let us = Locale(identifier: "en_US")
+        let (s, rows) = try answered(sample(), fetchedAfter: 3600)
+        XCTAssertEqual(ConditionsDisplay(sample: s, night: false, features: rows, locale: us).provisionalNote,
+                       "Wetterwerte vorläufig bis 05/24")
+        let (sky, skyRows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: sky, night: false, features: skyRows, locale: us)
+        XCTAssertEqual(d.moonFact, "Mond unter dem Horizont · Aufgang 3:20\u{202F}PM")
+    }
+
+    /// Old enough, but a provider was unavailable: something is missing
+    /// and is asked again, which is a different reason.
+    func testValues_ProvisionalByUnavailableProvider() throws {
+        let json = """
+        {"features": [{"properties": {"kind": "moon", "phase": {"de": "Neumond"}}, "license": {"name": "PD", "attribution": "Meeus"}}],
+         "providers": [{"id": "open-meteo", "kind": "weather", "status": "unavailable"},
+                       {"id": "moon", "kind": "moon", "status": "ok"}]}
+        """
+        let (s, rows) = try answered(sample(), json: json)
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertTrue(d.isProvisional)
+        XCTAssertEqual(d.provisionalNote, "Unvollständig, wird nachgeholt")
+    }
+
+    func testValues_FinalHasNoProvisionalNote() throws {
+        let (s, rows) = try answered(sample())
+        XCTAssertNil(ConditionsDisplay(sample: s, night: false, features: rows).provisionalNote)
+    }
+
     /// An all-day sample shows day values only.
     func testValues_AllDayHidesHourlyWeather() throws {
         var base = try sample()
@@ -226,7 +272,7 @@ final class ConditionsDisplayTests: XCTestCase {
         let (s, rows) = try answered(sample(), json: rich)
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Leichter Regen", "the text comes from the feature")
-        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C")
+        XCTAssertEqual(d.temperature, "16°C")
         // Dew point without a percentage: the feeling alone. Only the
         // 72 h precipitation, no day temperatures; the belt moves to
         // the place.
@@ -259,7 +305,7 @@ final class ConditionsDisplayTests: XCTestCase {
         s.conditions?.fetchedAt = newer
         let d = ConditionsDisplay(sample: s, night: false, features: rows)
         XCTAssertEqual(d.weatherTitle, "Regen", "the text of the code, not the old feature's")
-        XCTAssertEqual(d.temperature, "16,0\u{00A0}°C", "the values themselves are the row's and stay")
+        XCTAssertEqual(d.temperature, "16°C", "the values themselves are the row's and stay")
         XCTAssertTrue(ConditionsDetailModel(sample: s, night: false, features: rows).isEmpty)
     }
 
@@ -324,6 +370,57 @@ final class ConditionsDisplayTests: XCTestCase {
         XCTAssertEqual(try partial(hourlyOnly, allDay: true).note, "Keine Wetterdaten für diesen Tag")
         let withDay = #"{"properties": {"kind": "aggregate", "precipitation": {"last24h": 0}}, \#(license)}"#
         XCTAssertNil(try partial(withDay, allDay: true).note)
+    }
+
+    // MARK: - light band data
+
+    private func skyJSON(sunElevation: Double, moonElevation: Double) -> String {
+        """
+        {"features": [
+          {"properties": {"kind": "sun", "elevationDeg": \(sunElevation), "azimuthDeg": 170.4,
+                          "sunrise": "2026-05-19T03:27:00Z", "sunset": "2026-05-19T19:02:00Z",
+                          "twilight": {"civil": {"dawn": "2026-05-19T02:50:00Z", "dusk": "2026-05-19T19:40:00Z"},
+                                       "nautical": {"dawn": "2026-05-19T02:00:00Z", "dusk": "2026-05-19T20:30:00Z"},
+                                       "astronomical": {"dawn": null, "dusk": null}}},
+           "license": {"name": "PD", "attribution": "NOAA"}},
+          {"properties": {"kind": "moon", "elevationDeg": \(moonElevation), "azimuthDeg": 134.6,
+                          "moonrise": "2026-05-19T13:20:00Z", "moonset": "2026-05-20T00:50:00Z",
+                          "illuminationPct": 78.2, "phase": {"de": "zunehmender Mond"}},
+           "license": {"name": "PD", "attribution": "Meeus"}}
+        ], "providers": []}
+        """
+    }
+
+    /// The events for the band come from the sun and moon features;
+    /// missing astronomical times stay nil (no night that day).
+    func testSkyEvents_FromSunAndMoonFeatures() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        let iso = ISO8601DateFormatter()
+        XCTAssertEqual(d.skyEvents.nauticalDusk, iso.date(from: "2026-05-19T20:30:00Z"))
+        XCTAssertNil(d.skyEvents.astronomicalDusk)
+        XCTAssertEqual(d.skyEvents.sunrise, iso.date(from: "2026-05-19T03:27:00Z"))
+        XCTAssertEqual(d.skyEvents.moonset, iso.date(from: "2026-05-20T00:50:00Z"))
+    }
+
+    /// Sun up, moon down: where the sun stands, when the moon rises
+    /// (Berlin is UTC+2 in May).
+    func testSkyFacts_SunUpMoonDown() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: 18.4, moonElevation: -5))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows, locale: german)
+        XCTAssertEqual(d.sunFact, "Sonne 18° hoch, S")
+        XCTAssertEqual(d.moonFact, "Mond unter dem Horizont · Aufgang 15:20")
+        XCTAssertTrue(d.sunIsUp)
+        XCTAssertFalse(d.moonIsUp)
+    }
+
+    func testSkyFacts_MoonUpSunDown() throws {
+        let (s, rows) = try answered(sample(), json: skyJSON(sunElevation: -38, moonElevation: 31.2))
+        let d = ConditionsDisplay(sample: s, night: false, features: rows)
+        XCTAssertEqual(d.sunFact, "Sonne unter dem Horizont")
+        XCTAssertEqual(d.moonFact, "Mond 31° hoch, SO · 78\u{00A0}%")
+        XCTAssertEqual(d.moonIllumination ?? -1, 78.2, accuracy: 0.01)
+        XCTAssertEqual(d.moonWaxing, true)
     }
 
     // MARK: - sun and moon by the date
@@ -436,6 +533,12 @@ final class ConditionsDisplayTests: XCTestCase {
             withoutFeatures.note, "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
         )
         XCTAssertNil(ConditionsDisplay(sample: s, night: false, features: rows).note, "the detail page shows them")
+    }
+
+    /// -0,3 °C rounds to 0, not to „-0“.
+    func testValues_TemperatureRoundsWithoutNegativeZero() throws {
+        let d = try partial(#"{"properties": {"kind": "weather", "temperature2m": -0.3}, \#(license)}"#)
+        XCTAssertEqual(d.temperature, "0°C")
     }
 
     func testNumber_GermanDecimalsAndNoNegativeZero() {

@@ -38,11 +38,14 @@ struct ConditionsDisplay: Equatable {
     /// The answer will be replaced (forecast data, or a provider was
     /// unavailable).
     var isProvisional = false
+    /// What „provisional“ means here, for the weather line: until when
+    /// the model data may still change, or that something is missing.
+    var provisionalNote: String?
     /// Text for the WMO code, e.g. „Leichter Regen“.
     var weatherTitle: String?
     /// SF Symbol for the WMO code.
     var weatherSymbol: String?
-    /// „18,4 °C“
+    /// „18°C“
     var temperature: String?
     var temperatureSpoken: String?
     /// The tiles of the section, in this order: wind, cloud cover,
@@ -62,6 +65,19 @@ struct ConditionsDisplay: Equatable {
     var altitudinalBelt: String?
     /// nil when neither sun times nor twilight are known.
     var lightPhase: LightPhase?
+    /// Twilights, sunrise and sunset, moonrise and moonset for the light
+    /// band of the „Zeit“ card.
+    var skyEvents = SkyEvents()
+    /// Sun and moon at the sample's instant: above the horizon, and a
+    /// line for the card („Sonne 18° hoch, S“, „Mond unter dem Horizont ·
+    /// Aufgang 15:20“).
+    var sunIsUp = false
+    var moonIsUp = false
+    var sunFact: String?
+    var moonFact: String?
+    /// Lit part of the moon in percent and whether it waxes, for its shape.
+    var moonIllumination: Double?
+    var moonWaxing: Bool?
     /// „Keine Daten für diesen Zeitpunkt“ when a final answer of a
     /// sample with a time of day has no weather; „Keine Wetterdaten für
     /// diesen Tag“ when an all-day sample has no day values.
@@ -77,9 +93,14 @@ struct ConditionsDisplay: Equatable {
         self.state = state
     }
 
-    /// - Parameter night: the sample's fieldtrip is a night fieldtrip
-    ///   (decides the instant of an all-day sample).
-    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature]) {
+    /// - Parameters:
+    ///   - night: the sample's fieldtrip is a night fieldtrip (decides
+    ///     the instant of an all-day sample).
+    ///   - locale: dates and times follow it (the device's region);
+    ///     tests pass a fixed one.
+    init(sample: LocalSample, night: Bool, features: [LocalSampleFeature],
+         locale: Locale = .autoupdatingCurrent)
+    {
         guard sample.latitude != nil, sample.longitude != nil else {
             self.init(state: .noCoordinate)
             return
@@ -103,6 +124,14 @@ struct ConditionsDisplay: Equatable {
         let features = conditions.holdsItsFeatures ? features : []
         isProvisional = conditions.status == .provisional
         let zone = TimeZone(identifier: sample.timezone) ?? .gmt
+        switch Self.provisionalReason(conditions) {
+        case let .young(finalFrom):
+            provisionalNote = String(localized: "Wetterwerte vorläufig bis \(Self.dayMonth(finalFrom, zone: zone, locale: locale))")
+        case .incomplete:
+            provisionalNote = String(localized: "Unvollständig, wird nachgeholt")
+        case nil:
+            break
+        }
 
         var hasHourly = false
         if !sample.isAllDay {
@@ -111,24 +140,25 @@ struct ConditionsDisplay: Equatable {
         if let rain = conditions.number("precipitation_72h_mm") {
             let value = Self.number(rain, digits: 1)
             tiles.append(WeatherTile(
-                id: "precipitation72", value: value, unit: "mm", caption: "72\(Self.nbsp)h", word: nil,
-                spoken: "Niederschlag der letzten 72 Stunden \(value) Millimeter"
+                id: "precipitation72", value: value, unit: "mm", caption: String(localized: "72\(Self.nbsp)h"), word: nil,
+                spoken: String(localized: "Niederschlag der letzten 72 Stunden \(value) Millimeter")
             ))
         }
         koppen = conditions.text("climate_koppen_code")
         altitudinalBelt = conditions.text("climate_altitudinal_belt")
-        fillSky(conditions, zone: zone)
+        fillSky(conditions, zone: zone, locale: locale)
         lightPhase = sample.isAllDay
             ? (night ? .night : .day)
             : Self.lightPhase(at: request.instant, conditions: conditions, features: features)
+        fillSkyBand(conditions, features: features, zone: zone, locale: locale)
         // A final answer without what this kind of sample shows as
         // weather: its hourly values (the code's text counts), or the
         // day values of an all-day sample.
         if conditions.status == .final {
             if sample.isAllDay {
-                if !Self.hasDayValues(conditions) { note = "Keine Wetterdaten für diesen Tag" }
+                if !Self.hasDayValues(conditions) { note = String(localized: "Keine Wetterdaten für diesen Tag") }
             } else if weatherTitle == nil, temperature == nil, !hasHourly {
-                note = "Keine Daten für diesen Zeitpunkt"
+                note = String(localized: "Keine Daten für diesen Zeitpunkt")
             }
         }
         // Day values the card doesn't show live on the detail page, which
@@ -137,7 +167,7 @@ struct ConditionsDisplay: Equatable {
         if note == nil, tiles.isEmpty, weatherTitle == nil, temperature == nil, features.isEmpty,
            Self.hasDayValues(conditions)
         {
-            note = "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind."
+            note = String(localized: "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind.")
         }
     }
 
@@ -172,10 +202,20 @@ struct ConditionsDisplay: Equatable {
         var items: [SkyItem] = []
         if showsSun {
             if let sunrise {
-                items.append(SkyItem(id: "sunrise", symbol: "sunrise", value: sunrise, spoken: "Sonnenaufgang \(sunrise) Uhr"))
+                items.append(SkyItem(
+                    id: "sunrise",
+                    symbol: "sunrise",
+                    value: sunrise,
+                    spoken: String(localized: "Sonnenaufgang \(sunrise) Uhr")
+                ))
             }
             if let sunset {
-                items.append(SkyItem(id: "sunset", symbol: "sunset", value: sunset, spoken: "Sonnenuntergang \(sunset) Uhr"))
+                items.append(SkyItem(
+                    id: "sunset",
+                    symbol: "sunset",
+                    value: sunset,
+                    spoken: String(localized: "Sonnenuntergang \(sunset) Uhr")
+                ))
             }
         }
         if showsMoon, let moon {
@@ -194,8 +234,10 @@ struct ConditionsDisplay: Equatable {
             weatherTitle = Self.weatherDescription(in: features) ?? Self.title(wmoCode: Int(code))
         }
         if let t = c.number("weather_temperature_c") {
-            temperature = Self.number(t, digits: 1) + Self.nbsp + "°C"
-            temperatureSpoken = Self.number(t, digits: 1) + " Grad Celsius"
+            // Whole degrees, written together: „16°C“; the details keep
+            // the decimal.
+            temperature = Self.number(t, digits: 0) + "°C"
+            temperatureSpoken = String(localized: "\(Self.number(t, digits: 0)) Grad Celsius")
         }
         let before = tiles.count
         if let wind = c.number("weather_wind_speed_kmh") {
@@ -203,25 +245,25 @@ struct ConditionsDisplay: Equatable {
             let force = WeatherWording.beaufort(kmh: wind.rounded())
             let speed = Self.number(wind, digits: 0)
             tiles.append(WeatherTile(
-                id: "wind", value: speed, unit: "km/h", caption: "Wind", word: force,
-                spoken: "Wind \(force), \(speed) Kilometer pro Stunde"
+                id: "wind", value: speed, unit: "km/h", caption: String(localized: "Wind"), word: force,
+                spoken: String(localized: "Wind \(force), \(speed) Kilometer pro Stunde")
             ))
         }
         if let clouds = c.number("weather_cloud_cover_pct") {
             let value = Self.number(clouds, digits: 0)
             tiles.append(WeatherTile(
-                id: "clouds", value: value, unit: "%", caption: "Wolken", word: nil,
-                spoken: "Bewölkung \(value) Prozent"
+                id: "clouds", value: value, unit: "%", caption: String(localized: "Wolken"), word: nil,
+                spoken: String(localized: "Bewölkung \(value) Prozent")
             ))
         }
         let feeling = c.number("weather_dew_point_c").map { WeatherWording.humidityFeeling(dewPointC: $0) }
         let percent = c.number("weather_humidity_pct").map { Self.number($0, digits: 0) }
         if let value = percent ?? feeling {
-            let spoken = [feeling, percent.map { "\($0) Prozent" }].compactMap { $0 }.joined(separator: ", ")
+            let spoken = [feeling, percent.map { String(localized: "\($0) Prozent") }].compactMap { $0 }.joined(separator: ", ")
             // Without a percentage the feeling itself is the value.
             tiles.append(WeatherTile(
-                id: "humidity", value: value, unit: percent == nil ? nil : "%", caption: "Feuchte",
-                word: percent == nil ? nil : feeling, spoken: "Luftfeuchte \(spoken)"
+                id: "humidity", value: value, unit: percent == nil ? nil : "%", caption: String(localized: "Feuchte"),
+                word: percent == nil ? nil : feeling, spoken: String(localized: "Luftfeuchte \(spoken)")
             ))
         }
         return tiles.count > before || c.number("weather_precipitation_mm") != nil
@@ -235,27 +277,61 @@ struct ConditionsDisplay: Equatable {
             .contains { c.number($0) != nil }
     }
 
-    private mutating func fillSky(_ c: SampleConditions, zone: TimeZone) {
+    private mutating func fillSky(_ c: SampleConditions, zone: TimeZone, locale: Locale) {
         let illumination = c.number("moon_illumination_pct").map { Self.number($0, digits: 0) }
         let phase = c.text("moon_phase")
         if let phase {
             var value = phase
-            var spoken = "Mond: \(phase)"
+            var spoken = String(localized: "Mond: \(phase)")
             if let illumination {
                 value += ", " + illumination + Self.nbsp + "%"
-                spoken += ", \(illumination) Prozent beleuchtet"
+                spoken += ", " + String(localized: "\(illumination) Prozent beleuchtet")
             }
-            moon = Pair(id: "moon", label: "Mond", value: value, spoken: spoken)
+            moon = Pair(id: "moon", label: String(localized: "Mond"), value: value, spoken: spoken)
         } else if let illumination {
             // The percentage alone, when Tempus sent no phase text.
             moon = Pair(
-                id: "moon", label: "Mond", value: illumination + Self.nbsp + "% beleuchtet",
-                spoken: "Mond: \(illumination) Prozent beleuchtet"
+                id: "moon", label: String(localized: "Mond"),
+                value: illumination + Self.nbsp + "% " + String(localized: "beleuchtet"),
+                spoken: String(localized: "Mond: \(illumination) Prozent beleuchtet")
             )
         }
         if moon != nil { moonSymbol = Self.moonSymbol(phase: phase) }
-        sunrise = c.date("sunrise").map { Self.time($0, zone: zone) }
-        sunset = c.date("sunset").map { Self.time($0, zone: zone) }
+        sunrise = c.date("sunrise").map { Self.time($0, zone: zone, locale: locale) }
+        sunset = c.date("sunset").map { Self.time($0, zone: zone, locale: locale) }
+    }
+
+    // MARK: - provisional
+
+    /// Why an answer is provisional. Only the weather is: sun, moon and
+    /// climate are computed or climatological and don't change.
+    enum ProvisionalReason: Equatable {
+        /// The instant was younger than `ConditionsQuery.finalAfter` when
+        /// fetched: the weather comes from model data that is still being
+        /// revised; final from the given date (the backend's job asks again).
+        case young(finalFrom: Date)
+        /// A provider was unavailable: values are missing and asked again.
+        case incomplete
+    }
+
+    static func provisionalReason(_ c: SampleConditions) -> ProvisionalReason? {
+        guard c.status == .provisional else { return nil }
+        if let instant = c.queriedFor, let fetchedAt = c.fetchedAt,
+           !ConditionsQuery.isFinalAge(instant: instant, fetchedAt: fetchedAt)
+        {
+            return .young(finalFrom: instant.addingTimeInterval(ConditionsQuery.finalAfter))
+        }
+        return .incomplete
+    }
+
+    /// Day and month in `zone`, as the region writes them („24.05.“,
+    /// „05/24“).
+    static func dayMonth(_ date: Date, zone: TimeZone, locale: Locale) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeZone = zone
+        f.setLocalizedDateFormatFromTemplate("ddMM")
+        return f.string(from: date)
     }
 
     // MARK: - light phase
@@ -320,12 +396,75 @@ struct ConditionsDisplay: Equatable {
         return try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any]
     }
 
-    /// „civil.dawn“ … „nautical.dusk“ of the sun feature's properties.
+    /// The properties of the stored `tempus:moon` feature.
+    private static func moonProperties(in features: [LocalSampleFeature]) -> [String: Any]? {
+        guard let feature = features.first(where: { $0.sourceID == FeatureScope.tempusPrefix + "moon" }) else { return nil }
+        return try? JSONSerialization.jsonObject(with: Data(feature.propertiesJSON.utf8)) as? [String: Any]
+    }
+
+    private static func isoTime(_ value: Any?) -> Date? {
+        guard let text = value as? String else { return nil }
+        return isoDate.date(from: text) ?? isoDateFractional.date(from: text)
+    }
+
+    private static func number(in props: [String: Any]?, _ key: String) -> Double? {
+        (props?[key] as? NSNumber)?.doubleValue
+    }
+
+    /// Events and facts for the light band. The positions are Tempus'
+    /// for exactly the queried instant.
+    private mutating func fillSkyBand(_ c: SampleConditions, features: [LocalSampleFeature], zone: TimeZone,
+                                      locale: Locale)
+    {
+        let sun = Self.sunProperties(in: features)
+        let moon = Self.moonProperties(in: features)
+        let twilight = Self.twilightTimes(in: sun)
+        skyEvents = SkyEvents(
+            astronomicalDawn: twilight["astronomical.dawn"], nauticalDawn: twilight["nautical.dawn"],
+            civilDawn: twilight["civil.dawn"], sunrise: c.date("sunrise"), sunset: c.date("sunset"),
+            civilDusk: twilight["civil.dusk"], nauticalDusk: twilight["nautical.dusk"],
+            astronomicalDusk: twilight["astronomical.dusk"],
+            moonrise: Self.isoTime(moon?["moonrise"]), moonset: Self.isoTime(moon?["moonset"]),
+            twilightKnown: sun != nil
+        )
+        if let elevation = Self.number(in: sun, "elevationDeg") {
+            sunIsUp = elevation > 0
+            if sunIsUp, let azimuth = Self.number(in: sun, "azimuthDeg") {
+                sunFact = String(localized: "Sonne \(Self.number(elevation, digits: 0))° hoch, \(LightBand.compass(azimuth))")
+            } else {
+                sunFact = String(localized: "Sonne unter dem Horizont")
+            }
+        }
+        moonIllumination = Self.number(in: moon, "illuminationPct") ?? c.number("moon_illumination_pct")
+        moonWaxing = Self.waxing(phase: c.text("moon_phase"))
+        if let elevation = Self.number(in: moon, "elevationDeg") {
+            moonIsUp = elevation > 0
+            if moonIsUp, let azimuth = Self.number(in: moon, "azimuthDeg") {
+                let lit = moonIllumination.map { " · " + Self.number($0, digits: 0) + Self.nbsp + "%" } ?? ""
+                moonFact = String(localized: "Mond \(Self.number(elevation, digits: 0))° hoch, \(LightBand.compass(azimuth))") + lit
+            } else if let rise = skyEvents.moonrise {
+                moonFact = String(localized: "Mond unter dem Horizont · Aufgang \(Self.time(rise, zone: zone, locale: locale))")
+            } else {
+                moonFact = String(localized: "Mond unter dem Horizont")
+            }
+        }
+    }
+
+    /// Whether Tempus' phase name waxes (true), wanes (false) or neither.
+    static func waxing(phase: String?) -> Bool? {
+        switch phase?.lowercased() {
+        case "zunehmende sichel", "erstes viertel", "zunehmender mond": true
+        case "abnehmender mond", "letztes viertel", "abnehmende sichel": false
+        default: nil
+        }
+    }
+
+    /// „civil.dawn“ … „astronomical.dusk“ of the sun feature's properties.
     private static func twilightTimes(in sun: [String: Any]?) -> [String: Date] {
         guard let twilight = sun?["twilight"] as? [String: Any] else { return [:] }
         let iso = isoDate, isoFractional = isoDateFractional
         var times: [String: Date] = [:]
-        for kind in ["civil", "nautical"] {
+        for kind in ["civil", "nautical", "astronomical"] {
             guard let pair = twilight[kind] as? [String: Any] else { continue }
             for edge in ["dawn", "dusk"] {
                 guard let text = pair[edge] as? String,
@@ -369,11 +508,13 @@ struct ConditionsDisplay: Equatable {
     }
 
     /// „07:31“ in `zone`.
-    static func time(_ date: Date, zone: TimeZone) -> String {
+    /// Hour and minute in `zone` with the region's clock („15:20“,
+    /// „3:20 PM“).
+    static func time(_ date: Date, zone: TimeZone, locale: Locale) -> String {
         let f = DateFormatter()
         f.locale = locale
         f.timeZone = zone
-        f.dateFormat = "HH:mm"
+        f.setLocalizedDateFormatFromTemplate("jmm")
         return f.string(from: date)
     }
 
@@ -420,15 +561,15 @@ struct ConditionsDisplay: Equatable {
     /// Fallback text when the feature carries no description.
     static func title(wmoCode code: Int) -> String {
         switch code {
-        case 0: "Klar"
-        case 1, 2: "Leicht bewölkt"
-        case 3: "Bedeckt"
-        case 45, 48: "Nebel"
-        case 51 ... 57: "Nieselregen"
-        case 61 ... 67, 80 ... 82: "Regen"
-        case 71 ... 77, 85, 86: "Schnee"
-        case 95 ... 99: "Gewitter"
-        default: "Wettercode \(code)"
+        case 0: String(localized: "Klar")
+        case 1, 2: String(localized: "Leicht bewölkt")
+        case 3: String(localized: "Bedeckt")
+        case 45, 48: String(localized: "Nebel")
+        case 51 ... 57: String(localized: "Nieselregen")
+        case 61 ... 67, 80 ... 82: String(localized: "Regen")
+        case 71 ... 77, 85, 86: String(localized: "Schnee")
+        case 95 ... 99: String(localized: "Gewitter")
+        default: String(localized: "Wettercode \(code)")
         }
     }
 }

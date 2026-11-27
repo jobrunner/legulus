@@ -235,41 +235,6 @@ final class SampleEditorViewModel: ObservableObject {
             ?? TimeZone(identifier: "Europe/Berlin") ?? .current
     }
 
-    /// „10:07 – 10:22“ in the sample's zone; the end carries its date
-    /// when it falls on another local day. nil for an all-day sample
-    /// (the view shows only the date then).
-    static func timeWindowText(begin: Date, end: Date?, isAllDay: Bool, zone: TimeZone) -> String? {
-        guard !isAllDay else { return nil }
-        let time = DateFormatter()
-        time.locale = Locale(identifier: "de_DE")
-        time.timeZone = zone
-        time.dateFormat = "HH:mm"
-        let beginText = time.string(from: begin)
-        guard let end, end != begin else { return beginText }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = zone
-        if calendar.isDate(end, inSameDayAs: begin) {
-            return "\(beginText) – \(time.string(from: end))"
-        }
-        let full = DateFormatter()
-        full.locale = Locale(identifier: "de_DE")
-        full.timeZone = zone
-        full.dateFormat = "dd.MM.yyyy HH:mm"
-        return "\(beginText) – \(full.string(from: end))"
-    }
-
-    /// „Montag,“ and „16. November 2026“ in the sample's zone. Two parts
-    /// so the view can break after the weekday at large type sizes.
-    static func longDateParts(_ date: Date, zone: TimeZone) -> (weekday: String, date: String) {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "de_DE")
-        formatter.timeZone = zone
-        formatter.dateFormat = "EEEE,"
-        let weekday = formatter.string(from: date)
-        formatter.dateFormat = "dd. MMMM yyyy"
-        return (weekday, formatter.string(from: date))
-    }
-
     var canSave: Bool {
         if isSaving { return false }
         // An empty sample id is valid (stored as "").
@@ -607,19 +572,24 @@ final class SampleEditorViewModel: ObservableObject {
 
     // MARK: - place data (Phase O2, Task 17)
 
-    /// „Deutschland, Bayern, Unterfranken, …“ of the current placemark.
-    var gazetteerLine: String? {
-        PlaceDisplay.gazetteerLine(currentPlacemark?.place)
+    /// „Würzburg“ over „Unterfranken, Bayern“ of the current placemark.
+    var placeHeading: PlaceDisplay.Heading? {
+        PlaceDisplay.heading(currentPlacemark?.place)
     }
 
-    /// „2 km WNW Ochsenfurt“, nil inside the reference place.
+    /// Island, mountain range, mountain of the current placemark.
+    var placeLandscape: [PlaceFieldItem] {
+        PlaceDisplay.landscape(currentPlacemark?.place)
+    }
+
+    /// „2 km WNW Ochsenfurt“, nil when the heading already says it.
     var placeBearing: String? {
-        savedSample.flatMap(PlaceDisplay.bearing)
+        savedSample.flatMap { PlaceDisplay.bearing($0, placeName: placeHeading?.title) }
     }
 
-    /// Aspect and slope (or „eben“) of the saved sample.
-    var placeTerrainItems: [PlaceDisplay.DetailLine] {
-        savedSample.map(PlaceDisplay.terrainItems) ?? []
+    /// „SW (234°)-Exposition, 6,5° Neigung“ of the saved sample.
+    var placeExposure: String? {
+        savedSample.flatMap(PlaceDisplay.exposure)
     }
 
     /// „MTB 6326/1 Ochsenfurt“ (DE only), nil otherwise.

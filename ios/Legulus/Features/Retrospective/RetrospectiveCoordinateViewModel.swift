@@ -122,7 +122,7 @@ final class RetrospectiveCoordinateViewModel: ObservableObject {
             return result.id
         } catch {
             Log.persistence.error("retrospective create failed: \(error.localizedDescription)")
-            errorMessage = "Die Probe konnte nicht gespeichert werden."
+            errorMessage = String(localized: "Die Probe konnte nicht gespeichert werden.")
             return nil
         }
     }

@@ -91,6 +91,19 @@ enum AppColor {
     /// faintly visible in Light and Dark.
     static let scrim = Color(uiColor: .systemGroupedBackground).opacity(0.6)
 
+    /// Shade behind the controls laid over the camera picture, so white
+    /// icons stay readable on a bright scene. The strong variant is for
+    /// Increase Contrast.
+    static let cameraScrim = Color.black.opacity(0.45)
+    static let cameraScrimStrong = Color.black.opacity(0.75)
+    /// Ground under text on the camera picture (the zoom dial's
+    /// numbers): white keeps about 5.7:1 even over a bright frame.
+    static let cameraScrimText = Color.black.opacity(0.6)
+    /// A camera mode that is switched on (LED, flash, fixed focus, macro)
+    /// and the current value on the zoom dial; yellow as in the system
+    /// camera. The icons differ in shape as well, never by colour alone.
+    static let cameraActive = Color(uiColor: .systemYellow)
+
     // MARK: - Text
 
     /// Default body text colour. Black/white per scheme.
@@ -134,4 +147,33 @@ enum AppColor {
     static let syncSynced = success
     /// Last push failed; retry pending.
     static let syncFailed = warning
+
+    // MARK: - Sky (light band of the „Zeit“ card)
+
+    // Fixed in both schemes: the band shows the sky, which is bright by
+    // day and dark at night whatever the phone's appearance. The steps
+    // differ in lightness, not hue alone.
+
+    /// Sun above the horizon.
+    static let skyDay = Color(red: 0.98, green: 0.89, blue: 0.63)
+    /// Civil twilight (sun 0° to -6°).
+    static let skyCivil = Color(red: 0.62, green: 0.71, blue: 0.85)
+    /// Nautical twilight (-6° to -12°).
+    static let skyNautical = Color(red: 0.34, green: 0.44, blue: 0.62)
+    /// Astronomical twilight (-12° to -18°).
+    static let skyAstronomical = Color(red: 0.20, green: 0.27, blue: 0.42)
+    /// Night (below -18°).
+    static let skyNight = Color(red: 0.12, green: 0.16, blue: 0.27)
+    /// The sun's disk.
+    static let skySun = Color(red: 0.96, green: 0.71, blue: 0.0)
+    /// The moon's lit and dark part.
+    static let skyMoonLit = Color(red: 0.93, green: 0.92, blue: 0.89)
+    static let skyMoonDark = Color(red: 0.29, green: 0.31, blue: 0.38)
+    /// The moon marker above the band: dark grey on the light card,
+    /// light grey on the dark one (it sits on the card, not on the sky).
+    static let skyMoonCrescent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.72, green: 0.74, blue: 0.79, alpha: 1)
+            : UIColor(red: 0.29, green: 0.31, blue: 0.38, alpha: 1)
+    })
 }

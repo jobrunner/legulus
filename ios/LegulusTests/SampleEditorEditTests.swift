@@ -280,29 +280,6 @@ final class SampleEditorEditTests: XCTestCase {
         XCTAssertEqual(stored.timezone, "Atlantic/Canary")
     }
 
-    func testTimeWindowText_SameDayNextDayAndAllDay() throws {
-        let zone = try XCTUnwrap(TimeZone(identifier: "Atlantic/Canary"))
-        let begin = Date(timeIntervalSince1970: 1_779_183_000) // 2026-05-19 09:30 UTC = 10:30 WEST
-        XCTAssertEqual(
-            SampleEditorViewModel.timeWindowText(begin: begin, end: begin.addingTimeInterval(900),
-                                                 isAllDay: false, zone: zone),
-            "10:30 – 10:45"
-        )
-        XCTAssertEqual(
-            SampleEditorViewModel.timeWindowText(begin: begin, end: nil, isAllDay: false, zone: zone),
-            "10:30"
-        )
-        XCTAssertEqual(
-            SampleEditorViewModel.timeWindowText(begin: begin, end: begin.addingTimeInterval(86400),
-                                                 isAllDay: false, zone: zone),
-            "10:30 – 20.05.2026 10:30"
-        )
-        XCTAssertNil(
-            SampleEditorViewModel.timeWindowText(begin: begin, end: nil, isAllDay: true, zone: zone),
-            "all-day shows only the date"
-        )
-    }
-
     func testNotesOnlySave_KeepsZoneSetInBackground() throws {
         let seeded = try seedSyncedSample(code: "260605/1", notes: "hi", backendID: "b1")
         let vm = makeVM(sampleID: seeded.id)

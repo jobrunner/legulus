@@ -1,6 +1,262 @@
 {
   "sourceLanguage" : "de",
   "strings" : {
+    "" : {
+
+    },
+    "%@ · vorläufig" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · vorläufig"
+          }
+        }
+      }
+    },
+    "Auf diesem Gerät gibt es keine Kamera." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf diesem Gerät gibt es keine Kamera."
+          }
+        }
+      }
+    },
+    "Bitte eine gültige Koordinate eingeben." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte eine gültige Koordinate eingeben."
+          }
+        }
+      }
+    },
+    "Das Foto konnte nicht aufgenommen werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Foto konnte nicht aufgenommen werden."
+          }
+        }
+      }
+    },
+    "Das Foto konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Foto konnte nicht gespeichert werden."
+          }
+        }
+      }
+    },
+    "Die Kamera lässt sich nicht einrichten." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera lässt sich nicht einrichten."
+          }
+        }
+      }
+    },
+    "Die Kamera lässt sich nicht öffnen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera lässt sich nicht öffnen."
+          }
+        }
+      }
+    },
+    "Die Kamera startet nicht." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kamera startet nicht."
+          }
+        }
+      }
+    },
+    "Die Probe konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Probe konnte nicht gespeichert werden."
+          }
+        }
+      }
+    },
+    "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erlaube den Zugriff in den Einstellungen, um Belegfotos aufzunehmen."
+          }
+        }
+      }
+    },
+    "Foto %lld aufgenommen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto %lld aufgenommen"
+          }
+        }
+      }
+    },
+    "Foto nicht gespeichert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foto nicht gespeichert"
+          }
+        }
+      }
+    },
+    "Fotos aus der Galerie nicht übernommen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fotos aus der Galerie nicht übernommen"
+          }
+        }
+      }
+    },
+    "Keine Verbindung zu Ortus. Bitte später erneut versuchen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Verbindung zu Ortus. Bitte später erneut versuchen."
+          }
+        }
+      }
+    },
+    "Koordinate eingeben" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koordinate eingeben"
+          }
+        }
+      }
+    },
+    "Koordinate konnte nicht gespeichert werden." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koordinate konnte nicht gespeichert werden."
+          }
+        }
+      }
+    },
+    "Koordinate kopiert" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koordinate kopiert"
+          }
+        }
+      }
+    },
+    "Legulus darf die Kamera nicht benutzen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Legulus darf die Kamera nicht benutzen."
+          }
+        }
+      }
+    },
+    "Ortsangaben eingeben" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortsangaben eingeben"
+          }
+        }
+      }
+    },
+    "Ortus antwortete mit HTTP %lld." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus antwortete mit HTTP %lld."
+          }
+        }
+      }
+    },
+    "Ortus konnte die Koordinate nicht umrechnen." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus konnte die Koordinate nicht umrechnen."
+          }
+        }
+      }
+    },
+    "Ortus konnte die Koordinate nicht umrechnen: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus konnte die Koordinate nicht umrechnen: %@"
+          }
+        }
+      }
+    },
+    "Ortus-Endpoint-URL ist ungültig." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ortus-Endpoint-URL ist ungültig."
+          }
+        }
+      }
+    },
     "– (leer lassen)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12,18 +268,15 @@
         }
       }
     },
-    "· %@ Etikett%@" : {
+    "· %lld Etikett%@" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "· %1$@ Etikett%2$@"
+            "value" : "· %1$lld Etikett%2$@"
           }
         }
       }
-    },
-    "%@" : {
-
     },
     "%@ – %@" : {
       "localizations" : {
@@ -35,36 +288,140 @@
         }
       }
     },
-    "%@ Fundort%@ · %@ Proben" : {
+    "%@ Grad Celsius" : {
+
+    },
+    "%@ Prozent" : {
+
+    },
+    "%@ Prozent beleuchtet" : {
+
+    },
+    "%@-Exposition" : {
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ Fundort%2$@ · %3$@ Proben"
+            "state" : "translated",
+            "value" : "%@-Exposition"
           }
         }
       }
     },
-    "%@ m" : {
-
-    },
-    "%@ von %@ gefiltert" : {
+    "%@-Exposition, %@° Neigung" : {
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ von %2$@ gefiltert"
+            "state" : "translated",
+            "value" : "%1$@-Exposition, %2$@° Neigung"
           }
         }
       }
     },
-    "%@:" : {
+    "%@-fach" : {
 
     },
-    "%@:00" : {
+    "%@, %lld Probe%@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld Probe%3$@"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@° Neigung" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@° Neigung"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld Einträge" : {
+
+    },
+    "%lld Fotos" : {
+
+    },
+    "%lld Fotos aus der Galerie nicht übernommen" : {
+
+    },
+    "%lld Fotos übernommen" : {
+
+    },
+    "%lld Fundort%@ · %lld Proben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld Fundort%2$@ · %3$lld Proben"
+          }
+        }
+      }
+    },
+    "%lld m" : {
+
+    },
+    "%lld von %lld gefiltert" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld von %2$lld gefiltert"
+          }
+        }
+      }
+    },
+    "%lld:00" : {
+
+    },
+    "1 Foto" : {
+
+    },
+    "1 Foto aus der Galerie nicht übernommen" : {
+
+    },
+    "1 Foto übernommen" : {
+
+    },
+    "72%@h" : {
+
+    },
+    "Abbrechen" : {
+
+    },
+    "Abgefragt für" : {
+
+    },
+    "Abgerufen am" : {
+
+    },
+    "Abmelden" : {
 
     },
     "Account endgültig löschen" : {
+
+    },
+    "Account löschen" : {
 
     },
     "admin.borough" : {
@@ -202,10 +559,22 @@
     "Adresse" : {
 
     },
+    "Adresse bearbeiten" : {
+
+    },
     "Adresse manuell setzen" : {
 
     },
     "Adresse wird ermittelt …" : {
+
+    },
+    "Aktualisieren" : {
+
+    },
+    "Aktuell ist kein Endpoint gesetzt." : {
+
+    },
+    "Aktuell: %@. Öffnet die Einstellungen." : {
 
     },
     "Alle" : {
@@ -222,13 +591,82 @@
         }
       }
     },
+    "Anlegen" : {
+
+    },
+    "Anmelden" : {
+
+    },
+    "Anwenden" : {
+
+    },
+    "Anzeigename" : {
+
+    },
+    "App" : {
+
+    },
+    "Art" : {
+
+    },
+    "Art der Aussage" : {
+
+    },
+    "Astro" : {
+
+    },
     "Auf die Karte tippen, um eine Koordinate zu setzen." : {
+
+    },
+    "Auf Karte ändern" : {
+
+    },
+    "Auf Karte wählen" : {
+
+    },
+    "Auf Karte zeigen" : {
+
+    },
+    "Aufgang %@" : {
+
+    },
+    "Aufheben" : {
+
+    },
+    "Aufsammlungen (Samples)" : {
+
+    },
+    "Aus Foto" : {
+
+    },
+    "Ausgewählt" : {
+
+    },
+    "Auswahl entfernen" : {
+
+    },
+    "Backend" : {
 
     },
     "Backend nicht erreichbar: %@" : {
 
     },
     "Backend-Endpoint" : {
+
+    },
+    "Backend-Endpoint ändern" : {
+
+    },
+    "Backend: —" : {
+
+    },
+    "Backend: %@" : {
+
+    },
+    "Bearbeiten" : {
+
+    },
+    "Bedeckt" : {
 
     },
     "Beginn" : {
@@ -241,6 +679,9 @@
           }
         }
       }
+    },
+    "Behält deine Ortsangaben und blendet den Vorschlag aus." : {
+
     },
     "Beim Löschen werden Account und alle damit verknüpften Daten unwiderruflich entfernt." : {
 
@@ -259,13 +700,37 @@
     "Beispiel: http://localhost:8090 (Simulator) oder http://<host-ip>:8090 (Gerät)." : {
 
     },
+    "Bekannte Personen" : {
+
+    },
+    "beleuchtet" : {
+
+    },
     "Bestätigung" : {
+
+    },
+    "Bestimmt am" : {
 
     },
     "Bestimmung erst nach erfolgtem Sync möglich." : {
 
     },
+    "Bestimmung löschen" : {
+
+    },
+    "Bestimmung wirklich löschen?" : {
+
+    },
     "Bestimmungen" : {
+
+    },
+    "Bewölkung %@ Prozent" : {
+
+    },
+    "Bis" : {
+
+    },
+    "Bisherige ID behalten" : {
 
     },
     "Bisherige PDFs" : {
@@ -285,6 +750,9 @@
         }
       }
     },
+    "Build-Channel %@" : {
+
+    },
     "Bürgerliche Dämmerung %@ – %@" : {
       "localizations" : {
         "de" : {
@@ -298,13 +766,31 @@
     "Centroid" : {
 
     },
+    "Code" : {
+
+    },
     "Das Backend schickt einen Link an deine E-Mail. SMTP muss auf der Docker-Maschine eingerichtet sein, sonst kommt nichts an." : {
 
     },
     "Das Foto wird vom Gerät und, falls schon hochgeladen, vom Server entfernt." : {
 
     },
+    "Das Objektiv ließ sich nicht wechseln." : {
+
+    },
     "Daten" : {
+
+    },
+    "Daten exportieren" : {
+
+    },
+    "Datenschutzerklärung" : {
+
+    },
+    "Datum" : {
+
+    },
+    "DELETE" : {
 
     },
     "Der aktive Filter passt auf keine Exkursion." : {
@@ -313,13 +799,16 @@
     "Details" : {
 
     },
+    "Determination" : {
+
+    },
     "Die eingegebene Koordinate wurde nicht übernommen. Übernehmen kannst du sie mit „Ortsdaten neu abfragen“ oder über die Karte. Zeit und Ortsdaten sind gespeichert." : {
 
     },
     "Die Ortsangaben dieser Probe hast du von Hand gesetzt. Sollen für die neue Koordinate die ermittelten Ortsangaben übernommen werden?" : {
 
     },
-    "Die Werte sind vorläufig und werden später durch endgültige ersetzt." : {
+    "Die Sample-ID darf nicht leer sein und muss eindeutig sein." : {
 
     },
     "Dienst für Wetter, Klima, Sonne und Mond. Leer lassen, um die Abfrage auf dem Gerät abzuschalten – das Backend reichert dann an." : {
@@ -329,6 +818,9 @@
 
     },
     "Diese Exkursion liegt vermutlich im Fundort **%@**." : {
+
+    },
+    "Diese Sample-ID ist bereits vergeben." : {
 
     },
     "drückend" : {
@@ -342,6 +834,40 @@
         }
       }
     },
+    "E-Mail" : {
+
+    },
+    "E-Mail (optional)" : {
+
+    },
+    "eben" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben"
+          }
+        }
+      }
+    },
+    "eben (Neigung %@°)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "eben (Neigung %@°)"
+          }
+        }
+      }
+    },
+    "Eigenschaften" : {
+
+    },
+    "Ein Dienst war beim Abruf nicht erreichbar; fehlende Werte werden nachgeholt." : {
+
+    },
     "Eine Exkursion passt, wenn eine ihrer Proben passt." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -352,6 +878,12 @@
           }
         }
       }
+    },
+    "Einstellungen" : {
+
+    },
+    "Einstellungen öffnen" : {
+
     },
     "Ende" : {
       "extractionState" : "manual",
@@ -367,7 +899,19 @@
     "Endpoint ändern" : {
 
     },
+    "Endpoint fehlt" : {
+
+    },
     "Entfernt die manuelle Korrektur; die Ortsangaben werden beim nächsten Abgleich wieder automatisch ermittelt." : {
+
+    },
+    "enthält die gewählte Zeitzone" : {
+
+    },
+    "Erneut laden" : {
+
+    },
+    "Erneut prüfen" : {
 
     },
     "Erneut senden" : {
@@ -381,10 +925,28 @@
         }
       }
     },
+    "Erneut versuchen" : {
+
+    },
+    "Ersetzt deine Ortsangaben durch die neu ermittelten." : {
+
+    },
     "Erzeuge PDF …" : {
 
     },
     "Etiketten drucken" : {
+
+    },
+    "Exkursion %@" : {
+
+    },
+    "Exkursionen" : {
+
+    },
+    "Exkursions-ID enthält …" : {
+
+    },
+    "Export teilen" : {
 
     },
     "Export wird erstellt …" : {
@@ -393,7 +955,25 @@
     "Falls du deine Daten behalten willst, lade vorher unter „Einstellungen → Daten → Daten exportieren“ das ZIP-Backup herunter und sichere es an einem zuverlässigen Ort. Nach der Löschung sind die Daten unwiderruflich weg." : {
 
     },
+    "Fehler" : {
+
+    },
+    "Fehler im Code-Feld: %@" : {
+
+    },
+    "Fehler: %@" : {
+
+    },
     "Felderfassung für entomologische Aufsammlungen" : {
+
+    },
+    "fern" : {
+
+    },
+    "Fern" : {
+
+    },
+    "Fertig" : {
 
     },
     "feucht" : {
@@ -407,6 +987,24 @@
         }
       }
     },
+    "Feuchte" : {
+
+    },
+    "Filter" : {
+
+    },
+    "Filter aufheben" : {
+
+    },
+    "Fokus" : {
+
+    },
+    "Fokus fest" : {
+
+    },
+    "Fokus: automatisch" : {
+
+    },
     "Format" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -418,7 +1016,25 @@
         }
       }
     },
+    "Foto aufnehmen" : {
+
+    },
+    "Foto aus der Galerie" : {
+
+    },
+    "Foto löschen?" : {
+
+    },
     "Foto wird gelesen …" : {
+
+    },
+    "Fotos" : {
+
+    },
+    "Fotos · %lld" : {
+
+    },
+    "Fotos nur im WLAN hochladen" : {
 
     },
     "Fotos werden in voller Auflösung hochgeladen. Proben werden weiter über jede Verbindung synchronisiert." : {
@@ -438,10 +1054,25 @@
         }
       }
     },
-    "Ganztägig: gespeichert wird nur das Datum, ohne Uhrzeit und Ende." : {
+    "Fundort" : {
 
     },
-    "Genauigkeit" : {
+    "Fundort bearbeiten" : {
+
+    },
+    "Fundorte" : {
+
+    },
+    "Fundorte (Karte)" : {
+
+    },
+    "ganz nah" : {
+
+    },
+    "Ganztägig" : {
+
+    },
+    "Ganztägig: gespeichert wird nur das Datum, ohne Uhrzeit und Ende." : {
 
     },
     "Genehmigung" : {
@@ -465,6 +1096,9 @@
     "Gespeichert." : {
 
     },
+    "Gewitter" : {
+
+    },
     "Gilt in der Ortszeit des Samples." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -475,6 +1109,9 @@
           }
         }
       }
+    },
+    "GPS-Position" : {
+
     },
     "Höhe" : {
       "extractionState" : "manual",
@@ -501,10 +1138,33 @@
     "Höhe oder Genauigkeit enthält einen ungültigen Wert." : {
 
     },
+    "Höhenstufe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Höhenstufe"
+          }
+        }
+      }
+    },
+    "https://tabularius.legulus.app" : {
+
+    },
     "Jahresübergreifend: Tag-und-Monat-Bereich wird über alle Jahre angewendet. Bereich darf den Jahreswechsel umfassen." : {
 
     },
-    "Karte erscheint, sobald die Position bekannt ist." : {
+    "Kalender" : {
+
+    },
+    "Karte" : {
+
+    },
+    "Karte des Probenorts" : {
+
+    },
+    "Karte. Tippen, um die Probe-Koordinate zu setzen." : {
 
     },
     "Kartendaten © OpenStreetMap-Mitwirkende, SRTM · Kartendarstellung © OpenTopoMap (CC-BY-SA)" : {
@@ -521,7 +1181,16 @@
         }
       }
     },
+    "Kartenquellen" : {
+
+    },
     "Kein PDF hochgeladen." : {
+
+    },
+    "Keine Daten für diesen Zeitpunkt" : {
+
+    },
+    "Keine Fundorte" : {
 
     },
     "Keine Genehmigungs-Nummer." : {
@@ -552,6 +1221,21 @@
         }
       }
     },
+    "Keine Personen vorhanden." : {
+
+    },
+    "Keine Treffer" : {
+
+    },
+    "Keine Treffer." : {
+
+    },
+    "Keine Wetterdaten für diesen Tag" : {
+
+    },
+    "Klar" : {
+
+    },
     "Konto" : {
 
     },
@@ -559,6 +1243,9 @@
 
     },
     "Koordinate" : {
+
+    },
+    "Koordinate auf Karte setzen" : {
 
     },
     "Koordinate korrigieren" : {
@@ -575,7 +1262,34 @@
     "Koordinate verwerfen?" : {
 
     },
+    "Koordinatenformat" : {
+
+    },
+    "Koordinatensystem" : {
+
+    },
+    "Kopiert in die Zwischenablage" : {
+
+    },
     "Köppen %@" : {
+
+    },
+    "Köppen Cfb" : {
+
+    },
+    "Köppen-Klima %@" : {
+
+    },
+    "Korrigieren" : {
+
+    },
+    "Kürzel" : {
+
+    },
+    "Kürzel (z. B. M. Müller)" : {
+
+    },
+    "Kürzel für Etiketten (z. B. J. Brunner)" : {
 
     },
     "Lädt alle eigenen Datensätze und PDFs als ZIP-Archiv vom Backend." : {
@@ -603,6 +1317,9 @@
         }
       }
     },
+    "Layout" : {
+
+    },
     "Lege Fundorte in der Liste an — sie erscheinen hier sofort." : {
 
     },
@@ -610,6 +1327,9 @@
 
     },
     "Legulus" : {
+
+    },
+    "Leicht bewölkt" : {
 
     },
     "leicht feucht" : {
@@ -645,10 +1365,34 @@
         }
       }
     },
+    "Licht: aus" : {
+
+    },
+    "Licht: automatischer Blitz" : {
+
+    },
+    "Licht: LED-Dauerlicht" : {
+
+    },
+    "Locality" : {
+
+    },
     "Lokale Daten bleiben erhalten. Der Token wird aus dem Schlüsselbund entfernt." : {
 
     },
+    "Löschen" : {
+
+    },
+    "Luftfeuchte %@" : {
+
+    },
+    "Makro" : {
+
+    },
     "manuell" : {
+
+    },
+    "manuell gesetzt" : {
 
     },
     "Manuelle Ortsangaben zurücksetzen" : {
@@ -661,6 +1405,15 @@
           }
         }
       }
+    },
+    "Markiert" : {
+
+    },
+    "Markierte Proben" : {
+
+    },
+    "Markierung entfernen" : {
+
     },
     "mäßige Brise" : {
       "extractionState" : "manual",
@@ -684,10 +1437,33 @@
         }
       }
     },
+    "Messtischblatt %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messtischblatt %@"
+          }
+        }
+      }
+    },
     "Mit + einen Fundort anlegen — typisch beim Auswerten zuhause, nicht im Feld." : {
 
     },
     "Mit E-Mail anmelden" : {
+
+    },
+    "Mit Koordinate" : {
+
+    },
+    "Mit Koordinate oder aus einem Foto." : {
+
+    },
+    "mittel" : {
+
+    },
+    "Modus" : {
 
     },
     "möglicherweise doppelt" : {
@@ -696,13 +1472,82 @@
     "Möglicherweise doppelte Fundorte — beim Auswerten zusammenführen oder behalten." : {
 
     },
+    "Möglicherweise doppelter Fundort" : {
+
+    },
+    "Monat" : {
+
+    },
     "Mond" : {
+
+    },
+    "Mond %@° hoch, %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mond %1$@° hoch, %2$@"
+          }
+        }
+      }
+    },
+    "Mond unter dem Horizont" : {
+
+    },
+    "Mond unter dem Horizont · Aufgang %@" : {
 
     },
     "Mond war nicht über dem Horizont." : {
 
     },
+    "Mond: %@" : {
+
+    },
+    "Mond: %@ Prozent beleuchtet" : {
+
+    },
+    "MTB" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MTB"
+          }
+        }
+      }
+    },
     "Nach der Registrierung schickt das Backend eine Verifikations-E-Mail. Du kannst die App in der Zwischenzeit voll nutzen." : {
+
+    },
+    "Nacht-Exkursion" : {
+
+    },
+    "Nachtexkursion" : {
+
+    },
+    "nah" : {
+
+    },
+    "Nah" : {
+
+    },
+    "Name" : {
+
+    },
+    "Name oder Kürzel" : {
+
+    },
+    "Nebel" : {
+
+    },
+    "Neu" : {
+
+    },
+    "Neu anlegen" : {
+
+    },
+    "Neu erstellen" : {
 
     },
     "Neue Ortsangaben verfügbar" : {
@@ -716,19 +1561,88 @@
         }
       }
     },
+    "Neue Person" : {
+
+    },
+    "Neue Person anlegen" : {
+
+    },
+    "Neue Probe" : {
+
+    },
+    "Neue Probe anlegen" : {
+
+    },
+    "Neuen Fundort anlegen" : {
+
+    },
+    "Neuer Fundort" : {
+
+    },
+    "Niederschlag der letzten 72 Stunden %@ Millimeter" : {
+
+    },
+    "Nieselregen" : {
+
+    },
     "Noch keine Bestimmung." : {
+
+    },
+    "Noch keine Exkursionen" : {
+
+    },
+    "Noch keine Fotos" : {
 
     },
     "Noch keine Fotos. „Foto“ in der Leiste unten nimmt eins auf." : {
 
     },
+    "Noch keine Fundorte" : {
+
+    },
     "Noch keine lokalen Proben für diese Exkursion." : {
+
+    },
+    "Noch keine Proben" : {
+
+    },
+    "Noch keine Sammeltage" : {
+
+    },
+    "Noch nichts markiert" : {
+
+    },
+    "Notizen" : {
+
+    },
+    "Notizen zur Probe" : {
 
     },
     "Nur gesyncte Proben können gedruckt werden." : {
 
     },
+    "Nur mit Koordinate" : {
+
+    },
+    "Nur mit Notizen" : {
+
+    },
     "oder" : {
+
+    },
+    "Öffnet das Formular zur Erfassung einer Probe mit Foto und Notizen." : {
+
+    },
+    "Öffnet die Auswahl der Zeitzone. Die Zeitpunkte bleiben gleich." : {
+
+    },
+    "Öffnet die Karte; ein gesetzter Punkt wird als Koordinate übernommen." : {
+
+    },
+    "Öffnet die Lizenz im Browser" : {
+
+    },
+    "Öffnet Koordinate, Zeit und Ortsdaten zum Bearbeiten." : {
 
     },
     "Offset" : {
@@ -752,6 +1666,15 @@
           }
         }
       }
+    },
+    "Ohne Koordinate – unter „Bearbeiten“ eine Koordinate setzen, damit Ortsangaben ermittelt werden." : {
+
+    },
+    "OK" : {
+
+    },
+    "optional" : {
+
     },
     "Optional, nur fürs Archiv. Bleibt auf dem Backend liegen." : {
 
@@ -866,13 +1789,49 @@
         }
       }
     },
+    "Ortsdaten neu abfragen" : {
+
+    },
+    "Ortus wird abgefragt" : {
+
+    },
     "Ortus-Endpoint" : {
+
+    },
+    "Passwort" : {
+
+    },
+    "Passwort (min. 8 Zeichen)" : {
+
+    },
+    "Passwort bestätigen" : {
 
     },
     "Passwort vergessen?" : {
 
     },
     "Passwort zurücksetzen" : {
+
+    },
+    "PDF auswählen" : {
+
+    },
+    "PDF entfernen" : {
+
+    },
+    "PDF wird beim Speichern entfernt." : {
+
+    },
+    "Person" : {
+
+    },
+    "Person wählen" : {
+
+    },
+    "Person wählen oder anlegen" : {
+
+    },
+    "Personen, Determinationen, Etiketten-PDFs" : {
 
     },
     "place.island" : {
@@ -922,19 +1881,67 @@
         }
       }
     },
+    "Probe" : {
+
+    },
+    "Probe am Tag" : {
+
+    },
+    "Probe in der astronomischen Dämmerung" : {
+
+    },
+    "Probe in der bürgerlichen Dämmerung" : {
+
+    },
+    "Probe in der Nacht" : {
+
+    },
+    "Probe in der nautischen Dämmerung" : {
+
+    },
+    "Probe markieren" : {
+
+    },
+    "Probe nachtragen" : {
+
+    },
+    "Probe nicht gefunden" : {
+
+    },
     "Proben" : {
 
     },
     "Prüfen" : {
 
     },
-    "Radius %@ m" : {
+    "Radius" : {
+
+    },
+    "Radius %lld m" : {
+
+    },
+    "Rechnet die Eingabe über Ortus um, übernimmt sie und aktualisiert Ortsdaten, Zeitzone und Höhe." : {
+
+    },
+    "Rechnet die Koordinate über Ortus um und legt die Probe an." : {
 
     },
     "Rechtliches" : {
 
     },
+    "Regen" : {
+
+    },
     "Region" : {
+
+    },
+    "Sammeltag 22.11.2026" : {
+
+    },
+    "Sample löschen" : {
+
+    },
+    "Sample-Code" : {
 
     },
     "Sample-ID" : {
@@ -947,6 +1954,15 @@
           }
         }
       }
+    },
+    "Schärfe-Entfernung" : {
+
+    },
+    "Schließen" : {
+
+    },
+    "Schnee" : {
+
     },
     "schwache Brise" : {
       "extractionState" : "manual",
@@ -992,13 +2008,41 @@
         }
       }
     },
+    "Senden" : {
+
+    },
     "Sobald du Proben anlegst, tauchen die jeweiligen Sammeltage hier auf." : {
 
     },
     "Sonne" : {
 
     },
+    "Sonne %@° hoch, %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sonne %1$@° hoch, %2$@"
+          }
+        }
+      }
+    },
+    "Sonne unter dem Horizont" : {
+
+    },
     "Sonnen- und Mondzeiten erscheinen, sobald die Anreicherung durchgelaufen ist." : {
+
+    },
+    "Sonnenaufgang %@" : {
+
+    },
+    "Sonnenaufgang %@ Uhr" : {
+
+    },
+    "Sonnenuntergang %@" : {
+
+    },
+    "Sonnenuntergang %@ Uhr" : {
 
     },
     "Sonstige" : {
@@ -1015,6 +2059,12 @@
     "Später" : {
 
     },
+    "Speichern" : {
+
+    },
+    "Speichert die Änderungen." : {
+
+    },
     "starker Wind" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1025,6 +2075,9 @@
           }
         }
       }
+    },
+    "Status" : {
+
     },
     "steifer Wind" : {
       "extractionState" : "manual",
@@ -1059,6 +2112,9 @@
         }
       }
     },
+    "Sucht in allen Ortsangaben der Proben, z. B. Gemeinde, Kreis oder Insel." : {
+
+    },
     "Sync fehlgeschlagen" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1070,6 +2126,9 @@
         }
       }
     },
+    "Tag" : {
+
+    },
     "Tagesrollover" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1080,6 +2139,9 @@
           }
         }
       }
+    },
+    "Teilen" : {
+
     },
     "Tempus-Endpoint" : {
 
@@ -1132,7 +2194,16 @@
         }
       }
     },
+    "Überträgt die lokal gespeicherte Probe erneut an den Server." : {
+
+    },
     "Ungültige Eingaben verwerfen?" : {
+
+    },
+    "Untergang %@" : {
+
+    },
+    "Unvollständig, wird nachgeholt" : {
 
     },
     "Verwaltung" : {
@@ -1157,10 +2228,19 @@
         }
       }
     },
+    "Voller Name" : {
+
+    },
+    "Von" : {
+
+    },
     "Vor dem Löschen" : {
 
     },
-    "vorläufig" : {
+    "Vorschlag" : {
+
+    },
+    "Vorschlag nach deinem ID-Format. Anpassbar oder leer lassbar, falls du eine andere Nummer auf dem Röhrchen hast." : {
 
     },
     "Vorschlag: %@" : {
@@ -1174,6 +2254,46 @@
     },
     "Was gelöscht wird" : {
 
+    },
+    "Wechselt zum nächsten Modus" : {
+
+    },
+    "Wechselt zur nächsten Stufe" : {
+
+    },
+    "Weiter bearbeiten" : {
+
+    },
+    "Weitere Tageswerte erscheinen unter „Details“, sobald die Daten abgeglichen sind." : {
+
+    },
+    "Werte für %lld m über dem Meer" : {
+
+    },
+    "Wetter und Klima" : {
+
+    },
+    "Wettercode %lld" : {
+
+    },
+    "Wetterwerte stammen aus Modelldaten, die bis fünf Tage nach dem Sammelzeitpunkt noch korrigiert werden (endgültig ab %@). Sonne, Mond und Klima sind endgültig." : {
+
+    },
+    "Wetterwerte vorläufig bis %@" : {
+
+    },
+    "Wind" : {
+
+    },
+    "Wind %@, %@ Kilometer pro Stunde" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Wind %1$@, %2$@ Kilometer pro Stunde"
+          }
+        }
+      }
     },
     "Windstille" : {
       "extractionState" : "manual",
@@ -1195,6 +2315,30 @@
     "Wird gelöscht …" : {
 
     },
+    "Wirklich abmelden?" : {
+
+    },
+    "Wolken" : {
+
+    },
+    "z. B. BV-2026/123" : {
+
+    },
+    "z. B. Joachim Brunner" : {
+
+    },
+    "z. B. NSG Schwarze Berge" : {
+
+    },
+    "z. B. Otiorhynchus ligustici" : {
+
+    },
+    "Zeigt alle Wetter-, Klima- und Astronomiewerte" : {
+
+    },
+    "Zeigt die Zeitzonen dieser Region." : {
+
+    },
     "Zeit" : {
 
     },
@@ -1209,7 +2353,22 @@
         }
       }
     },
+    "Zoom" : {
+
+    },
+    "Zuletzt aufgenommenes Foto" : {
+
+    },
+    "Zuordnen" : {
+
+    },
+    "Zuordnung entfernen" : {
+
+    },
     "Zurück" : {
+
+    },
+    "Zurücksetzen" : {
 
     }
   },
