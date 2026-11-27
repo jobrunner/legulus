@@ -442,6 +442,13 @@ final class SyncRunner: ObservableObject {
     /// „Fotos nur im WLAN hochladen“ is on: the upload request itself
     /// refuses cellular.
     private let photoWiFiOnly: () -> Bool
+    /// Asks the system for time to finish after the app left the
+    /// foreground; returns the closure that ends that request, and
+    /// calls `onExpire` when the time runs out first. Put away right
+    /// after the photos, the phone otherwise suspends the app and the
+    /// upload breaks off mid-body.
+    private let beginBackgroundActivity: @MainActor (_ name: String, _ onExpire: @escaping @MainActor () -> Void)
+        -> () -> Void
     /// The signed-in account. A photo batch belongs to the account it
     /// started under: after a sign-out the local rows are wiped and the
     /// next account must not inherit the rest of the batch.
@@ -495,6 +502,8 @@ final class SyncRunner: ObservableObject {
          accountProvider: (() -> String?)? = nil,
          conditionsResolver: (@MainActor () -> SampleConditionsResolver?)? = nil,
          now: @escaping () -> Date = Date.init,
+         beginBackgroundActivity: @escaping @MainActor (_ name: String, _ onExpire: @escaping @MainActor () -> Void)
+             -> () -> Void = { _, _ in {} },
          onSampleSynced: @escaping (String) -> Void = { _ in },
          onLocalityChanged: @escaping () -> Void = {})
     {
@@ -518,6 +527,7 @@ final class SyncRunner: ObservableObject {
         self.photoWiFiOnly = photoWiFiOnly
         accountID = accountProvider ?? { authProvider()?.currentToken.flatMap(AccountBoundAuth.userID(ofToken:)) }
         self.now = now
+        self.beginBackgroundActivity = beginBackgroundActivity
         self.conditionsResolver = conditionsResolver
         self.onSampleSynced = onSampleSynced
         self.onLocalityChanged = onLocalityChanged
@@ -1620,11 +1630,18 @@ final class SyncRunner: ObservableObject {
         let client = photoClientFactory(endpoint, authProvider())
         let account = accountID()
         var backendIDs: [String: String?] = [:]
+        // Begun with the first upload, ended when the batch is through,
+        // also on an early return. When the time runs out first, the
+        // upload in flight is cancelled and the batch stops; the rest
+        // waits for a pass with fresh background time.
+        let expiry = PhotoBatchExpiry()
+        var endActivity: (() -> Void)?
+        defer { endActivity?() }
         for photo in due {
             // Checked before every photo: Wi-Fi may drop, the user may
             // switch „nur im WLAN“ on, or sign out, in the middle of a
             // batch.
-            guard !isShutDown, photoUploadAllowed(), accountID() == account else { return }
+            guard !isShutDown, !expiry.expired, photoUploadAllowed(), accountID() == account else { return }
             let backendID: String?
             if let known = backendIDs[photo.sampleId] {
                 backendID = known
@@ -1635,12 +1652,18 @@ final class SyncRunner: ObservableObject {
             // The sample itself is not on the server yet; its create
             // mutation comes first, the photo follows in a later pass.
             guard let backendID, !backendID.isEmpty else { continue }
-            await pushOnePhoto(photo, backendSampleID: backendID, via: client, account: account)
+            if endActivity == nil {
+                endActivity = beginBackgroundActivity("photo upload") { expiry.expire() }
+                // No background time granted: nothing starts unprotected.
+                if expiry.expired { return }
+            }
+            await pushOnePhoto(photo, backendSampleID: backendID, via: client, account: account, expiry: expiry)
         }
     }
 
     private func pushOnePhoto(
-        _ photo: LocalPhoto, backendSampleID: String, via client: PhotoSyncClient, account: String?
+        _ photo: LocalPhoto, backendSampleID: String, via client: PhotoSyncClient, account: String?,
+        expiry: PhotoBatchExpiry
     ) async {
         guard let photoStore, let fileURL = PhotoStorage.absoluteURL(forRelative: photo.localPath) else { return }
         // The row stays `pending` while the upload runs: a photo left in
@@ -1652,13 +1675,20 @@ final class SyncRunner: ObservableObject {
         do {
             inFlight += 1
             defer { inFlight -= 1 }
-            let response = try await client.upload(
-                sampleBackendID: backendSampleID,
-                clientUUID: photo.clientUuid,
-                clientUpdatedAt: photo.clientUpdatedAt,
-                fileURL: fileURL,
-                allowsCellularAccess: !photoWiFiOnly()
-            )
+            // Its own task, so the end of the background time can cancel it.
+            let wifiOnly = photoWiFiOnly()
+            let upload = Task {
+                try await client.upload(
+                    sampleBackendID: backendSampleID,
+                    clientUUID: photo.clientUuid,
+                    clientUpdatedAt: photo.clientUpdatedAt,
+                    fileURL: fileURL,
+                    allowsCellularAccess: !wifiOnly
+                )
+            }
+            expiry.cancelUpload = { upload.cancel() }
+            defer { expiry.cancelUpload = nil }
+            let response = try await upload.value
             // Signed out meanwhile: the local rows were wiped. That is
             // not a delete by the user, and nothing here is ours to
             // change any more.
@@ -1675,6 +1705,12 @@ final class SyncRunner: ObservableObject {
             try photoStore.update(working)
         } catch {
             guard accountID() == account else { return }
+            // Cut off by the end of the background time, not refused:
+            // the photo stays pending and goes in the next pass.
+            if expiry.expired {
+                Log.sync.notice("photo upload cancelled, background time ran out")
+                return
+            }
             working.syncStatus = .failed
             working.syncError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             working.attempts = photo.attempts + 1
@@ -1794,5 +1830,18 @@ final class SyncRunner: ObservableObject {
         try? store.update(fresh)
         await makeLocationHydration()?.hydrate([s])
         return true
+    }
+}
+
+/// The end of the background time of a photo batch: stops the batch and
+/// cancels the upload in flight.
+@MainActor
+final class PhotoBatchExpiry {
+    private(set) var expired = false
+    var cancelUpload: (() -> Void)?
+
+    func expire() {
+        expired = true
+        cancelUpload?()
     }
 }

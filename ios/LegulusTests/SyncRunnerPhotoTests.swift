@@ -16,6 +16,12 @@ final class SyncRunnerPhotoTests: XCTestCase {
     private var wifiOnly = false
     private var account: String? = "user-a"
     private var lastSampleID: String?
+    /// Order of background activity and uploads ("begin", "upload", "end").
+    private var events: [String] = []
+    /// Ends the background time of the running batch, as the system does.
+    private var expireActivity: (() -> Void)?
+    /// The system grants no background time (beginBackgroundTask → .invalid).
+    private var activityDenied = false
     private var sampleIDs: [String] = []
     // swiftlint:disable:next force_unwrapping
     private let berlin = TimeZone(identifier: "Europe/Berlin")!
@@ -28,6 +34,8 @@ final class SyncRunnerPhotoTests: XCTestCase {
         mutations = PendingMutationsStore(database: database)
         client = FakePhotoClient()
         uploadAllowed = true
+        events = []
+        activityDenied = false
     }
 
     override func tearDownWithError() throws {
@@ -53,7 +61,13 @@ final class SyncRunnerPhotoTests: XCTestCase {
             photoUploadAllowed: { [unowned self] in self.uploadAllowed },
             photoWiFiOnly: { [unowned self] in self.wifiOnly },
             accountProvider: { [unowned self] in self.account },
-            now: { [unowned self] in self.now }
+            now: { [unowned self] in self.now },
+            beginBackgroundActivity: { [unowned self] _, onExpire in
+                self.events.append("begin")
+                self.expireActivity = onExpire
+                if self.activityDenied { onExpire() }
+                return { self.events.append("end") }
+            }
         )
     }
 
@@ -318,6 +332,64 @@ final class SyncRunnerPhotoTests: XCTestCase {
         await run(makeRunner())
         XCTAssertEqual(try mutations.fetch(entityType: .samplePhoto).count, 1)
     }
+
+    // MARK: - background activity
+
+    /// Put away right after the photo, the phone suspends the app; the
+    /// upload broke off mid-body. It runs inside a background activity
+    /// that ends when the batch is through.
+    func testUploadsRunInsideOneBackgroundActivity() async throws {
+        _ = try seed(pushed: true)
+        _ = try seed(pushed: true, sameSample: true)
+        client.duringUpload = { [unowned self] in self.events.append("upload") }
+        await run(makeRunner())
+        XCTAssertEqual(events, ["begin", "upload", "upload", "end"])
+    }
+
+    func testBackgroundActivityEndsAfterFailedUpload() async throws {
+        _ = try seed(pushed: true)
+        client.nextError = SampleClientError.http(status: 500, body: "")
+        await run(makeRunner())
+        XCTAssertEqual(events.first, "begin")
+        XCTAssertEqual(events.last, "end")
+    }
+
+    /// Time up during the first upload: it is cancelled, the photo stays
+    /// pending without counting as a failed attempt, and the batch stops
+    /// so the rest waits for a pass with fresh background time.
+    func testExpiredBackgroundTimeCancelsUploadAndStopsBatch() async throws {
+        let first = try seed(pushed: true)
+        _ = try seed(pushed: true, sameSample: true)
+        client.checksCancellation = true
+        client.duringUpload = { [unowned self] in self.expireActivity?() }
+        await run(makeRunner())
+        XCTAssertEqual(client.attempts, 1, "no further upload after the time ran out")
+        XCTAssertTrue(client.uploads.isEmpty, "the upload in flight was cancelled")
+        let stored = try XCTUnwrap(row(first))
+        XCTAssertEqual(stored.syncStatus, .pending)
+        XCTAssertEqual(stored.attempts, 0)
+        XCTAssertNil(stored.syncError)
+        XCTAssertEqual(events, ["begin", "end"])
+    }
+
+    /// No background time granted: no upload starts unprotected, the
+    /// photo stays pending for the next pass.
+    func testDeniedBackgroundTimeStartsNoUpload() async throws {
+        let photo = try seed(pushed: true)
+        activityDenied = true
+        await run(makeRunner())
+        XCTAssertEqual(client.attempts, 0)
+        let stored = try XCTUnwrap(row(photo))
+        XCTAssertEqual(stored.syncStatus, .pending)
+        XCTAssertEqual(stored.attempts, 0)
+        XCTAssertEqual(events, ["begin", "end"])
+    }
+
+    func testNoBackgroundActivityWithoutDuePhoto() async throws {
+        _ = try seed(pushed: false)
+        await run(makeRunner())
+        XCTAssertEqual(events, [])
+    }
 }
 
 private final class FakePhotoClient: PhotoSyncClient, @unchecked Sendable {
@@ -334,6 +406,9 @@ private final class FakePhotoClient: PhotoSyncClient, @unchecked Sendable {
     var nextError: Error?
     var deleteError: Error?
     var duringUpload: (() -> Void)?
+    /// Throws when the surrounding task was cancelled after `duringUpload`,
+    /// like URLSession does.
+    var checksCancellation = false
 
     var cellularAllowed: [Bool] = []
     var lookups: [String] = []
@@ -357,6 +432,7 @@ private final class FakePhotoClient: PhotoSyncClient, @unchecked Sendable {
         attempts += 1
         cellularAllowed.append(allowsCellularAccess)
         duringUpload?()
+        if checksCancellation { try Task.checkCancellation() }
         if let error = nextError {
             nextError = nil
             throw error
