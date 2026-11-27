@@ -91,6 +91,15 @@ final class ZoomScaleTests: XCTestCase {
         XCTAssertEqual(ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 5).maxFactor, 1, "Fokus fest: kein Zoom")
     }
 
+    /// Fokus fest nach langem Druck bei 3×: der übernommene Ausschnitt
+    /// liegt in der Skala, sonst setzt die nächste Geste ihn auf 1× zurück.
+    func testFixedLensScale_KeepsCarriedFraming() {
+        let fixed = ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 10, carried: 3)
+        XCTAssertEqual(fixed.maxFactor, 3)
+        XCTAssertEqual(ZoomScale(mainFactor: 1, minFactor: 1, maxFactor: 2, carried: 3).maxFactor, 2, "nie über das Objektiv")
+        XCTAssertEqual(ZoomScale(mainFactor: 2, minFactor: 1, maxFactor: 10, carried: 1.5).maxFactor, 2)
+    }
+
     func testSpokenText_German() {
         let german = Locale(identifier: "de_DE")
         XCTAssertEqual(ZoomScale.spokenText(1.4, locale: german), "1,4-fach")

@@ -35,11 +35,15 @@ struct ZoomScale: Equatable {
     /// A single physical lens of the fixed stages: no lens buttons, and
     /// `mainFactor` is where its picture matches the main lens (the
     /// cropped ultra-wide in Macro).
-    init(mainFactor: CGFloat, minFactor: CGFloat, maxFactor: CGFloat) {
+    /// `carried`: the framing taken over from Auto (long press at 3×
+    /// keeps 3× on this lens); the scale reaches up to it, so the next
+    /// gesture does not throw it back to the main framing.
+    init(mainFactor: CGFloat, minFactor: CGFloat, maxFactor: CGFloat, carried: CGFloat? = nil) {
         self.mainFactor = mainFactor
         self.minFactor = minFactor
-        // Up to the main-lens framing; beyond it would be digital.
-        self.maxFactor = max(minFactor, min(maxFactor, mainFactor))
+        // Up to the main-lens framing (beyond it would be digital), or
+        // the framing carried over from Auto.
+        self.maxFactor = max(minFactor, min(maxFactor, max(mainFactor, carried ?? mainFactor)))
         lensStops = []
     }
 

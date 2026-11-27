@@ -384,6 +384,9 @@ private final class CameraCore: @unchecked Sendable {
     private var input: AVCaptureDeviceInput?
     /// Zoom of Auto before a fixed stage, restored on the way back.
     private var autoZoom: CGFloat = 1
+    /// Framing a fixed stage took over from Auto (long press); its zoom
+    /// scale reaches up to it. nil otherwise.
+    private var carriedZoom: CGFloat?
     private var stage: FocusStage = .auto
     /// Counts lens swaps; a focus wait from before a swap is dropped.
     private var generation = 0
@@ -497,6 +500,7 @@ private final class CameraCore: @unchecked Sendable {
             min: target.minAvailableVideoZoomFactor,
             max: target.maxAvailableVideoZoomFactor
         )
+        carriedZoom = stage != .auto && keepFraming ? target.videoZoomFactor : nil
         zoomAtGestureStart = target.videoZoomFactor
         target.unlockForConfiguration()
         if stage == .auto {
@@ -587,7 +591,8 @@ private final class CameraCore: @unchecked Sendable {
                 minFactor: low,
                 maxFactor: high
             )
-        case .fixed, .macro: return ZoomScale(mainFactor: mainFactor(for: stage), minFactor: low, maxFactor: high)
+        case .fixed, .macro:
+            return ZoomScale(mainFactor: mainFactor(for: stage), minFactor: low, maxFactor: high, carried: carriedZoom)
         }
     }
 
