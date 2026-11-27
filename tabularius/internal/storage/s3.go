@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -116,39 +117,64 @@ var errManagedByEnv = errors.New("the S3 file storage is set by the S3_* environ
 // checks the settings: on start (error log) and when the admin UI saves
 // them (rejected with the reason).
 func Register(app core.App, getenv func(string) string, logger *slog.Logger) {
-	cfg, fromEnv, envErr := FromEnv(getenv)
-
+	st := newEnvState(getenv)
 	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
 		if err := e.Next(); err != nil {
 			return err
 		}
-		switch {
-		case envErr != nil:
-			// Starting anyway: everything but file uploads works.
-			logger.Error("storage: S3 environment not applied", slog.Any("err", envErr))
-		case fromEnv:
-			if err := apply(e.App, cfg); err != nil {
-				logger.Error("storage: S3 settings not saved", slog.Any("err", err))
-			} else {
-				logger.Info("storage: S3 settings from environment", slog.String("region", cfg.Region))
-			}
-		default:
-			if err := checkSettings(e.App.Settings().S3); err != nil {
-				logger.Error("storage: S3 settings unusable, file uploads will fail", slog.Any("err", err))
-			}
-		}
+		st.bootstrap(e.App, logger)
 		return nil
 	})
+	app.OnSettingsUpdateRequest().BindFunc(st.onSettingsUpdate)
+}
 
-	app.OnSettingsUpdateRequest().BindFunc(func(e *core.SettingsUpdateRequestEvent) error {
-		if fromEnv && envErr == nil && e.NewSettings.S3 != e.OldSettings.S3 {
-			return e.BadRequestError(errManagedByEnv.Error(), nil)
+// envState is the S3 connection from the environment and whether it
+// is in force.
+type envState struct {
+	cfg     core.S3Config
+	fromEnv bool
+	err     error
+	// managed is set once the environment was applied on start; only
+	// then is S3 locked in the admin UI. A failed start leaves the
+	// admin UI as the way to repair the storage.
+	managed atomic.Bool
+}
+
+func newEnvState(getenv func(string) string) *envState {
+	st := &envState{}
+	st.cfg, st.fromEnv, st.err = FromEnv(getenv)
+	return st
+}
+
+// bootstrap applies the environment, or checks the stored settings
+// when there is none. It never stops the start: everything but file
+// uploads works without S3.
+func (st *envState) bootstrap(app core.App, logger *slog.Logger) {
+	switch {
+	case st.err != nil:
+		logger.Error("storage: S3 environment not applied", slog.Any("err", st.err))
+	case st.fromEnv:
+		if err := apply(app, st.cfg); err != nil {
+			logger.Error("storage: S3 settings not saved", slog.Any("err", err))
+			return
 		}
-		if err := checkSettings(e.NewSettings.S3); err != nil {
-			return e.BadRequestError(err.Error(), nil)
+		st.managed.Store(true)
+		logger.Info("storage: S3 settings from environment", slog.String("region", st.cfg.Region))
+	default:
+		if err := checkSettings(app.Settings().S3); err != nil {
+			logger.Error("storage: S3 settings unusable, file uploads will fail", slog.Any("err", err))
 		}
-		return e.Next()
-	})
+	}
+}
+
+func (st *envState) onSettingsUpdate(e *core.SettingsUpdateRequestEvent) error {
+	if st.managed.Load() && e.NewSettings.S3 != e.OldSettings.S3 {
+		return e.BadRequestError(errManagedByEnv.Error(), nil)
+	}
+	if err := checkSettings(e.NewSettings.S3); err != nil {
+		return e.BadRequestError(err.Error(), nil)
+	}
+	return e.Next()
 }
 
 // checkSettings checks an enabled S3 storage; a disabled one is fine.

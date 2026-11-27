@@ -66,9 +66,13 @@ func superuserToken(t *testing.T, app *tests.TestApp) string {
 	return tok
 }
 
+// settingsScenario saves settings over the API with the storage hooks
+// in place; with vars the environment was applied on start first.
 func settingsScenario(t *testing.T, app *tests.TestApp, vars map[string]string, body string, status int,
 	content []string,
 ) tests.ApiScenario {
+	st := newEnvState(env(vars))
+	st.bootstrap(app, quiet)
 	return tests.ApiScenario{
 		Method:          http.MethodPatch,
 		URL:             "/api/settings",
@@ -80,7 +84,7 @@ func settingsScenario(t *testing.T, app *tests.TestApp, vars map[string]string, 
 		// The test owns the app.
 		DisableTestAppCleanup: true,
 		BeforeTestFunc: func(_ testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
-			Register(app, env(vars), quiet)
+			app.OnSettingsUpdateRequest().BindFunc(st.onSettingsUpdate)
 		},
 	}
 }
@@ -112,9 +116,6 @@ func TestSettingsUpdate_RejectsS3ChangeWhenManagedByEnv(t *testing.T) {
 	vars := map[string]string{
 		"S3_ENDPOINT": r2Endpoint, "S3_BUCKET": "photos", "S3_ACCESS_KEY": "key", "S3_SECRET": "secret",
 	}
-	if err := apply(app, r2Config("auto")); err != nil {
-		t.Fatal(err)
-	}
 	body := `{"s3":{"bucket":"other"}}`
 	sc := settingsScenario(t, app, vars, body, http.StatusBadRequest, []string{`S3_* environment variables`})
 	sc.Test(t)
@@ -129,10 +130,24 @@ func TestSettingsUpdate_OtherSettingsStayEditableWhenManagedByEnv(t *testing.T) 
 	vars := map[string]string{
 		"S3_ENDPOINT": r2Endpoint, "S3_BUCKET": "photos", "S3_ACCESS_KEY": "key", "S3_SECRET": "secret",
 	}
-	if err := apply(app, r2Config("auto")); err != nil {
-		t.Fatal(err)
-	}
 	sc := settingsScenario(t, app, vars, `{"meta":{"appName":"Tabularius Test"}}`, http.StatusOK,
 		[]string{`"appName":"Tabularius Test"`})
 	sc.Test(t)
+}
+
+// The environment could not be saved on start (here: no endpoint URL,
+// which only PocketBase's validation catches): S3 is not locked, the
+// admin UI can still repair the storage.
+func TestSettingsUpdate_NoLockWhenEnvironmentWasNotApplied(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	vars := map[string]string{
+		"S3_ENDPOINT": "not a url", "S3_BUCKET": "photos", "S3_ACCESS_KEY": "key", "S3_SECRET": "secret",
+	}
+	body := `{"s3":{"enabled":true,"endpoint":"` + r2Endpoint + `","bucket":"photos",` +
+		`"region":"auto","accessKey":"key","secret":"secret"}}`
+	sc := settingsScenario(t, app, vars, body, http.StatusOK, []string{`"region":"auto"`})
+	sc.Test(t)
+	if app.Settings().S3.Endpoint != r2Endpoint {
+		t.Errorf("repair must be stored: %+v", app.Settings().S3)
+	}
 }
