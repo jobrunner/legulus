@@ -101,7 +101,7 @@ kann ihn dann nicht mehr ändern (er würde beim nächsten Start ohnehin
 |---|---|
 | `S3_ENDPOINT` | z.B. `https://<konto>.r2.cloudflarestorage.com`; leer lässt die Einstellung der Admin-Oberfläche gelten |
 | `S3_BUCKET` | Bucket-Name (Pflicht) |
-| `S3_REGION` | Regionscode, Default `auto` (R2: `auto`, `weur`, `eeur` …; AWS: `eu-central-1` …) |
+| `S3_REGION` | Regionscode, Default `auto` (R2: `auto`, `weur`, `eeur` …, `us-east-1` als Alias für `auto`; AWS: `eu-central-1` …) |
 | `S3_ACCESS_KEY`, `S3_SECRET` | Zugang (Pflicht), gehören in die Secrets, nicht in die Compose-Datei |
 | `S3_FORCE_PATH_STYLE` | `true` für MinIO u. ä., sonst weglassen |
 

@@ -24,7 +24,8 @@ func TestCheckRegion_R2RejectsDashboardLabel(t *testing.T) {
 }
 
 func TestCheckRegion_R2AcceptsItsCodes(t *testing.T) {
-	for _, r := range []string{"auto", "weur", "eeur", "wnam", "enam", "apac", "oc"} {
+	// us-east-1 is R2's alias for auto, for tools that insist on a region.
+	for _, r := range []string{"auto", "weur", "eeur", "wnam", "enam", "apac", "oc", "us-east-1"} {
 		if err := CheckRegion(r2Endpoint, r); err != nil {
 			t.Errorf("%q: %v", r, err)
 		}
@@ -35,6 +36,26 @@ func TestCheckRegion_R2AcceptsItsCodes(t *testing.T) {
 func TestCheckRegion_R2RejectsAWSName(t *testing.T) {
 	if CheckRegion(r2Endpoint, "eu-central-1") == nil {
 		t.Error("an AWS region is not valid on R2")
+	}
+}
+
+// PocketBase also takes an endpoint without scheme.
+func TestCheckRegion_R2EndpointWithoutScheme(t *testing.T) {
+	if CheckRegion("account.r2.cloudflarestorage.com", "eu-central-1") == nil {
+		t.Error("R2 without scheme must still be checked as R2")
+	}
+	if err := CheckRegion("account.r2.cloudflarestorage.com", "auto"); err != nil {
+		t.Error(err)
+	}
+}
+
+// PocketBase signs with the region as stored; surrounding blanks break
+// every upload.
+func TestCheckRegion_RejectsSurroundingWhitespace(t *testing.T) {
+	for _, r := range []string{" auto", "auto ", " eu-central-1 "} {
+		if CheckRegion(r2Endpoint, r) == nil || CheckRegion("https://s3.example", r) == nil {
+			t.Errorf("%q must be rejected", r)
+		}
 	}
 }
 

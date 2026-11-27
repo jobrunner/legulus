@@ -38,6 +38,21 @@ func TestApply_StoresConfigOnce(t *testing.T) {
 	}
 }
 
+// A save that fails (here: PocketBase's own validation, no endpoint
+// URL) must leave the running settings as they were.
+func TestApply_FailedSaveKeepsActiveSettings(t *testing.T) {
+	app := testutil.NewTestApp(t)
+	before := app.Settings().S3
+	bad := r2Config("auto")
+	bad.Endpoint = "not a url"
+	if err := apply(app, bad); err == nil {
+		t.Fatal("invalid endpoint must not save")
+	}
+	if got := app.Settings().S3; got != before {
+		t.Errorf("active settings changed by a failed save: %+v", got)
+	}
+}
+
 func superuserToken(t *testing.T, app *tests.TestApp) string {
 	t.Helper()
 	su, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "test@example.com")
