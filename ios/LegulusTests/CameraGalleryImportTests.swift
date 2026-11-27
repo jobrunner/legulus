@@ -18,6 +18,18 @@ final class CameraGalleryImportTests: XCTestCase {
         XCTAssertEqual(result, .init(stored: 2, last: Data([2]), failed: 0))
     }
 
+    /// `store` reaches the main-actor view model: it must run on the
+    /// main thread, also after the conversion left it.
+    func testStoresOnTheMainActor() async {
+        var onMain: [Bool] = []
+        _ = await CameraGalleryImport.run(
+            [{ Data([1]) }, { Data([2]) }],
+            prepare: { data in await Task.detached { data }.value },
+            store: { _ in onMain.append(Thread.isMainThread) }
+        )
+        XCTAssertEqual(onMain, [true, true])
+    }
+
     func testFailedItemDoesNotStopTheRest() async {
         let result = await CameraGalleryImport.run(
             [{ throw Offline() }, { nil }, { Data([3]) }],

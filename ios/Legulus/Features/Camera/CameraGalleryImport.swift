@@ -15,7 +15,10 @@ enum CameraGalleryImport {
         var failed: Int
     }
 
-    /// Cancellation skips the rest without counting it as failed.
+    /// Cancellation skips the rest without counting it as failed. On the
+    /// main actor: `store` hands the photo to the main-actor view model;
+    /// `prepare` converts on its own actor.
+    @MainActor
     static func run(
         _ items: [() async throws -> Data?],
         prepare: (Data) async -> Data?,
