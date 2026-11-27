@@ -96,6 +96,9 @@ enum AppColor {
     /// Increase Contrast.
     static let cameraScrim = Color.black.opacity(0.45)
     static let cameraScrimStrong = Color.black.opacity(0.75)
+    /// Ground under text on the camera picture (the zoom dial's
+    /// numbers): white keeps about 5.7:1 even over a bright frame.
+    static let cameraScrimText = Color.black.opacity(0.6)
     /// A camera mode that is switched on (LED, flash, fixed focus, macro)
     /// and the current value on the zoom dial; yellow as in the system
     /// camera. The icons differ in shape as well, never by colour alone.

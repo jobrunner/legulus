@@ -10,6 +10,7 @@ import SwiftUI
 /// drag that starts on the buttons goes on on the dial. VoiceOver zooms
 /// through that control as one adjustable element.
 struct ZoomDial: View, Animatable {
+    @Environment(\.colorSchemeContrast) private var contrast
     let scale: ZoomScale
     /// Animatable: a jump of the zoom (lens button) turns the dial over
     /// instead of snapping, so the numbers do not pop.
@@ -105,7 +106,10 @@ struct ZoomDial: View, Animatable {
 
         if drawsDisc {
             let disc = Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius, width: radius * 2, height: radius * 2))
-            context.fill(disc, with: .color(AppColor.cameraScrim))
+            // The numbers are text on the camera picture: a ground they
+            // stay legible on, stronger with Increase Contrast.
+            let ground = contrast == .increased ? AppColor.cameraScrimStrong : AppColor.cameraScrimText
+            context.fill(disc, with: .color(ground))
         }
 
         // Angle of a factor from the pointer, logarithmic.
