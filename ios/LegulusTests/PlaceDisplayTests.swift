@@ -240,10 +240,17 @@ final class PlaceDisplayTests: XCTestCase {
     }
 
     func testGridSystemLabel_OnlyForGridFormats() {
-        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.mgrs), "MGRS")
-        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.utm), "UTM")
-        XCTAssertNil(PlaceDisplay.gridSystemLabel(.decimalSign))
-        XCTAssertNil(PlaceDisplay.gridSystemLabel(.dmsDirection))
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.mgrs, shownAs: "MGRS"), "MGRS")
+        XCTAssertEqual(PlaceDisplay.gridSystemLabel(.utm, shownAs: "UTM"), "UTM")
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.decimalSign, shownAs: "Geographische Koordinaten"))
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.dmsDirection, shownAs: "Geographische Koordinaten"))
+    }
+
+    /// Near the pole UTM falls back to degrees; those get no „UTM“.
+    func testGridSystemLabel_NotOnDegreeFallback() {
+        let polar = PlaceDisplay.coordinate(latitude: 85, longitude: 10, format: .utm, locale: Locale(identifier: "de_DE"))
+        XCTAssertEqual(polar.caption, "Geographische Koordinaten")
+        XCTAssertNil(PlaceDisplay.gridSystemLabel(.utm, shownAs: polar.caption))
     }
 
     func testCountryName_German() {

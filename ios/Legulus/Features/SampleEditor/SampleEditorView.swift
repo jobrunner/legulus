@@ -435,11 +435,14 @@ private struct SampleEditorContent: View {
     private var placeCard: some View {
         VStack(alignment: .leading, spacing: AppSpacing.xs) {
             // The place name heads the card once there is one; until then
-            // the generic title does.
+            // the generic title does, and bearing or landscape still show.
             if viewModel.isExistingSample, viewModel.placeHeading != nil {
                 placeHeading
             } else {
                 SectionHeader(title: "Ort")
+                if viewModel.isExistingSample {
+                    placeHeading
+                }
             }
             locationRow
             if viewModel.isExistingSample {
@@ -655,7 +658,7 @@ private struct SampleEditorContent: View {
                     .foregroundStyle(AppColor.brandPrimaryText)
                     .accessibilityHidden(true)
             } content: {
-                withAccuracy(gridLabel + Text(display.text), viewModel.accuracyM)
+                withAccuracy(gridLabel(display) + Text(display.text), viewModel.accuracyM)
             }
         } else {
             // Nothing to copy yet: no chip, only the state.
@@ -670,8 +673,10 @@ private struct SampleEditorContent: View {
     }
 
     /// „MGRS “ in the secondary color, empty for degree formats.
-    private var gridLabel: Text {
-        guard let name = PlaceDisplay.gridSystemLabel(config.coordinateDisplayFormat) else { return Text(verbatim: "") }
+    private func gridLabel(_ display: (text: String, caption: String)) -> Text {
+        guard let name = PlaceDisplay.gridSystemLabel(config.coordinateDisplayFormat, shownAs: display.caption) else {
+            return Text(verbatim: "")
+        }
         return Text(verbatim: name + " ").foregroundStyle(AppColor.textSecondary)
     }
 

@@ -208,9 +208,11 @@ enum PlaceDisplay {
 
     /// The system name in front of a grid coordinate („MGRS“, „UTM“),
     /// nil for degrees: those read as coordinates without a label.
-    static func gridSystemLabel(_ format: CoordinateDisplayFormat) -> String? {
+    /// `caption` is what `coordinate(…)` returned: near the poles UTM
+    /// falls back to degrees, which must not be labelled „UTM“.
+    static func gridSystemLabel(_ format: CoordinateDisplayFormat, shownAs caption: String) -> String? {
         switch format {
-        case .utm, .mgrs: format.systemName
+        case .utm, .mgrs: caption == format.systemName ? format.systemName : nil
         default: nil
         }
     }
