@@ -89,6 +89,29 @@ bei vielen Proben deshalb über mehrere Tage verteilen. Scheitert eine
 Abfrage, bleibt die Probe `pending` und der stündliche Lauf versucht sie
 erneut. Der Pfad des Binaries im Container steht im `Dockerfile`.
 
+## Dateispeicher (S3)
+
+Fotos, Etiketten-PDFs und Genehmigungen liegen ohne S3 unter
+`pb_data/storage`. Mit `S3_ENDPOINT` setzt Tabularius beim Start den
+S3-Dateispeicher von PocketBase aus der Umgebung; die Admin-Oberfläche
+kann ihn dann nicht mehr ändern (er würde beim nächsten Start ohnehin
+überschrieben).
+
+| Variable | Bedeutung |
+|---|---|
+| `S3_ENDPOINT` | z.B. `https://<konto>.r2.cloudflarestorage.com`; leer lässt die Einstellung der Admin-Oberfläche gelten |
+| `S3_BUCKET` | Bucket-Name (Pflicht) |
+| `S3_REGION` | Regionscode, Default `auto` (R2: `auto`, `weur`, `eeur` …; AWS: `eu-central-1` …) |
+| `S3_ACCESS_KEY`, `S3_SECRET` | Zugang (Pflicht), gehören in die Secrets, nicht in die Compose-Datei |
+| `S3_FORCE_PATH_STYLE` | `true` für MinIO u. ä., sonst weglassen |
+
+Eine Region, die kein Regionscode ist (etwa die Beschriftung
+„Europäische Union (EU)“ aus dem Cloudflare-Dashboard), lehnt R2 bei
+jedem Upload ab. Tabularius prüft sie deshalb: Fehlerhafte
+`S3_*`-Werte werden nicht übernommen (Error im Log, der Rest läuft
+weiter), die Admin-Oberfläche speichert eine solche Region nicht, und
+eine bereits gespeicherte meldet der Start als Error.
+
 ## Compose-Overlays
 
 Drei Compose-Files, kombiniert per `-f`:

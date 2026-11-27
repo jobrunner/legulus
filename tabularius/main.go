@@ -16,6 +16,7 @@ import (
 	"go.mett.io/tabularius/internal/fusion"
 	"go.mett.io/tabularius/internal/hooks"
 	"go.mett.io/tabularius/internal/services"
+	"go.mett.io/tabularius/internal/storage"
 	"go.mett.io/tabularius/internal/version"
 	_ "go.mett.io/tabularius/migrations"
 
@@ -99,6 +100,11 @@ func main() {
 	// Phase S: a repeated photo upload (same client_uuid) answers with
 	// the record that already exists.
 	hooks.RegisterPhotoIdempotency(app)
+
+	// S3 file storage (photos, label PDFs, permits): from S3_* when set,
+	// and a region no S3 service accepts is refused instead of failing
+	// every upload.
+	storage.Register(app, os.Getenv, slog.Default())
 
 	// Phase R5.1: optimistic-concurrency guard on the versioned
 	// collections (samples, fieldtrips, localities). Stale writes
