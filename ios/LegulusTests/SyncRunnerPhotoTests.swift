@@ -20,6 +20,8 @@ final class SyncRunnerPhotoTests: XCTestCase {
     private var events: [String] = []
     /// Ends the background time of the running batch, as the system does.
     private var expireActivity: (() -> Void)?
+    /// The system grants no background time (beginBackgroundTask → .invalid).
+    private var activityDenied = false
     private var sampleIDs: [String] = []
     // swiftlint:disable:next force_unwrapping
     private let berlin = TimeZone(identifier: "Europe/Berlin")!
@@ -33,6 +35,7 @@ final class SyncRunnerPhotoTests: XCTestCase {
         client = FakePhotoClient()
         uploadAllowed = true
         events = []
+        activityDenied = false
     }
 
     override func tearDownWithError() throws {
@@ -62,6 +65,7 @@ final class SyncRunnerPhotoTests: XCTestCase {
             beginBackgroundActivity: { [unowned self] _, onExpire in
                 self.events.append("begin")
                 self.expireActivity = onExpire
+                if self.activityDenied { onExpire() }
                 return { self.events.append("end") }
             }
         )
@@ -365,6 +369,19 @@ final class SyncRunnerPhotoTests: XCTestCase {
         XCTAssertEqual(stored.syncStatus, .pending)
         XCTAssertEqual(stored.attempts, 0)
         XCTAssertNil(stored.syncError)
+        XCTAssertEqual(events, ["begin", "end"])
+    }
+
+    /// No background time granted: no upload starts unprotected, the
+    /// photo stays pending for the next pass.
+    func testDeniedBackgroundTimeStartsNoUpload() async throws {
+        let photo = try seed(pushed: true)
+        activityDenied = true
+        await run(makeRunner())
+        XCTAssertEqual(client.attempts, 0)
+        let stored = try XCTUnwrap(row(photo))
+        XCTAssertEqual(stored.syncStatus, .pending)
+        XCTAssertEqual(stored.attempts, 0)
         XCTAssertEqual(events, ["begin", "end"])
     }
 

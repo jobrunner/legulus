@@ -1654,6 +1654,8 @@ final class SyncRunner: ObservableObject {
             guard let backendID, !backendID.isEmpty else { continue }
             if endActivity == nil {
                 endActivity = beginBackgroundActivity("photo upload") { expiry.expire() }
+                // No background time granted: nothing starts unprotected.
+                if expiry.expired { return }
             }
             await pushOnePhoto(photo, backendSampleID: backendID, via: client, account: account, expiry: expiry)
         }

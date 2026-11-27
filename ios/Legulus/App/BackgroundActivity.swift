@@ -17,6 +17,12 @@ enum BackgroundActivity {
                 request.end()
             }
         }
+        // No background time granted (e.g. already in the background
+        // with none left): report it as expired right away, so nothing
+        // starts unprotected.
+        if request.id == .invalid {
+            onExpire()
+        }
         return { request.end() }
     }
 
